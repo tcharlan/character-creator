@@ -7,6 +7,7 @@ import { registerAbilityBatches, registerAbilityTestQueries } from "./abilities.
 import { registerEquipmentBatches, registerEquipmentTestQueries } from "./equipment.mjs";
 import { registerSpellBatches } from "./spells.mjs";
 import { registerValidatorBatches, registerValidatorTestQueries } from "./validator.mjs";
+import { registerSubmitBatches, registerSubmitTestQueries } from "./submit.mjs";
 import { registerSpikeQueries } from "../spike/submit.mjs";
 import { registerPortraitQueries } from "../spike/portrait.mjs";
 import { registerPhase1Queries } from "../spike/phase1.mjs";
@@ -24,6 +25,7 @@ export function registerQuenchBatches(quench) {
   registerAbilityTestQueries();
   registerEquipmentTestQueries();
   registerValidatorTestQueries();
+  registerSubmitTestQueries();
   registerHelloBatch(quench);
   registerSpikeBatches(quench);
   registerPhase1Batch(quench);
@@ -33,4 +35,5 @@ export function registerQuenchBatches(quench) {
   registerEquipmentBatches(quench);
   registerSpellBatches(quench);
   registerValidatorBatches(quench);
+  registerSubmitBatches(quench);
 }

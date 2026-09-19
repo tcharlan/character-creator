@@ -5,12 +5,14 @@
 
 import { MODULE_ID } from "./contracts.mjs";
 import { registerCatalogHooks } from "./catalog/catalog.mjs";
+import { registerGmQueries } from "./gm/submit.mjs";
 
 export { MODULE_ID };
 
 Hooks.once("init", () => {
   console.log(`${MODULE_ID} | Initializing`);
   registerCatalogHooks();
+  registerGmQueries();
 });
 
 // In-Foundry integration tests; only loaded when the Quench module is active.

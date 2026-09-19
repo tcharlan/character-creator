@@ -135,3 +135,26 @@ export function schemaInitials() {
   }
   return out;
 }
+
+/** A test image: gradient + shapes (compresses well) or random noise (doesn't). */
+export async function makeTestImage(width, height, { noise = false, type = "image/png" } = {}) {
+  const canvas = new OffscreenCanvas(width, height);
+  const ctx = canvas.getContext("2d");
+  if ( noise ) {
+    const img = ctx.createImageData(width, height);
+    const buf = new Uint32Array(img.data.buffer);
+    for ( let i = 0; i < buf.length; i++ ) buf[i] = (Math.random() * 0xFFFFFF) | 0xFF000000;
+    ctx.putImageData(img, 0, 0);
+  } else {
+    const g = ctx.createLinearGradient(0, 0, width, height);
+    g.addColorStop(0, "#1b2a49");
+    g.addColorStop(1, "#c9a227");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = "#e8e2d0";
+    ctx.beginPath();
+    ctx.arc(width / 2, height / 2.4, Math.min(width, height) / 4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  return canvas.convertToBlob({ type });
+}
