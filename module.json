@@ -1,0 +1,29 @@
+{
+  "id": "character-creator",
+  "title": "Character Creator",
+  "description": "A guided wizard that lets players create their own level-1 dnd5e characters, using only the compendiums and options the GM allows, in both 2014 and 2024 rules.",
+  "version": "0.0.1",
+  "compatibility": {
+    "minimum": "14"
+  },
+  "relationships": {
+    "systems": [
+      {
+        "id": "dnd5e",
+        "type": "system",
+        "compatibility": {
+          "minimum": "5.3.0"
+        }
+      }
+    ]
+  },
+  "esmodules": ["scripts/main.mjs"],
+  "styles": ["styles/character-creator.css"],
+  "languages": [
+    {
+      "lang": "en",
+      "name": "English",
+      "path": "lang/en.json"
+    }
+  ]
+}

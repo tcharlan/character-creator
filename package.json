@@ -1,0 +1,20 @@
+{
+  "name": "character-creator",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Foundry VTT module: player-driven level-1 character creation for dnd5e.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "test": "node --test \"test/**/*.test.mjs\"",
+    "lint": "eslint ."
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.11.0",
+    "globals": "^17.12.0"
+  }
+}
