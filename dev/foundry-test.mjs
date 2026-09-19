@@ -75,13 +75,38 @@ async function waitFor(predicate, what, timeoutMs) {
 }
 
 let serverProcess = null;
+/**
+ * Start the dev server unless one answers. A server started right after the previous run's server stopped
+ * can exit at once (its data path still locked), so an early exit is retried a few times, and the
+ * server's last output lines are shown if it never comes up.
+ */
 async function ensureServer() {
   if ( await status() ) return;
-  log(`starting the dev server (${DATA}, port ${BASE.port})`);
-  serverProcess = spawn(process.execPath,
-    [join(FOUNDRY_ROOT, "main.js"), `--dataPath=${DATA}`, `--port=${BASE.port}`, "--noupnp"],
-    { stdio: "ignore" });
-  await waitFor(s => s !== null, "the dev server", 60_000);
+  for ( let attempt = 1; ; attempt++ ) {
+    log(`starting the dev server (${DATA}, port ${BASE.port})${attempt > 1 ? `, attempt ${attempt}` : ""}`);
+    const output = [];
+    let exited = null;
+    serverProcess = spawn(process.execPath,
+      [join(FOUNDRY_ROOT, "main.js"), `--dataPath=${DATA}`, `--port=${BASE.port}`, "--noupnp"],
+      { stdio: ["ignore", "pipe", "pipe"] });
+    for ( const stream of [serverProcess.stdout, serverProcess.stderr] ) {
+      stream.on("data", chunk => output.push(...String(chunk).split(/\r?\n/).filter(Boolean)));
+    }
+    serverProcess.on("exit", code => exited = code);
+    const end = Date.now() + 60_000;
+    while ( Date.now() < end && exited === null ) {
+      if ( await status() ) return;
+      await sleep(1000);
+    }
+    const tail = output.slice(-8).join("\n  ");
+    serverProcess.kill();
+    serverProcess = null;
+    if ( exited === null || attempt >= 3 ) {
+      throw new Error(`The dev server didn't start (${exited === null ? "timed out after 60s" : `exit code ${exited}`}):\n  ${tail}`);
+    }
+    log(`the dev server exited with code ${exited}; retrying in 10s\n  ${tail}`);
+    await sleep(10_000);
+  }
 }
 
 async function postSetup(body, request = null) {

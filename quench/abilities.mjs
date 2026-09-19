@@ -8,11 +8,13 @@ import { checkRollRecord, ROLL_FLAG, EDIT_TOLERANCE_MS } from "../scripts/rules/
  * the draft against the chat record, as the validator will (2.6).
  */
 
-const Q = {
+/** Test-only GM queries; CLEANUP deletes every roll message flagged with the given draft ids. */
+export const ABILITY_TEST_QUERIES = Object.freeze({
   CHECK: `${MODULE_ID}.test.checkAbilities`,
   GM_ROLL: `${MODULE_ID}.test.gmAbilityRoll`,
   CLEANUP: `${MODULE_ID}.test.abilityRollCleanup`
-};
+});
+const Q = ABILITY_TEST_QUERIES;
 
 export function registerAbilityTestQueries() {
   const gmOnly = () => {

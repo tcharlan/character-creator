@@ -1,11 +1,14 @@
 /**
  * Rolled ability scores (D15, A10): rolled in the player's browser with Foundry's dice and posted to chat
  * publicly, flagged with the draft id. The GM's validator reads the message back and checks it with
- * abilities.mjs `checkRollRecord` — tamper-evident, not tamper-proof.
+ * abilities.mjs `checkRollRecord`; the chat side is roll-messages.mjs — tamper-evident, not tamper-proof.
  */
 
-import { MODULE_ID, makeError } from "../contracts.mjs";
-import { ABILITY_ROLL, ROLL_FLAG, ROLL_PURPOSE, checkAbilities, checkRollRecord } from "./abilities.mjs";
+import { makeError } from "../contracts.mjs";
+import { ABILITY_ROLL, ROLL_PURPOSE, checkAbilities, checkRollRecord } from "./abilities.mjs";
+import { postRolls, readRollRecord, rollMessagesFor } from "./roll-messages.mjs";
+
+export { readRollRecord };
 
 /**
  * Roll the six scores and post them to chat. Refuses if the draft already holds a roll (re-rolling means
@@ -15,50 +18,8 @@ import { ABILITY_ROLL, ROLL_FLAG, ROLL_PURPOSE, checkAbilities, checkRollRecord 
  */
 export async function rollAbilityScores(draft) {
   if ( draft.abilities?.roll ) throw Object.assign(new Error("Already rolled"), makeError("ROLL_INVALID", { alreadyRolled: true }));
-  const rolls = [];
-  for ( let i = 0; i < ABILITY_ROLL.count; i++ ) rolls.push(await new Roll(ABILITY_ROLL.formula).evaluate());
-  const results = rolls.map(r => r.total);
-  // create() cleans its data in place (the JSONField turns each Roll into a string): pass copies.
-  const message = await ChatMessage.implementation.create({
-    author: game.user.id,
-    speaker: { alias: game.user.name },
-    flavor: game.i18n.localize("CHARCREATOR.AbilityRoll.Flavor"),
-    rolls: rolls.map(r => r.toJSON()),
-    sound: CONFIG.sounds.dice,
-    flags: { [MODULE_ID]: { [ROLL_FLAG]: { draftId: draft.id, purpose: ROLL_PURPOSE.ABILITIES } } }
-  }, { messageMode: "public" });
-  return { messageId: message.id, results };
-}
-
-/** A plain copy of a roll message for checkRollRecord, or null. */
-export function readRollRecord(message) {
-  if ( !message ) return null;
-  const whisper = message.whisper ?? [];
-  return {
-    id: message.id,
-    authorId: message.author?.id ?? message._source.author,
-    public: !whisper.length && !message.blind,
-    flag: message.getFlag(MODULE_ID, ROLL_FLAG) ?? null,
-    created: message._stats?.createdTime ?? null,
-    modified: message._stats?.modifiedTime ?? null,
-    rolls: message.rolls.map(r => ({
-      formula: r.formula,
-      total: r.total,
-      dice: r.dice.map(d => ({ number: d.number, faces: d.faces,
-        results: d.results.map(x => ({ result: x.result, active: x.active !== false && !x.discarded })) }))
-    }))
-  };
-}
-
-/** Ids of ability-roll messages for a draft by a user, oldest first. */
-export function rollMessagesFor(draftId, userId) {
-  return game.messages.contents
-    .filter(m => {
-      const f = m.getFlag(MODULE_ID, ROLL_FLAG);
-      return f?.draftId === draftId && f?.purpose === ROLL_PURPOSE.ABILITIES && (m.author?.id ?? m._source.author) === userId;
-    })
-    .sort((a, b) => (a._stats?.createdTime ?? 0) - (b._stats?.createdTime ?? 0))
-    .map(m => m.id);
+  return postRolls({ draftId: draft.id, purpose: ROLL_PURPOSE.ABILITIES, formula: ABILITY_ROLL.formula, count: ABILITY_ROLL.count,
+    flavor: game.i18n.localize("CHARCREATOR.AbilityRoll.Flavor") });
 }
 
 /**
@@ -73,7 +34,7 @@ export function checkDraftAbilities(draft, { userId, allowedMethods } = {}) {
   const a = draft.abilities ?? {};
   const errors = checkAbilities(a, { allowedMethods });
   if ( errors.length ) return errors;
-  const onRecord = rollMessagesFor(draft.id, userId);
+  const onRecord = rollMessagesFor(draft.id, userId, ROLL_PURPOSE.ABILITIES);
   if ( a.method !== "rolled" ) {
     return onRecord.length ? [makeError("ROLL_INVALID", { rolledButMethod: a.method, messages: onRecord })] : [];
   }

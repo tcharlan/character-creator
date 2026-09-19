@@ -9,6 +9,9 @@
  */
 
 import { ABILITIES, ABILITY_METHODS, makeError } from "../contracts.mjs";
+import { ROLL_PURPOSE, checkRecord, sameMultiset } from "./roll-record.mjs";
+
+export { ROLL_FLAG, ROLL_PURPOSE, EDIT_TOLERANCE_MS } from "./roll-record.mjs";
 
 /** Point buy: 27 points, each score 8–15. */
 export const POINT_BUY = Object.freeze({
@@ -22,15 +25,6 @@ export const STANDARD_ARRAY = Object.freeze([15, 14, 13, 12, 10, 8]);
 /** Rolled: 4d6, drop the lowest, six times (D15: rolled in the player's browser, posted to chat). */
 export const ABILITY_ROLL = Object.freeze({ formula: "4d6kh3", count: 6, number: 4, faces: 6, keep: 3 });
 
-/** The chat message flag that ties a roll to one draft (`flags[MODULE_ID].roll`). */
-export const ROLL_FLAG = "roll";
-export const ROLL_PURPOSE = Object.freeze({ ABILITIES: "abilities" });
-
-/** The server stamps a new message's createdTime and modifiedTime separately (≈1 ms apart); a later edit moves modifiedTime further. */
-export const EDIT_TOLERANCE_MS = 1000;
-
-const sorted = list => [...list].sort((a, b) => a - b);
-const sameMultiset = (a, b) => a.length === b.length && sorted(a).every((v, i) => v === sorted(b)[i]);
 const scoresOf = base => ABILITIES.map(k => base?.[k]);
 
 /**
@@ -95,54 +89,14 @@ export function checkAbilities(abilities, { allowedMethods = ABILITY_METHODS } =
 }
 
 /**
- * Check a recorded roll (a plain copy of the chat message — see ability-roll.mjs `readRollRecord`)
- * against the draft. Tamper-evident, not tamper-proof (D15): it catches edited, reused, re-rolled or
- * hand-made messages, not a modified client.
- * @param {object|null} record   { id, authorId, public, flag: { draftId, purpose }, created, modified, rolls: [{ formula,
- *                               total, dice: [{ number, faces, results: [{ result, active }] }] }] }
- * @param {object} expected
- * @param {string} expected.draftId
- * @param {string} expected.userId      The draft's owner.
- * @param {number[]} expected.results   draft.abilities.roll.results, in roll order.
- * @param {string[]} [expected.others]  Ids of other ability-roll messages for this draft by this user.
+ * Check a recorded ability roll (a plain copy of the chat message — roll-messages.mjs `readRollRecord`)
+ * against the draft: see roll-record.mjs `checkRecord`.
+ * @param {object|null} record
+ * @param {{ draftId: string, userId: string, results: number[], others?: string[] }} expected
+ *   `results`: draft.abilities.roll.results, in roll order; `others`: other ability rolls for this draft.
  * @returns {object[]} makeError() objects
  */
 export function checkRollRecord(record, { draftId, userId, results, others = [] }) {
-  const fail = detail => [makeError("ROLL_INVALID", detail)];
-  if ( !record ) return fail({ message: "missing" });
-  if ( record.authorId !== userId ) return fail({ message: "wrongAuthor" });
-  if ( record.flag?.draftId !== draftId || record.flag?.purpose !== ROLL_PURPOSE.ABILITIES ) return fail({ message: "wrongDraft" });
-  if ( !record.public ) return fail({ message: "notPublic" });
-  if ( !(Math.abs((record.modified ?? NaN) - (record.created ?? NaN)) <= EDIT_TOLERANCE_MS) ) return fail({ message: "edited" });
-  // A10: one roll per draft. Any other roll for the same draft means it was re-rolled.
-  if ( others.length ) return fail({ message: "rerolled", others: [...others] });
-
-  const rolls = record.rolls ?? [];
-  if ( rolls.length !== ABILITY_ROLL.count ) return fail({ message: "rollCount", count: rolls.length });
-  const totals = [];
-  for ( const [i, roll] of rolls.entries() ) {
-    const problem = checkOneRoll(roll);
-    if ( problem ) return fail({ message: "badRoll", roll: i, problem });
-    totals.push(roll.total);
-  }
-  if ( !Array.isArray(results) || results.length !== totals.length || results.some((v, i) => v !== totals[i]) ) {
-    return fail({ message: "resultsDiffer", recorded: totals, draft: Array.isArray(results) ? [...results] : results });
-  }
-  return [];
-}
-
-/** Is this one 4d6-drop-lowest roll internally consistent? Returns a problem string or null. */
-function checkOneRoll(roll) {
-  if ( roll?.formula !== ABILITY_ROLL.formula ) return "formula";
-  if ( roll.dice?.length !== 1 ) return "dice";
-  const [die] = roll.dice;
-  if ( die.number !== ABILITY_ROLL.number || die.faces !== ABILITY_ROLL.faces ) return "dice";
-  const values = (die.results ?? []).map(r => r.result);
-  if ( values.length !== ABILITY_ROLL.number || values.some(v => !Number.isInteger(v) || v < 1 || v > ABILITY_ROLL.faces) ) return "faces";
-  const kept = die.results.filter(r => r.active).map(r => r.result);
-  const highest = sorted(values).slice(-ABILITY_ROLL.keep);
-  if ( !sameMultiset(kept, highest) ) return "kept";
-  const sum = kept.reduce((a, b) => a + b, 0);
-  if ( roll.total !== sum ) return "total";
-  return null;
+  return checkRecord(record, { code: "ROLL_INVALID", draftId, userId, purpose: ROLL_PURPOSE.ABILITIES, spec: ABILITY_ROLL,
+    count: ABILITY_ROLL.count, results, others });
 }

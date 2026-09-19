@@ -40,7 +40,8 @@
       "UNEXPECTED_SELECTION": "Your equipment choices don't match the options. Review your equipment.",
       "BAD_MODE": "Choose between the starting equipment and starting wealth.",
       "NO_WEALTH_OPTION": "Starting wealth isn't offered here.",
-      "WEALTH_OUT_OF_RANGE": "The starting wealth doesn't match your recorded roll.",
+      "WEALTH_OUT_OF_RANGE": "That starting wealth is outside what the roll can give.",
+      "WEALTH_ROLL_INVALID": "Your starting gold doesn't match your recorded roll.",
       "NOT_A_CASTER": "This character can't learn spells at level 1.",
       "CANTRIP_COUNT": "Choose the number of cantrips your class allows.",
       "SPELL_COUNT": "Choose the number of spells your class allows.",
@@ -62,6 +63,9 @@
     },
     "AbilityRoll": {
       "Flavor": "Ability scores for a new character (4d6, drop the lowest, six times)"
+    },
+    "WealthRoll": {
+      "Flavor": "Starting gold for a new character ({formula})"
     }
   }
 }
