@@ -39,8 +39,52 @@ export function extractRecipe(built, rules, base = BASE_SCORES) {
   return {
     schema: 0, rules, base: { ...base },
     picks: { species: src(ids.species), background: src(ids.background), class: src(ids.class) },
-    steps: steps.map(s => ({ item: src(s.itemId), advancementId: s.advancementId, level: s.level, data: s.data }))
+    steps: steps.map(s => ({ item: src(s.itemId), path: itemPath(actor, s.itemId, ids), advancementId: s.advancementId,
+      level: s.level, data: s.data }))
   };
+}
+
+/**
+ * An unambiguous address for an item on the scratch actor: the picked item's role, then one
+ * "<advancementId>:<source uuid>" segment per grant from there (spike 1.9). Two copies of the same
+ * item (Magic Initiate from Versatile and from Sage) get different paths.
+ * @returns {string[]}  e.g. ["background", "kKt7VMmZUuRr35dP:Compendium.dnd5e.feats24.Item.phbftMagicInitia"]
+ */
+export function itemPath(actor, itemId, ids) {
+  const role = Object.entries(ids).find(([, id]) => id === itemId)?.[0];
+  if ( role && role !== "subclass" ) return [role];
+  const item = actor.items.get(itemId);
+  const uuid = normalizeUuid(item?._stats?.compendiumSource);
+  const origin = item?.flags?.dnd5e?.advancementOrigin;
+  if ( origin ) {
+    const [parentId, advId] = origin.split(".");
+    return [...itemPath(actor, parentId, ids), `${advId}:${uuid}`];
+  }
+  // A subclass has no origin flag; its parent is the class Subclass advancement that points at it.
+  for ( const cls of actor.items.filter(i => i.type === "class") ) {
+    const adv = cls.advancement.byType.Subclass?.find(a => {
+      const doc = a.value?.document;
+      return (typeof doc === "string" ? doc : doc?.id) === itemId;
+    });
+    if ( adv ) return [...itemPath(actor, cls.id, ids), `${adv.id}:${uuid}`];
+  }
+  return [`?:${uuid}`];
+}
+
+/** Resolve a path on the replayed actor (roles → the embedded picks). */
+function resolvePath(actor, path, roots) {
+  let current = actor.items.get(roots[path[0]]);
+  for ( const seg of path.slice(1) ) {
+    if ( !current ) return null;
+    const cut = seg.indexOf(":");
+    const [advId, uuid] = [seg.slice(0, cut), seg.slice(cut + 1)];
+    const parentId = current.id;
+    current = actor.items.find(i => i.flags?.dnd5e?.advancementOrigin === `${parentId}.${advId}`
+      && normalizeUuid(i._stats?.compendiumSource) === uuid)
+      ?? actor.items.find(i => i.type === "subclass" && normalizeUuid(i._stats?.compendiumSource) === uuid
+        && actor.items.get(parentId)?.advancement.byId[advId]?.type === "Subclass");
+  }
+  return current ?? null;
 }
 
 /* -------------------------------------------- */
@@ -59,6 +103,7 @@ export async function replay(recipe) {
 
   const pointer = { species: "system.details.race", background: "system.details.background",
     class: "system.details.originalClass" };
+  const roots = {};
   for ( const role of ["species", "background", "class"] ) {
     const doc = await fromUuid(recipe.picks[role]);
     if ( !doc ) {
@@ -67,13 +112,16 @@ export async function replay(recipe) {
     }
     const item = embed(actor, doc, role === "class" ? { "system.levels": 1 } : {});
     actor.updateSource({ [pointer[role]]: item.id });
+    roots[role] = item.id;
   }
   actor.reset();
 
   const applied = new Set();
   for ( const [i, step] of recipe.steps.entries() ) {
     const label = `#${i} ${step.item?.split(".").pop()}/${step.advancementId}`;
-    const item = actor.items.find(it => normalizeUuid(it._stats?.compendiumSource) === step.item);
+    // Address by path when present (unambiguous); older recipes fall back to the source UUID.
+    const item = step.path ? resolvePath(actor, step.path, roots)
+      : actor.items.find(it => normalizeUuid(it._stats?.compendiumSource) === step.item);
     if ( !item ) {
       fail(CODES.UNKNOWN_ITEM, label, step.item);
       continue;

@@ -716,4 +716,71 @@ export function registerSpikeBatches(quench) {
       });
     });
   }, { displayName: "Character Creator: Spike 1.8" });
+
+  /* -------------------------------------------- */
+
+  quench.registerBatch(`${MODULE_ID}.spike-1-9`, ({ describe, it, before, assert }) => {
+    describe("Spike 1.9 — advancement inventory, every class, open items", () => {
+      let INV;
+      let rows;
+      let summary;
+      let classes;
+      before(async function() {
+        this.timeout(600_000);
+        INV = await import("../spike/inventory.mjs");
+        rows = await INV.scan(rules());
+        summary = INV.summarise(rows);
+        classes = await INV.buildAllClasses(rules());
+        console.log(`${MODULE_ID} | spike 1.9 inventory (${rules()}): ${JSON.stringify(summary)}`);
+        console.log(`${MODULE_ID} | spike 1.9 classes (${rules()}): ${JSON.stringify(classes)}`);
+      });
+
+      it("only the 8 advancement types our widgets cover appear anywhere in the SRD data", () => {
+        const unknown = [...new Set(rows.map(r => r.type))].filter(t => !INV.KNOWN_TYPES.includes(t));
+        assert.deepEqual(unknown, []);
+      });
+      it("every class builds, replays identically and passes validation", () => {
+        assert.lengthOf(classes, 12);
+        assert.deepEqual(classes.filter(c => c.errors.length).map(c => [c.name, c.errors]), []);
+        assert.deepEqual(classes.filter(c => c.replayErrors?.length).map(c => [c.name, c.replayErrors]), []);
+        assert.deepEqual(classes.filter(c => !c.replayEqual).map(c => c.name), []);
+      });
+      it("Trait modes and key families at levels 0–1 are within the Trait widget's scope", () => {
+        const fps = Object.keys(summary.Trait?.fingerprints ?? {}).map(k => JSON.parse(k));
+        const modes = [...new Set(fps.map(f => f.mode))];
+        const families = [...new Set(fps.flatMap(f => f.prefixes.split(",")))];
+        assert.includeMembers(["default", "expertise", "forcedExpertise", "upgrade", "mastery"], modes);
+        assert.includeMembers(["armor", "ci", "di", "dr", "dv", "languages", "saves", "skills", "tool", "weapon"], families);
+      });
+      it("recipes address items by path: two copies of Magic Initiate replay correctly", async function() {
+        if ( rules() !== "modern" ) this.skip();
+        this.timeout(120_000);
+        const d = await INV.duplicateSourceReplay();
+        console.log(`${MODULE_ID} | spike 1.9 duplicate source: ${JSON.stringify(d)}`);
+        assert.equal(d.copies, 2);
+        assert.lengthOf(d.miPaths, 2, "the two copies must have different paths");
+        assert.deepEqual(d.withPaths.errors, []);
+        assert.isTrue(d.withPaths.equal);
+      });
+      it("2024 Divine Order Thaumaturge / Primal Order Magician: the extra cantrip is resolved and replays", async function() {
+        if ( rules() !== "modern" ) this.skip();
+        this.timeout(120_000);
+        const cleric = await INV.orderOption("Cleric", "Divine Order Choice", "Thaumaturge");
+        const druid = await INV.orderOption("Druid", "Primal Order", "Magician");
+        console.log(`${MODULE_ID} | spike 1.9 orders: ${JSON.stringify({ cleric, druid })}`);
+        for ( const r of [cleric, druid] ) {
+          assert.notExists(r.error, r.error);
+          assert.deepEqual(r.replayErrors, []);
+          assert.isTrue(r.replayEqual);
+        }
+      });
+      it("2014 subclasses: report any spell grants (domain spells)", async function() {
+        if ( rules() !== "legacy" ) this.skip();
+        this.timeout(120_000);
+        const subs = await INV.subclassSpellGrants();
+        console.log(`${MODULE_ID} | spike 1.9 subclass spells: ${JSON.stringify(subs)}`);
+        assert.lengthOf(subs, 12);
+      });
+    });
+  }, { displayName: "Character Creator: Spike 1.9" });
 }
