@@ -3,7 +3,7 @@
  * Dev-only: run the module's Quench batches in the local dev Foundry, unattended.
  *   npm run test:foundry                       both test worlds, as Player A
  *   npm run test:foundry -- --world modern-test
- *   npm run test:foundry -- --batch spike-1-2  only batches whose key contains this text
+ *   npm run test:foundry -- --batch pending    only batches whose key contains this text
  *
  * For each world it: starts the dev server if needed, switches worlds through Foundry's own setup
  * routes (GM "return to setup", then launchWorld), logs in through /join in headless Edge, runs the
@@ -253,7 +253,7 @@ async function main() {
           log(`${world}: joining as ${GM} for ${withGM.join(", ")}`);
           gm = await joinAs(browser, GM);
           // The GM's copy of the module registers the test query handlers at quenchReady.
-          await gm.page.waitForFunction(id => `${id}.spikeSubmit` in CONFIG.queries, MODULE_ID, { timeout: 60_000 });
+          await gm.page.waitForFunction(id => `${id}.test.submitCleanup` in CONFIG.queries, MODULE_ID, { timeout: 60_000 });
           await session.page.waitForFunction(() => !!game.users.activeGM, null, { timeout: 30_000 });
           merge(await runBatches(session.page, withGM));
           await gm.context.close();
