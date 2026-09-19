@@ -17,7 +17,8 @@ const FIXED = {
 /** Test-only GM queries; CLEANUP deletes the sender's created characters and clears the assignment. */
 export const SUBMIT_TEST_QUERIES = Object.freeze({
   CLEANUP: `${MODULE_ID}.test.submitCleanup`,
-  UNOWNED: `${MODULE_ID}.test.unownedActor`
+  UNOWNED: `${MODULE_ID}.test.unownedActor`,
+  GM_WINDOWS: `${MODULE_ID}.test.gmWindows`
 });
 const Q = SUBMIT_TEST_QUERIES;
 
@@ -33,6 +34,12 @@ export function registerSubmitTestQueries() {
     if ( user.character && ids.includes(user.character.id) ) await user.update({ character: null });
     await Actor.implementation.deleteDocuments(ids);
     return ids.length;
+  };
+  // Open application windows on the GM (creation must not open an AdvancementManager or sheet).
+  CONFIG.queries[Q.GM_WINDOWS] = async () => {
+    gmOnly();
+    return [...foundry.applications.instances.values()].map(a => a.constructor.name)
+      .concat(Object.values(ui.windows).map(a => a.constructor.name)).sort();
   };
   CONFIG.queries[Q.UNOWNED] = async () => {
     gmOnly();
@@ -90,6 +97,12 @@ export function registerSubmitBatches(quench) {
         const res = await handleSubmit({ draft }, { user: game.user });
         assert.deepEqual(res.errors.map(e => e.code), ["NOT_ACTIVE_GM"]);
       });
+      it("a player cannot create an actor directly (D13: only the GM writes characters)", async () => {
+        const before = game.actors.size;
+        const created = await Actor.implementation.create({ name: "should not exist", type: "character" }).catch(() => null);
+        assert.notExists(created);
+        assert.equal(game.actors.size, before);
+      });
       it("a malformed payload is rejected (BAD_REQUEST) and creates nothing", async () => {
         const res = await submit({ draft: { ...draft, picks: 42 } });
         assert.deepEqual(res.errors.map(e => e.code), ["BAD_REQUEST"]);
@@ -109,6 +122,7 @@ export function registerSubmitBatches(quench) {
       it("two simultaneous submits of one draft create one character (in-flight lock)", async function() {
         this.timeout(180_000);
         const S = await import("./support.mjs");
+        const windowsBefore = await gm().query(Q.GM_WINDOWS, {}, { timeout: 30_000 });
         const stop = S.watchDb();
         const t0 = performance.now();
         const [a, b] = await Promise.all([submit({ draft, image }), submit({ draft, image })]);
@@ -120,6 +134,7 @@ export function registerSubmitBatches(quench) {
         assert.lengthOf(mine(), 1);
         actor = await fromUuid(a.actorUuid);
         assert.deepEqual(writes, [], "the player's own client wrote nothing");
+        assert.deepEqual(await gm().query(Q.GM_WINDOWS, {}, { timeout: 30_000 }), windowsBefore, "no windows opened on the GM");
         console.log(`${MODULE_ID} | submit (${rules()}): ${ms} ms, ${actor.items.size} items`);
       });
       it("the character is exactly the validated build: items, abilities, HP, currency, details", () => {

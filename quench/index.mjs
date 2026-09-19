@@ -2,6 +2,9 @@ import { registerHelloBatch } from "./hello.mjs";
 import { registerPendingBatches } from "./pending.mjs";
 import { registerDraftStoreBatches } from "./draft-store.mjs";
 import { registerSettingsBatches, registerSettingsTestQueries } from "./settings.mjs";
+import { registerPhase2Batch } from "./phase2.mjs";
+import { registerPortraitBatches, registerPortraitTestQueries } from "./portrait.mjs";
+import { registerSpeciesBatch } from "./species.mjs";
 import { registerSpikeBatches } from "./spikes.mjs";
 import { registerPhase1Batch } from "./phase1.mjs";
 import { registerCatalogBatches, registerCatalogTestQueries } from "./catalog.mjs";
@@ -30,6 +33,7 @@ export function registerQuenchBatches(quench) {
   registerValidatorTestQueries();
   registerSubmitTestQueries();
   registerSettingsTestQueries();
+  registerPortraitTestQueries();
   // First: pending@gm must be the first GM batch (see quench/pending.mjs).
   registerPendingBatches(quench);
   registerHelloBatch(quench);
@@ -44,4 +48,7 @@ export function registerQuenchBatches(quench) {
   registerSubmitBatches(quench);
   registerDraftStoreBatches(quench);
   registerSettingsBatches(quench);
+  registerPortraitBatches(quench);
+  registerSpeciesBatch(quench);
+  registerPhase2Batch(quench);
 }

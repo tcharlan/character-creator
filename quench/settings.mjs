@@ -14,10 +14,12 @@ const FIXED = {
   legacy: { species: "High Elf", background: "Acolyte", class: "Wizard" },
   modern: { species: "Human", background: "Sage", class: "Cleric" }
 };
-const Q = {
+/** Test-only GM queries: set (or reset) one of this module's settings; delete Actor folders by name. */
+export const SETTINGS_TEST_QUERIES = Object.freeze({
   SET: `${MODULE_ID}.test.setSetting`,
   DELETE_FOLDER: `${MODULE_ID}.test.deleteFolder`
-};
+});
+const Q = SETTINGS_TEST_QUERIES;
 const TEST_FOLDER = "Character Creator test folder";
 
 export function registerSettingsTestQueries() {
