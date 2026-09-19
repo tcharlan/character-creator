@@ -3,7 +3,9 @@
  * Registers settings, queries and UI entry points as later phases add them.
  */
 
-export const MODULE_ID = "character-creator";
+import { MODULE_ID } from "./contracts.mjs";
+
+export { MODULE_ID };
 
 Hooks.once("init", () => {
   console.log(`${MODULE_ID} | Initializing`);
