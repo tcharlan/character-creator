@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Special states</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&amp;family=Alegreya+Sans:ital,wght@0,400;0,500;0,700;1,400&amp;family=Cormorant+Garamond:wght@500;600;700&amp;family=Spectral:ital,wght@0,400;0,500;0,600;1,400&amp;display=swap">
+<style>
+body{margin:0;background:#0f1114}
+a{color:#d4ad57}a:hover{color:#f0cd7a}
+</style>
+</helmet>
+<div style="width: 1280px; height: 720px; box-sizing: border-box; display: flex; flex-direction: column; background: #0f1114; color: #ede6d8; font-family: {{body}}; overflow: hidden;">
+
+<main style="flex-grow: 1; min-height: 0; display: flex;">
+<div style="flex-grow: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; padding: 30px 34px;">
+<section style="display: flex; flex-direction: column; gap: 14px; padding: 26px; background: #1a1e24; border: 1px solid #313844; border-top: 3px solid #d4ad57; border-radius: 8px;">
+<div style="display: flex; align-items: center; gap: 12px;"><span style="color: #d4ad57; display: flex;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#d4ad57" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h10M7 21h10M8 3c0 5 8 6 8 9s-8 4-8 9M16 3c0 5-8 6-8 9s8 4 8 9"/></svg></span><h2 style="margin: 0; font-family: {{display}}; font-size: 22px; font-weight: 700; color: #ede6d8;">Waiting for a GM</h2></div>
+<p style="margin: 0; font-size: 15px; line-height: 1.55; color: #aaa396;">No GM is online, so <strong style="color: #ede6d8;">Ilyra</strong> will be created as soon as one joins. Your portrait is kept with it. You can close this window.</p>
+<div style="display: flex; gap: 10px; margin-top: auto;"><button type="button" style="height: 44px; padding: 0 18px; background: #d4ad57; color: #1a1408; border: 0; border-radius: 6px; font-family: {{display}}; font-size: 14px; font-weight: 700;">Close</button></div>
+</section>
+<section style="display: flex; flex-direction: column; gap: 14px; padding: 26px; background: #1a1e24; border: 1px solid #313844; border-top: 3px solid #8fbf8a; border-radius: 8px;">
+<div style="display: flex; align-items: center; gap: 12px;"><span style="color: #8fbf8a; display: flex;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#8fbf8a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l4 4 10-10"/></svg></span><h2 style="margin: 0; font-family: {{display}}; font-size: 22px; font-weight: 700; color: #ede6d8;">Ilyra is ready</h2></div>
+<p style="margin: 0; font-size: 15px; line-height: 1.55; color: #aaa396;">Your GM created your character while you were away. It's now your assigned character.</p><p style="margin: 0; font-size: 15px; line-height: 1.55; color: #aaa396;">The portrait couldn't be saved: uploads are turned off. Ask your GM, or upload one later from the sheet.</p>
+<div style="display: flex; gap: 10px; margin-top: auto;"><button type="button" style="height: 44px; padding: 0 18px; background: #d4ad57; color: #1a1408; border: 0; border-radius: 6px; font-family: {{display}}; font-size: 14px; font-weight: 700;">Open character sheet</button><button type="button" style="height: 44px; padding: 0 18px; background: transparent; color: #ede6d8; border: 1px solid #313844; border-radius: 6px; font-family: {{display}}; font-size: 14px; font-weight: 500;">Dismiss</button></div>
+</section>
+<section style="display: flex; flex-direction: column; gap: 14px; padding: 26px; background: #1a1e24; border: 1px solid #313844; border-top: 3px solid #e0a15a; border-radius: 8px;">
+<div style="display: flex; align-items: center; gap: 12px;"><span style="color: #e0a15a; display: flex;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#e0a15a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/></svg></span><h2 style="margin: 0; font-family: {{display}}; font-size: 22px; font-weight: 700; color: #ede6d8;">This step can't be completed here</h2></div>
+<p style="margin: 0; font-size: 15px; line-height: 1.55; color: #aaa396;">Your GM's settings leave too few options for <strong style="color: #ede6d8;">Fighting Style</strong> (1 needed, 0 allowed). Ask your GM to allow more options, or choose a different class.</p>
+<div style="display: flex; gap: 10px; margin-top: auto;"><button type="button" style="height: 44px; padding: 0 18px; background: #d4ad57; color: #1a1408; border: 0; border-radius: 6px; font-family: {{display}}; font-size: 14px; font-weight: 700;">Back to Class</button></div>
+</section>
+<section style="display: flex; flex-direction: column; gap: 14px; padding: 26px; background: #1a1e24; border: 1px solid #313844; border-top: 3px solid #e27d6d; border-radius: 8px;">
+<div style="display: flex; align-items: center; gap: 12px;"><span style="color: #e27d6d; display: flex;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#e27d6d" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></span><h2 style="margin: 0; font-family: {{display}}; font-size: 22px; font-weight: 700; color: #ede6d8;">Your GM couldn't create Ilyra</h2></div>
+<ul style="margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; font-size: 15px; color: #aaa396;"><li>A class skill isn't on the class list. <a href="#choices">Go to Choices</a></li><li>Your rolled scores don't match the roll in chat. <a href="#abilities">Go to Abilities</a></li></ul>
+<div style="display: flex; gap: 10px; margin-top: auto;"><button type="button" style="height: 44px; padding: 0 18px; background: #d4ad57; color: #1a1408; border: 0; border-radius: 6px; font-family: {{display}}; font-size: 14px; font-weight: 700;">Fix and resubmit</button><button type="button" style="height: 44px; padding: 0 18px; background: transparent; color: #ede6d8; border: 1px solid #313844; border-radius: 6px; font-family: {{display}}; font-size: 14px; font-weight: 500;">Start over</button></div>
+</section>
+</div>
+</main>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"pairing":{"editor":"enum","options":["A","B"],"default":"A","section":"Type"},"$preview":{"width":1280,"height":720}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const b = (this.props.pairing ?? "A") === "B";
+    return {
+      display: b ? "Cormorant Garamond, Georgia, serif" : "Cinzel, Georgia, serif",
+      body: b ? "Spectral, Georgia, serif" : "Alegreya Sans, Segoe UI, sans-serif"
+    };
+  }
+}
+</script>
+</body>
+</html>

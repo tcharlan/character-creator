@@ -44,6 +44,11 @@ export default [
     }
   },
   {
+    // Mockup generator (PLAN 3.0): a Node CommonJS script, not part of the module.
+    files: ["mockups/**/*.cjs"],
+    languageOptions: { ecmaVersion: "latest", sourceType: "commonjs", globals: globals.node }
+  },
+  {
     rules: {
       "no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
       "prefer-const": "error",

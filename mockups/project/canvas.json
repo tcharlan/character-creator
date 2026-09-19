@@ -1,0 +1,98 @@
+{
+  "v": 3,
+  "createdOnFiles": {
+    "v": 1,
+    "at": "2026-09-19T21:06:56Z"
+  },
+  "title": "Character Creator Wizard Mockups",
+  "launch": {
+    "view": "canvas"
+  },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 720,
+      "title": "Species — 1280×720"
+    },
+    "Class.dc.html": {
+      "x": 1360,
+      "y": 0,
+      "w": 1280,
+      "h": 720,
+      "title": "Class — 2024, with class art"
+    },
+    "Abilities.dc.html": {
+      "x": 2720,
+      "y": 0,
+      "w": 1280,
+      "h": 720,
+      "title": "Ability scores — point buy"
+    },
+    "Choices.dc.html": {
+      "x": 0,
+      "y": 840,
+      "w": 1280,
+      "h": 720,
+      "title": "Choices — a Trait step"
+    },
+    "Equipment.dc.html": {
+      "x": 1360,
+      "y": 840,
+      "w": 1280,
+      "h": 720,
+      "title": "Equipment — 2014 with rolled wealth"
+    },
+    "Spells.dc.html": {
+      "x": 2720,
+      "y": 840,
+      "w": 1280,
+      "h": 720,
+      "title": "Spells — Wizard spellbook"
+    },
+    "Review.dc.html": {
+      "x": 0,
+      "y": 1680,
+      "w": 1280,
+      "h": 720,
+      "title": "Review — with problems to fix"
+    },
+    "States.dc.html": {
+      "x": 1360,
+      "y": 1680,
+      "w": 1280,
+      "h": 720,
+      "title": "Special states"
+    },
+    "Species-1920.dc.html": {
+      "x": 0,
+      "y": 2520,
+      "w": 1920,
+      "h": 1080,
+      "title": "Species — 1920×1080, pairing B"
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "Class.dc.html",
+    "Abilities.dc.html",
+    "Choices.dc.html",
+    "Equipment.dc.html",
+    "Spells.dc.html",
+    "Review.dc.html",
+    "States.dc.html",
+    "Species-1920.dc.html"
+  ],
+  "notes": {
+    "heading": {
+      "x": 0,
+      "y": -300,
+      "text": "Character Creator — wizard mockups (PLAN 3.0)",
+      "kind": "title1",
+      "maxW": 3920
+    }
+  },
+  "designSystems": []
+}

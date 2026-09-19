@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Step VI — Equipment</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&amp;family=Alegreya+Sans:ital,wght@0,400;0,500;0,700;1,400&amp;family=Cormorant+Garamond:wght@500;600;700&amp;family=Spectral:ital,wght@0,400;0,500;0,600;1,400&amp;display=swap">
+<style>
+body{margin:0;background:#0f1114}
+a{color:#d4ad57}a:hover{color:#f0cd7a}
+</style>
+</helmet>
+<div style="width: 1280px; height: 720px; box-sizing: border-box; display: flex; flex-direction: column; background: #0f1114; color: #ede6d8; font-family: {{body}}; overflow: hidden;">
+<nav aria-label="Creation steps" style="display: flex; flex-shrink: 0; height: 84px; background: #14171b; border-bottom: 1px solid #313844;">
+<button type="button" style="width: 128px; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; padding: 0 14px; background: transparent; border: 0; border-right: 1px solid #262c35; border-bottom: 3px solid #8a6a2a; color: #ede6d8; text-align: left;">
+<span style="font-family: {{display}}; font-size: 12px; letter-spacing: 0.12em; color: #8a6a2a;">I</span>
+<span style="font-family: {{display}}; font-size: 15px; font-weight: 600; letter-spacing: 0.04em;">Species</span>
+<span style="font-size: 12px; color: #aaa396; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px;">Hill Dwarf</span>
+</button>
+<button type="button" style="width: 128px; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; padding: 0 14px; background: transparent; border: 0; border-right: 1px solid #262c35; border-bottom: 3px solid #8a6a2a; color: #ede6d8; text-align: left;">
+<span style="font-family: {{display}}; font-size: 12px; letter-spacing: 0.12em; color: #8a6a2a;">II</span>
+<span style="font-family: {{display}}; font-size: 15px; font-weight: 600; letter-spacing: 0.04em;">Class</span>
+<span style="font-size: 12px; color: #aaa396; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px;">Cleric</span>
+</button>
+<button type="button" style="width: 128px; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; padding: 0 14px; background: transparent; border: 0; border-right: 1px solid #262c35; border-bottom: 3px solid #8a6a2a; color: #ede6d8; text-align: left;">
+<span style="font-family: {{display}}; font-size: 12px; letter-spacing: 0.12em; color: #8a6a2a;">III</span>
+<span style="font-family: {{display}}; font-size: 15px; font-weight: 600; letter-spacing: 0.04em;">Background</span>
+<span style="font-size: 12px; color: #aaa396; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px;">Acolyte</span>
+</button>
+<button type="button" style="width: 128px; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; padding: 0 14px; background: transparent; border: 0; border-right: 1px solid #262c35; border-bottom: 3px solid #8a6a2a; color: #ede6d8; text-align: left;">
+<span style="font-family: {{display}}; font-size: 12px; letter-spacing: 0.12em; color: #8a6a2a;">IV</span>
+<span style="font-family: {{display}}; font-size: 15px; font-weight: 600; letter-spacing: 0.04em;">Abilities</span>
+<span style="font-size: 12px; color: #aaa396; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px;">Standard array</span>
+</button>
+<button type="button" style="width: 128px; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; padding: 0 14px; background: transparent; border: 0; border-right: 1px solid #262c35; border-bottom: 3px solid #8a6a2a; color: #ede6d8; text-align: left;">
+<span style="font-family: {{display}}; font-size: 12px; letter-spacing: 0.12em; color: #8a6a2a;">V</span>
+<span style="font-family: {{display}}; font-size: 15px; font-weight: 600; letter-spacing: 0.04em;">Choices</span>
+<span style="font-size: 12px; color: #aaa396; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px;">5 of 5</span>
+</button>
+<button type="button" aria-current="step" style="width: 128px; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; padding: 0 14px; background: #1a1e24; border: 0; border-right: 1px solid #262c35; border-bottom: 3px solid #d4ad57; color: #ede6d8; text-align: left;">
+<span style="font-family: {{display}}; font-size: 12px; letter-spacing: 0.12em; color: #d4ad57;">VI</span>
+<span style="font-family: {{display}}; font-size: 15px; font-weight: 600; letter-spacing: 0.04em;">Equipment</span>
+<span style="font-size: 12px; color: #7f796e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px;">Choosing…</span>
+</button>
+<button type="button" style="width: 128px; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; padding: 0 14px; background: transparent; border: 0; border-right: 1px solid #262c35; border-bottom: 3px solid transparent; color: #7f796e; text-align: left;">
+<span style="font-family: {{display}}; font-size: 12px; letter-spacing: 0.12em; color: #7f796e;">VII</span>
+<span style="font-family: {{display}}; font-size: 15px; font-weight: 600; letter-spacing: 0.04em;">Spells</span>
+<span style="font-size: 12px; color: #7f796e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px;"></span>
+</button>
+<button type="button" style="width: 128px; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; padding: 0 14px; background: transparent; border: 0; border-right: 1px solid #262c35; border-bottom: 3px solid transparent; color: #7f796e; text-align: left;">
+<span style="font-family: {{display}}; font-size: 12px; letter-spacing: 0.12em; color: #7f796e;">VIII</span>
+<span style="font-family: {{display}}; font-size: 15px; font-weight: 600; letter-spacing: 0.04em;">Details</span>
+<span style="font-size: 12px; color: #7f796e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px;"></span>
+</button>
+<button type="button" style="width: 128px; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; padding: 0 14px; background: transparent; border: 0; border-right: 1px solid #262c35; border-bottom: 3px solid transparent; color: #7f796e; text-align: left;">
+<span style="font-family: {{display}}; font-size: 12px; letter-spacing: 0.12em; color: #7f796e;">IX</span>
+<span style="font-family: {{display}}; font-size: 15px; font-weight: 600; letter-spacing: 0.04em;">Portrait</span>
+<span style="font-size: 12px; color: #7f796e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px;"></span>
+</button>
+<button type="button" style="width: 128px; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; padding: 0 14px; background: transparent; border: 0; border-right: 1px solid #262c35; border-bottom: 3px solid transparent; color: #7f796e; text-align: left;">
+<span style="font-family: {{display}}; font-size: 12px; letter-spacing: 0.12em; color: #7f796e;">X</span>
+<span style="font-family: {{display}}; font-size: 15px; font-weight: 600; letter-spacing: 0.04em;">Review</span>
+<span style="font-size: 12px; color: #7f796e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px;"></span>
+</button>
+</nav>
+<main style="flex-grow: 1; min-height: 0; display: flex;">
+<section style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 18px; padding: 26px 34px; overflow: hidden;">
+<header style="display: flex; flex-direction: column; gap: 6px;">
+<h1 style="margin: 0; font-family: {{display}}; font-size: 40px; font-weight: 700; letter-spacing: 0.03em; line-height: 1.05; color: #ede6d8;">Starting equipment</h1>
+<span style="font-size: 14px; color: #aaa396;">Class and background are separate choices</span>
+</header>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; min-height: 0;">
+<div style="display: flex; flex-direction: column; gap: 10px;">
+<h3 style="margin: 0; font-family: {{display}}; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: #d4ad57;">Cleric</h3>
+<div role="radiogroup" aria-label="Weapon" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;">
+<label style="display: flex; gap: 12px; padding: 12px 14px; background: #1a1e24; border: 1px solid #262c35; border-radius: 6px; cursor: pointer;">
+<input type="radio" name="w" style="width: 18px; height: 18px; margin-top: 2px; accent-color: #d4ad57;">
+<span style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 15px; font-weight: 600; color: #ede6d8;">Mace</span></span>
+</label>
+<label style="display: flex; gap: 12px; padding: 12px 14px; background: #2c2416; border: 1px solid #8a6a2a; border-radius: 6px; cursor: pointer;">
+<input type="radio" name="w" checked="" style="width: 18px; height: 18px; margin-top: 2px; accent-color: #d4ad57;">
+<span style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 15px; font-weight: 600; color: #ede6d8;">Warhammer</span><span style="font-size: 13px; color: #aaa396;">You're proficient (Hill Dwarf)</span></span>
+</label>
+</div>
+<div role="radiogroup" aria-label="Armor" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;">
+<label style="display: flex; gap: 12px; padding: 12px 14px; background: #1a1e24; border: 1px solid #262c35; border-radius: 6px; cursor: pointer;">
+<input type="radio" name="a" style="width: 18px; height: 18px; margin-top: 2px; accent-color: #d4ad57;">
+<span style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 15px; font-weight: 600; color: #ede6d8;">Scale mail</span></span>
+</label>
+<label style="display: flex; gap: 12px; padding: 12px 14px; background: #1a1e24; border: 1px solid #262c35; border-radius: 6px; cursor: pointer;">
+<input type="radio" name="a" style="width: 18px; height: 18px; margin-top: 2px; accent-color: #d4ad57;">
+<span style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 15px; font-weight: 600; color: #ede6d8;">Leather</span></span>
+</label>
+<label style="display: flex; gap: 12px; padding: 12px 14px; background: #2c2416; border: 1px solid #8a6a2a; border-radius: 6px; cursor: pointer;">
+<input type="radio" name="a" checked="" style="width: 18px; height: 18px; margin-top: 2px; accent-color: #d4ad57;">
+<span style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 15px; font-weight: 600; color: #ede6d8;">Chain mail</span><span style="font-size: 13px; color: #aaa396;">Proficient</span></span>
+</label>
+</div>
+<div role="radiogroup" aria-label="Ranged" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;">
+<label style="display: flex; gap: 12px; padding: 12px 14px; background: #1a1e24; border: 1px solid #262c35; border-radius: 6px; cursor: pointer;">
+<input type="radio" name="r" style="width: 18px; height: 18px; margin-top: 2px; accent-color: #d4ad57;">
+<span style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 15px; font-weight: 600; color: #ede6d8;">Light crossbow, 20 bolts</span></span>
+</label>
+<label style="display: flex; gap: 12px; padding: 12px 14px; background: #2c2416; border: 1px solid #8a6a2a; border-radius: 6px; cursor: pointer;">
+<input type="radio" name="r" checked="" style="width: 18px; height: 18px; margin-top: 2px; accent-color: #d4ad57;">
+<span style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 15px; font-weight: 600; color: #ede6d8;">Any simple weapon</span><span style="font-size: 13px; color: #aaa396;">Handaxe ▾</span></span>
+</label>
+</div>
+<p style="margin: 0; font-size: 13px; color: #aaa396;">Also: shield, holy symbol, priest's pack or explorer's pack.</p>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px;">
+<h3 style="margin: 0; font-family: {{display}}; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: #d4ad57;">Acolyte</h3>
+<label style="display: flex; gap: 12px; padding: 12px 14px; background: #2c2416; border: 1px solid #8a6a2a; border-radius: 6px; cursor: pointer;">
+<input type="radio" name="b" checked="" style="width: 18px; height: 18px; margin-top: 2px; accent-color: #d4ad57;">
+<span style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 15px; font-weight: 600; color: #ede6d8;">Take the Acolyte's equipment</span><span style="font-size: 13px; color: #aaa396;">Holy symbol, prayer book, 5 sticks of incense,</span><span style="font-size: 13px; color: #aaa396;">vestments, common clothes, pouch with 15 gp</span></span>
+</label>
+<div style="margin-top: 6px; padding: 14px; background: #1a1e24; border: 1px dashed #8a6a2a; border-radius: 6px; display: flex; flex-direction: column; gap: 10px;">
+<span style="font-size: 14px; color: #ede6d8;">Or take the Cleric's starting wealth instead of its items: <strong style="color: #d4ad57;">5d4 × 10 gp</strong></span>
+<button type="button" style="align-self: flex-start; display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 16px; background: #222831; color: #ede6d8; border: 1px solid #8a6a2a; border-radius: 6px; font-family: {{display}}; font-size: 14px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d4ad57" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="9" cy="9" r="1"/><circle cx="15" cy="15" r="1"/><circle cx="15" cy="9" r="1"/><circle cx="9" cy="15" r="1"/></svg>Roll for gold</button>
+<span style="font-size: 12px; color: #7f796e;">The roll is posted to chat. Your background's equipment is kept either way.</span>
+</div>
+</div>
+</div>
+</section>
+<aside style="width: 330px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 22px; padding: 26px 24px; background: #14171b; border-left: 1px solid #313844; overflow: hidden;">
+<div style="width: 100%; display: flex; flex-direction: column; gap: 12px;">
+<h3 style="margin: 0; font-family: {{display}}; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: #d4ad57;">You'll carry</h3>
+<dl style="margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; width: 100%;">
+<div style="display: flex; flex-direction: column; gap: 2px;"><dt style="font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #7f796e;">Items</dt><dd style="margin: 0; font-size: 15px; color: #ede6d8;">14</dd></div>
+<div style="display: flex; flex-direction: column; gap: 2px;"><dt style="font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #7f796e;">Weight</dt><dd style="margin: 0; font-size: 15px; color: #ede6d8;">96 lb</dd></div>
+<div style="display: flex; flex-direction: column; gap: 2px;"><dt style="font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #7f796e;">Gold</dt><dd style="margin: 0; font-size: 15px; color: #ede6d8;">15 gp</dd></div>
+<div style="display: flex; flex-direction: column; gap: 2px;"><dt style="font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #7f796e;">Armor class</dt><dd style="margin: 0; font-size: 15px; color: #ede6d8;">18 with shield</dd></div>
+</dl>
+</div>
+<ul style="width: 100%; margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: #aaa396;">
+<li>Warhammer · Chain mail · Shield</li><li>Handaxe · Holy symbol</li><li>Priest's pack (9 items)</li><li>Acolyte's pouch (15 gp)</li>
+</ul>
+</aside>
+</main>
+<footer style="height: 64px; flex-shrink: 0; display: flex; align-items: center; gap: 16px; padding: 0 28px; background: #14171b; border-top: 1px solid #313844;">
+<button type="button" style="display: flex; align-items: center; gap: 6px; height: 44px; padding: 0 18px; background: transparent; color: #ede6d8; border: 1px solid #313844; border-radius: 6px; font-family: {{body}}; font-size: 15px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Choices</button>
+<span style="flex-grow: 1; font-size: 13px; color: #aaa396;">Draft saved a moment ago</span>
+<button type="button" style="display: flex; align-items: center; gap: 6px; height: 44px; padding: 0 22px; background: #d4ad57; color: #1a1408; border: 0; border-radius: 6px; font-family: {{display}}; font-size: 15px; font-weight: 700; letter-spacing: 0.05em;">Next: Spells<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+</footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"pairing":{"editor":"enum","options":["A","B"],"default":"A","section":"Type"},"$preview":{"width":1280,"height":720}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const b = (this.props.pairing ?? "A") === "B";
+    return {
+      display: b ? "Cormorant Garamond, Georgia, serif" : "Cinzel, Georgia, serif",
+      body: b ? "Spectral, Georgia, serif" : "Alegreya Sans, Segoe UI, sans-serif"
+    };
+  }
+}
+</script>
+</body>
+</html>
