@@ -201,8 +201,13 @@ async function runBatches(page, keys) {
   return JSON.parse(json);
 }
 
-/** Batches whose key ends in "@gm" need a GM online while they run. */
+/**
+ * Batches whose key ends in "@gm" need a GM online while they run (run after the others, in registration
+ * order). Batches ending in "@nogm" need no GM online and run last before the GM joins, so they can
+ * leave state for a GM batch to pick up (quench/pending.mjs).
+ */
 const needsGM = key => key.endsWith("@gm");
+const noGM = key => key.endsWith("@nogm");
 
 /* -------------------------------------------- */
 /*  Main                                        */
@@ -240,7 +245,7 @@ async function main() {
         const merge = r => {
           for ( const k of ["passes", "failures", "pending"] ) report[k].push(...(r[k] ?? []));
         };
-        const alone = keys.filter(k => !needsGM(k));
+        const alone = [...keys.filter(k => !needsGM(k) && !noGM(k)), ...keys.filter(noGM)];
         const withGM = keys.filter(needsGM);
         if ( alone.length ) merge(await runBatches(session.page, alone));
         let gm = null;

@@ -34,6 +34,16 @@ export function registerGmQueries() {
  */
 export async function handleSubmit(payload, { user }, options = {}) {
   if ( !isActiveGM() ) return fail([makeError("NOT_ACTIVE_GM")]);
+  return submitFor(payload, user, options);
+}
+
+/**
+ * The submit path for a user's payload, shared by the query handler and the pending-build processor
+ * (pending.mjs). Callers make sure this is the active GM.
+ * @param {{ draft: object, image?: object }} payload
+ * @param {User} user   The player the draft belongs to.
+ */
+export async function submitFor(payload, user, options = {}) {
   const problems = checkSubmitPayload(payload);
   if ( problems.length ) return fail([makeError("BAD_REQUEST", { problems: problems.slice(0, 20) })]);
   return inFlight.run(`${user.id}:${payload.draft.id}`, () => submit(payload, user, options));

@@ -1,8 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { DETAIL_FIELDS } from "../scripts/contracts.mjs";
+import { DETAIL_FIELDS, createDraft, checkDraftShape, makeError } from "../scripts/contracts.mjs";
 import { DETAIL_PATHS, detailsData, textToHtml, escapeHtml } from "../scripts/gm/details.mjs";
 import { InFlight } from "../scripts/gm/inflight.mjs";
+import { pendingDrafts, submittedDraft, processedDraft } from "../scripts/gm/pending-core.mjs";
 
 test("every draft detail field is mapped (name and biography separately)", () => {
   const mapped = new Set([...Object.keys(DETAIL_PATHS), "name", "biography"]);
@@ -58,4 +59,44 @@ test("in-flight lock: a failure is shared, then released", async () => {
   await assert.rejects(x, /boom/);
   await assert.rejects(y, /boom/);
   assert.ok(!lock.has("k"));
+});
+
+/* -------------------------------------------- */
+/*  Pending builds (PLAN 2.8)                   */
+/* -------------------------------------------- */
+
+const pid = n => String(n).padEnd(16, "0");
+const baseDraft = (n, now) => createDraft({ id: pid(n), worldId: "w", rules: "legacy", now });
+const IMAGE = { mime: "image/webp", data: "AAAA", width: 10, height: 10 };
+
+test("pending: only players' submitted drafts, oldest first", () => {
+  const users = [
+    { id: "a", isGM: false, draft: submittedDraft(baseDraft("a"), null, 300) },
+    { id: "b", isGM: false, draft: baseDraft("b", 100) },
+    { id: "c", isGM: false, draft: null },
+    { id: "g", isGM: true, draft: submittedDraft(baseDraft("g"), null, 50) },
+    { id: "d", isGM: false, draft: submittedDraft(baseDraft("d"), null, 200) },
+    { id: "e", isGM: false, draft: { ...baseDraft("e"), status: "failed" } }
+  ];
+  assert.deepEqual(pendingDrafts(users).map(p => p.userId), ["d", "a"]);
+});
+
+test("pending: a submitted draft keeps its portrait and stays well-formed", () => {
+  const d = submittedDraft(baseDraft("x"), IMAGE, 5);
+  assert.equal(d.status, "submitted");
+  assert.deepEqual(d.portrait.pendingImage, IMAGE);
+  assert.deepEqual(checkDraftShape(d), []);
+});
+
+test("pending: created drops the portrait and records the actor and warnings; failed keeps it with the errors", () => {
+  const d = submittedDraft(baseDraft("x"), IMAGE, 5);
+  const ok = processedDraft(d, { ok: true, actorUuid: `Actor.${pid("act")}`, warnings: [makeError("BAD_IMAGE")] }, 9);
+  assert.deepEqual([ok.status, ok.portrait.pendingImage, ok.result.actorUuid, ok.result.errors.map(e => e.code)],
+    ["created", null, `Actor.${pid("act")}`, ["BAD_IMAGE"]]);
+  assert.deepEqual(checkDraftShape(ok), []);
+  const errors = Array.from({ length: 150 }, () => makeError("MISSING_STEP"));
+  const bad = processedDraft(d, { ok: false, errors }, 9);
+  assert.deepEqual([bad.status, bad.result.actorUuid, bad.result.errors.length], ["failed", null, 100]);
+  assert.deepEqual(bad.portrait.pendingImage, IMAGE);
+  assert.deepEqual(checkDraftShape(bad), []);
 });

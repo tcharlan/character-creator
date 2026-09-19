@@ -14,10 +14,12 @@ const FIXED = {
   legacy: { species: "High Elf", background: "Acolyte", class: "Wizard" },
   modern: { species: "Human", background: "Sage", class: "Cleric" }
 };
-const Q = {
+/** Test-only GM queries; CLEANUP deletes the sender's created characters and clears the assignment. */
+export const SUBMIT_TEST_QUERIES = Object.freeze({
   CLEANUP: `${MODULE_ID}.test.submitCleanup`,
   UNOWNED: `${MODULE_ID}.test.unownedActor`
-};
+});
+const Q = SUBMIT_TEST_QUERIES;
 
 export function registerSubmitTestQueries() {
   const gmOnly = () => {
