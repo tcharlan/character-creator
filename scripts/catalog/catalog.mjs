@@ -18,9 +18,13 @@ export const INDEX_FIELDS = Object.freeze(["type", "img", "system.identifier", "
 /** World settings whose change invalidates the catalog. */
 const WATCHED_SETTINGS = ["core.compendiumConfiguration", "dnd5e.packSourceConfiguration", "dnd5e.rulesVersion"];
 
-/** Pack descriptor for the filters: type, visibility for the current user, dnd5e source filter. */
-function describePack(pack, sourceConfig) {
-  return { collection: pack.collection, documentName: pack.documentName, visible: pack.visible,
+/**
+ * Pack descriptor for the filters: type, visibility for the user (`CompendiumCollection#visible` for another
+ * user: OBSERVER or better), dnd5e source filter.
+ */
+function describePack(pack, sourceConfig, user) {
+  const visible = pack.getUserLevel(user) >= CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER;
+  return { collection: pack.collection, documentName: pack.documentName, visible,
     sourceEnabled: sourceConfig?.[pack.collection] !== false };
 }
 
@@ -29,11 +33,14 @@ function describePack(pack, sourceConfig) {
  * @param {object} [options]
  * @param {string} [options.rules]                 dnd5e rulesVersion; defaults to the world's.
  * @param {import("./filters.mjs").Restrictions} [options.restrictions]  GM restrictions (settings: PLAN 2.10).
+ * @param {User} [options.user]   Whose view (pack visibility); default the current user. The GM validates a
+ *   player's draft against that player's view.
  */
-export async function buildCatalog({ rules = game.settings.get("dnd5e", "rulesVersion"), restrictions = NO_RESTRICTIONS } = {}) {
+export async function buildCatalog({ rules = game.settings.get("dnd5e", "rulesVersion"), restrictions = NO_RESTRICTIONS,
+  user = game.user } = {}) {
   const t0 = performance.now();
   const sourceConfig = game.settings.get("dnd5e", "packSourceConfiguration") ?? {};
-  const packs = game.packs.contents.map(p => describePack(p, sourceConfig));
+  const packs = game.packs.contents.map(p => describePack(p, sourceConfig, user));
   const packStatus = new Map(packs.map(p => [p.collection, p]));
   // Only read the index of packs that can contribute (Item packs the user can see and dnd5e enables).
   const entries = [];
@@ -74,9 +81,10 @@ let generation = 0;
 export function getCatalog(options = {}) {
   const rules = options.rules ?? game.settings.get("dnd5e", "rulesVersion");
   const restrictions = options.restrictions ?? NO_RESTRICTIONS;
-  const key = JSON.stringify([rules, restrictions, game.user?.id, game.user?.role]);
+  const user = options.user ?? game.user;
+  const key = JSON.stringify([rules, restrictions, user?.id, user?.role]);
   if ( !cache.has(key) ) {
-    const promise = buildCatalog({ rules, restrictions });
+    const promise = buildCatalog({ rules, restrictions, user });
     promise.catch(() => cache.delete(key));
     cache.set(key, promise);
   }
