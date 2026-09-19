@@ -13,14 +13,11 @@
 import { MODULE_ID, DRAFT_FLAG, QUERIES, STATUS } from "../contracts.mjs";
 import { submitFor } from "./submit.mjs";
 import { pendingDrafts, submittedDraft, processedDraft } from "./pending-core.mjs";
+import { writeDraft } from "../draft/store.mjs";
+
+export { writeDraft };
 
 const draftPath = `flags.${MODULE_ID}.${DRAFT_FLAG}`;
-const replace = value => foundry.data.operators.ForcedReplacement.create(value);
-
-/** Store a whole draft on a user (replacing it, so no stale keys survive a merge). */
-export function writeDraft(user, draft) {
-  return user.update({ [draftPath]: replace(draft) });
-}
 
 /* -------------------------------------------- */
 /*  Player side                                 */

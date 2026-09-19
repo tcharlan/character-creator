@@ -1,5 +1,6 @@
 import { registerHelloBatch } from "./hello.mjs";
 import { registerPendingBatches } from "./pending.mjs";
+import { registerDraftStoreBatches } from "./draft-store.mjs";
 import { registerSpikeBatches } from "./spikes.mjs";
 import { registerPhase1Batch } from "./phase1.mjs";
 import { registerCatalogBatches, registerCatalogTestQueries } from "./catalog.mjs";
@@ -39,4 +40,5 @@ export function registerQuenchBatches(quench) {
   registerSpellBatches(quench);
   registerValidatorBatches(quench);
   registerSubmitBatches(quench);
+  registerDraftStoreBatches(quench);
 }
