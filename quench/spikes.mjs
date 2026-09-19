@@ -79,4 +79,35 @@ export function registerSpikeBatches(quench) {
       }
     });
   }, { displayName: "Character Creator: Spike 1.2" });
+
+  quench.registerBatch(`${MODULE_ID}.spike-1-3`, ({ describe, it, before, assert }) => {
+    describe("Spike 1.3 — replay from the recipe, tamper detection, timing", () => {
+      let report;
+      before(async function() {
+        this.timeout(300_000);
+        report = await (await import("../spike/replay.mjs")).run();
+      });
+
+      it("writes nothing to the database and throws nothing", () => {
+        assert.deepEqual(report.dbWrites, [], brief(report.dbWrites));
+        assert.deepEqual(report.errors, [], brief(report.errors));
+      });
+      const ids = ["R0", "R1", "R2", "T1", "T2", "T3", "T3b", "T4", "T4b", "T5", "T6", "P1", "G1"];
+      for ( const id of ids ) {
+        it(`check ${id}`, function() {
+          const check = report.checks.find(c => c.id === id);
+          if ( !check && !["R0", "R1", "R2", "P1", "G1"].includes(id) && !report.tamperIds?.includes(id) ) this.skip();
+          assert.exists(check, `check ${id} did not run`);
+          assert.isTrue(check.ok, `${check.name}: ${brief(check.errors ?? check.differences ?? check)}`);
+        });
+      }
+      it("reports the timing", () => {
+        assert.exists(report.timing);
+        const tampers = report.checks.filter(c => c.id.startsWith("T"))
+          .map(c => ({ id: c.id, codes: (c.errors ?? []).map(e => `${e.code}@${e.step}: ${JSON.stringify(e.detail)}`.slice(0, 160)) }));
+        console.log(`character-creator | spike 1.3 summary (${rules()}): ${JSON.stringify({
+          timing: report.timing, recipeBytes: report.recipeBytes, recipeSteps: report.recipeSteps, tampers })}`);
+      });
+    });
+  }, { displayName: "Character Creator: Spike 1.3" });
 }

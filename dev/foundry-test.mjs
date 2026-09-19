@@ -117,9 +117,11 @@ async function joinAs(browser, userName) {
   const context = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
   const page = await context.newPage();
   const errors = [];
+  const notes = [];   // console lines from this module ("character-creator | …"), saved in test-results
   page.on("pageerror", err => errors.push(String(err?.stack ?? err)));
   page.on("console", msg => {
     if ( msg.type() === "error" ) errors.push(msg.text());
+    else if ( msg.text().startsWith(`${MODULE_ID} |`) ) notes.push(msg.text());
     if ( verbose ) console.log(`    [${userName} ${msg.type()}] ${msg.text().slice(0, 300)}`);
   });
   await page.goto(url("/join"));
@@ -140,7 +142,7 @@ async function joinAs(browser, userName) {
     throw new Error(`Could not join as "${userName}" (still on ${page.url()}). ${notice}`.trim());
   }
   await page.waitForFunction(() => globalThis.game?.ready === true, null, { timeout: 180_000 });
-  return { context, page, errors };
+  return { context, page, errors, notes };
 }
 
 /** Run this module's Quench batches in the page; resolves with Quench's JSON report. */
@@ -208,7 +210,7 @@ async function main() {
         result.moduleErrors = session.errors.filter(e => e.includes(MODULE_ID));
         await mkdir(join(REPO, "test-results"), { recursive: true });
         await writeFile(join(REPO, "test-results", `${world}.json`),
-          JSON.stringify({ ...result, consoleErrors: session.errors, report }, null, 2));
+          JSON.stringify({ ...result, consoleErrors: session.errors, notes: session.notes, report }, null, 2));
 
         console.log(`\n${world} (${PLAYER}) — ${keys.join(", ")}`);
         for ( const t of report.passes ?? [] ) console.log(`  ✔ ${title(t)}`);
