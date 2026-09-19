@@ -427,4 +427,143 @@ export function registerSpikeBatches(quench) {
       });
     });
   }, { displayName: "Character Creator: Spike 1.5 (needs GM)" });
+
+  /* -------------------------------------------- */
+
+  quench.registerBatch(`${MODULE_ID}.spike-1-6`, ({ describe, it, before, assert }) => {
+    describe("Spike 1.6 — starting equipment for every SRD class and background", () => {
+      let EQ;
+      let core;
+      let survey;
+      let built;
+      const fmt = rows => rows.map(r => r.name).join(", ");
+
+      before(async function() {
+        this.timeout(300_000);
+        const lib = await import("../spike/lib.mjs");
+        EQ = await import("../spike/equipment.mjs");
+        core = await import("../spike/equipment-core.mjs");
+        built = await lib.buildCharacter(rules());
+        survey = await EQ.survey(rules(), built.actor);
+        const summary = survey.rows.map(r => ({
+          name: r.name, type: r.type, wealth: r.wealth, range: r.wealthRollRange, items: r.items, docs: r.createdDocs,
+          containers: r.containers?.length, currency: r.currency,
+          categories: r.categories.map(c => `${c.type}:${c.key}×${c.count}→${c.candidates}`),
+          ifProficient: r.requiresProficiency.length
+        }));
+        console.log(`${MODULE_ID} | spike 1.6 survey (${rules()}): ${JSON.stringify(summary)}`);
+        const names = {};
+        for ( const r of survey.rows ) for ( const c of r.categories ) {
+          const node = r.tree.nodes.get(c.id);
+          names[`${c.type}:${c.key}`] ??= EQ.candidatesFor(node, survey.index)
+            .map(u => survey.index.find(e => e.uuid === u)?.name);
+        }
+        console.log(`${MODULE_ID} | spike 1.6 candidates (${rules()}): ${JSON.stringify(names)}`);
+        const pouch = rules() === "legacy" ? await fromUuid("Compendium.dnd5e.backgrounds.Item.dQaOdm9dbVN0RZYP") : null;
+        if ( pouch ) console.log(`${MODULE_ID} | spike 1.6 coin pouch: ${JSON.stringify({ currency: pouch.system.currency,
+          contents: (await pouch.system.contents)?.map?.(i => i.name) ?? [] })}`);
+      });
+
+      it("finds every SRD class and background of this rule set", () => {
+        const expect = rules() === "legacy" ? { class: 12, background: 1 } : { class: 12, background: 4 };
+        assert.equal(survey.rows.filter(r => r.type === "class").length, expect.class);
+        assert.equal(survey.rows.filter(r => r.type === "background").length, expect.background);
+      });
+      it("uses only entry types the resolver knows", () => {
+        assert.deepEqual(survey.rows.filter(r => r.unknownTypes.length).map(r => [r.name, r.unknownTypes]), []);
+      });
+      it("every linked item exists and is a physical item (some live outside the equipment pack)", async () => {
+        assert.deepEqual(survey.rows.filter(r => r.missingLinked.length).map(r => [r.name, r.missingLinked]), []);
+        const outside = [];
+        for ( const r of survey.rows ) {
+          for ( const uuid of r.linkedNotInEquipmentIndex ) {
+            const doc = await fromUuid(uuid);
+            outside.push({ from: r.name, uuid, name: doc?.name, type: doc?.type, rules: doc?.system.source?.rules,
+              physical: !!doc?.system?.constructor?.metadata?.hasQuantity || ("quantity" in (doc?.system ?? {})) });
+          }
+        }
+        console.log(`${MODULE_ID} | spike 1.6 linked outside the equipment pack (${rules()}): ${JSON.stringify(outside)}`);
+        assert.isTrue(outside.every(o => o.physical), JSON.stringify(outside));
+      });
+      it("every category entry has enough non-magical candidates", () => {
+        const short = survey.rows.flatMap(r => r.categories.filter(c => c.candidates < 1)
+          .map(c => `${r.name} ${c.type}:${c.key}`));
+        assert.deepEqual(short, []);
+      });
+      it("category candidates are dnd5e's base items only (SRD counts; no Unarmed Strike)", () => {
+        const counts = {};
+        for ( const r of survey.rows ) for ( const c of r.categories ) counts[`${c.type}:${c.key}`] = c.candidates;
+        if ( rules() === "legacy" ) {
+          assert.include(counts, { "weapon:sim": 14, "weapon:simpleM": 10, "weapon:martialM": 18, "weapon:mar": 23,
+            "tool:music": 10 });
+        } else assert.include(counts, { "tool:music": 10, "tool:art": 17, "tool:game": 4 });
+        const names = survey.rows.flatMap(r => r.categories.flatMap(c => EQ.candidatesFor(r.tree.nodes.get(c.id), survey.index)))
+          .map(u => survey.index.find(e => e.uuid === u)?.name);
+        assert.notInclude(names, "Unarmed Strike");
+      });
+      it("a default selection resolves with no errors for every item", () => {
+        assert.deepEqual(survey.rows.filter(r => r.errors.length).map(r => [r.name, r.errors]), []);
+      });
+      it("the resolved items become creation data (containers with contents) that embeds", () => {
+        assert.deepEqual(survey.rows.filter(r => r.problems.length).map(r => [r.name, r.problems]), []);
+        assert.isTrue(survey.rows.every(r => r.embedded === r.createdDocs), fmt(survey.rows.filter(r => r.embedded !== r.createdDocs)));
+        assert.isAbove(survey.rows.reduce((n, r) => n + (r.containers?.length ?? 0), 0), 0, "no container found");
+      });
+      it("wealth: 2014 classes have a dice formula whose range matches Foundry's Roll; 2024 a flat GP amount", () => {
+        for ( const r of survey.rows.filter(x => x.type === "class") ) {
+          if ( rules() === "legacy" ) {
+            assert.exists(r.wealthOption?.formula, r.name);
+            assert.deepEqual(r.wealthRollRange, [r.wealthOption.min, r.wealthOption.max], r.name);
+          } else assert.isNumber(r.wealthOption?.fixed, r.name);
+        }
+      });
+      it("2024: every class and background offers the flat wealth alternative", function() {
+        if ( rules() !== "modern" ) this.skip();
+        for ( const r of survey.rows ) {
+          const tree = r.tree;
+          const res = core.resolveSelection(tree, r.wealth, { mode: "wealth" });
+          assert.deepEqual(res.errors, [], r.name);
+          assert.isAbove(res.currency.gp, 0, r.name);
+        }
+      });
+      it("'if proficient' options follow dnd5e's proficiency on the built character", async function() {
+        if ( rules() !== "legacy" ) this.skip();
+        const cleric = survey.rows.find(r => r.name === "Cleric");
+        assert.isAbove(cleric.requiresProficiency.length, 0);
+        // Hill Dwarf Life Cleric: Dwarven Combat Training (warhammer) and Life Domain (heavy armor).
+        const yes = await EQ.proficiencyChecker(built.actor, cleric.requiresProficiency);
+        assert.isTrue(cleric.requiresProficiency.every(yes), "should be proficient with both");
+        const stripped = new Actor.implementation(foundry.utils.mergeObject(built.actor.toObject(), {
+          "system.traits.weaponProf.value": ["sim"], "system.traits.armorProf.value": ["lgt", "med", "shl"]
+        }, { inplace: false }));
+        const no = await EQ.proficiencyChecker(stripped, cleric.requiresProficiency);
+        assert.isTrue(cleric.requiresProficiency.every(u => !no(u)), "should not be proficient without them");
+      });
+      it("tampered picks are rejected: wrong category and magic items", async () => {
+        // A category the default selection actually reaches (not one in an unchosen OR branch).
+        let row;
+        let cat;
+        for ( const r of survey.rows ) {
+          const reached = new Set(core.listDecisions(r.tree, r.selection.choices).map(d => d.id));
+          cat = r.categories.find(c => reached.has(c.id));
+          if ( cat ) {
+            row = r;
+            break;
+          }
+        }
+        assert.exists(row, "no reachable category entry in this rule set");
+        const node = row.tree.nodes.get(cat.id);
+        const all = await game.packs.get(EQ.EQUIPMENT_PACKS[rules()][0]).getIndex({ fields: ["system.rarity", "type"] });
+        const magic = all.find(e => e.system?.rarity && e.type === (node.type === "armor" ? "equipment" : node.type));
+        const wrong = survey.index.find(e => !EQ.matchesCategory(node, e));
+        const inCategory = (n, u) => EQ.candidatesFor(n, survey.index).includes(u);
+        for ( const bad of [wrong?.uuid, magic?.uuid].filter(Boolean) ) {
+          const sel = foundry.utils.deepClone(row.selection);
+          sel.picks[cat.id] = Array(cat.count ?? 1).fill(bad);
+          const res = core.resolveSelection(row.tree, row.wealth, sel, { inCategory, isProficient: () => true });
+          assert.isTrue(res.errors.some(e => e.code === "NOT_IN_CATEGORY"), `${row.name}: ${bad} accepted`);
+        }
+      });
+    });
+  }, { displayName: "Character Creator: Spike 1.6" });
 }
