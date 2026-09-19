@@ -15,9 +15,7 @@ import { validateDraft } from "../rules/validate.mjs";
 import { createCharacter, createdFor, createdFrom } from "./create.mjs";
 import { savePortrait } from "./portrait.mjs";
 import { InFlight } from "./inflight.mjs";
-
-/** Until the settings exist (PLAN 2.10): A4's default of one character per player. */
-export const DEFAULTS = Object.freeze({ characterLimit: 1, allowedMethods: undefined });
+import { readSettings } from "../settings/settings.mjs";
 
 const inFlight = new InFlight();
 const isActiveGM = () => game.user.isGM && !!game.users.activeGM?.isSelf;
@@ -49,8 +47,10 @@ export async function submitFor(payload, user, options = {}) {
   return inFlight.run(`${user.id}:${payload.draft.id}`, () => submit(payload, user, options));
 }
 
-async function submit({ draft, image = null }, user, { characterLimit = DEFAULTS.characterLimit,
-  allowedMethods = DEFAULTS.allowedMethods } = {}) {
+/** Settings (PLAN 2.10), overridable per call for tests. */
+async function submit({ draft, image = null }, user, overrides = {}) {
+  const settings = { ...readSettings(), ...overrides };
+  const { characterLimit, abilityMethods: allowedMethods } = settings;
   const existing = createdFrom(draft.id, user.id);
   if ( existing ) return { ok: true, actorUuid: existing.uuid, duplicate: true, warnings: [] };
 
@@ -59,11 +59,12 @@ async function submit({ draft, image = null }, user, { characterLimit = DEFAULTS
     characters: { limit: characterLimit, existing: createdFor(user.id).length } });
   if ( !validated.ok ) return fail(validated.errors, { byStep: validated.byStep });
 
-  const actor = await createCharacter(validated, { user, catalog });
+  const actor = await createCharacter(validated, { user, catalog, folderName: settings.folderName });
   const warnings = [];
   if ( !user.character ) await user.update({ character: actor.id });
-  if ( image ) {
-    const saved = await savePortrait(actor, image, draft.portrait?.ring, user);
+  if ( image && !settings.portraits.enabled ) warnings.push(makeError("UPLOADS_DISABLED"));
+  else if ( image ) {
+    const saved = await savePortrait(actor, image, draft.portrait?.ring, user, { ringDefaults: settings.ringColors });
     if ( !saved.ok ) warnings.push(saved.error);
   }
   return { ok: true, actorUuid: actor.uuid, duplicate: false, warnings };
@@ -80,6 +81,8 @@ export async function handleUploadPortrait(payload, { user }) {
   const actor = await fromUuid(payload.actorUuid);
   if ( !(actor instanceof Actor) ) return fail([makeError("NO_ACTOR")]);
   if ( !actor.testUserPermission(user, "OWNER") ) return fail([makeError("NOT_OWNER")]);
-  const saved = await savePortrait(actor, payload.image, payload.ring, user);
+  const settings = readSettings();
+  if ( !settings.portraits.enabled ) return fail([makeError("UPLOADS_DISABLED")]);
+  const saved = await savePortrait(actor, payload.image, payload.ring, user, { ringDefaults: settings.ringColors });
   return saved.ok ? { ok: true, path: saved.path } : fail([saved.error]);
 }

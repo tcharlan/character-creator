@@ -4,6 +4,7 @@
  */
 
 import { MODULE_ID } from "./contracts.mjs";
+import { registerSettings } from "./settings/settings.mjs";
 import { registerCatalogHooks } from "./catalog/catalog.mjs";
 import { registerGmQueries } from "./gm/submit.mjs";
 import { registerPendingProcessor } from "./gm/pending.mjs";
@@ -12,6 +13,7 @@ export { MODULE_ID };
 
 Hooks.once("init", () => {
   console.log(`${MODULE_ID} | Initializing`);
+  registerSettings();
   registerCatalogHooks();
   registerGmQueries();
   registerPendingProcessor();

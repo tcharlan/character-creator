@@ -13,6 +13,13 @@ import { detailsData } from "./details.mjs";
 /** Actor flag marking a character this module created: `{ draftId, userId, rules, schema, createdAt }`. */
 export const CREATED_FLAG = "created";
 
+/** The Actor folder for new characters (the setting), created if missing; null for no folder. */
+export async function ensureFolder(name) {
+  if ( !name ) return null;
+  const existing = game.folders.find(f => f.type === "Actor" && f.name === name && !f.folder);
+  return existing ?? foundry.utils.getDocumentClass("Folder").create({ name, type: "Actor" });
+}
+
 /** The flag data of an actor this module created, or null. */
 export const createdFlag = actor => actor?.getFlag(MODULE_ID, CREATED_FLAG) ?? null;
 
@@ -28,9 +35,9 @@ export const createdFrom = (draftId, userId) => game.actors.find(a => {
 /**
  * Creation data for a validated draft.
  * @param {{ draft, built, equipment }} validated   From validateDraft() with ok = true.
- * @param {{ user: User, catalog: object }} options
+ * @param {{ user: User, catalog: object, folderId?: string|null }} options
  */
-export async function characterData({ draft, built, equipment }, { user, catalog }) {
+export async function characterData({ draft, built, equipment }, { user, catalog, folderId = null }) {
   const data = built.actor.toObject();
   delete data._id;
   const details = detailsData(draft.details, `${user.name}'s character`);
@@ -39,6 +46,7 @@ export async function characterData({ draft, built, equipment }, { user, catalog
   foundry.utils.mergeObject(data.system, details.system);
   const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
   data.ownership = { default: L.NONE, [user.id]: L.OWNER };
+  data.folder = folderId;
   foundry.utils.setProperty(data, `flags.${MODULE_ID}.${CREATED_FLAG}`, {
     draftId: draft.id, userId: user.id, rules: draft.rules, schema: SCHEMA_VERSION, createdAt: Date.now()
   });
@@ -56,7 +64,8 @@ export async function characterData({ draft, built, equipment }, { user, catalog
  * Create the character. `keepEmbeddedIds` keeps the advancement links (`advancementOrigin`, container
  * contents) that point at embedded item ids (spike 1.4).
  */
-export async function createCharacter(validated, options) {
-  const data = await characterData(validated, options);
+export async function createCharacter(validated, { folderName = "", ...options } = {}) {
+  const folder = await ensureFolder(folderName);
+  const data = await characterData(validated, { ...options, folderId: folder?.id ?? null });
   return Actor.implementation.create(data, { keepEmbeddedIds: true });
 }

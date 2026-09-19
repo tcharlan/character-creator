@@ -66,6 +66,40 @@
     },
     "WealthRoll": {
       "Flavor": "Starting gold for a new character ({formula})"
+    },
+    "Settings": {
+      "restrictions": {
+        "Name": "Allowed content",
+        "Hint": "Which compendium packs and entries players may choose from. Edited in Character Creator's settings."
+      },
+      "abilityMethods": {
+        "Name": "Ability score methods",
+        "Hint": "The ways players may set ability scores. With only one, it is chosen automatically."
+      },
+      "characterLimit": {
+        "Name": "Characters per player",
+        "Hint": "How many characters each player may create with Character Creator. 0 means no limit."
+      },
+      "folderName": {
+        "Name": "Folder for new characters",
+        "Hint": "New characters go into this Actors folder, created if missing. Leave empty for no folder."
+      },
+      "showOnLogin": {
+        "Name": "Offer character creation on login",
+        "Hint": "Show \"Create a character\" to players who don't have one when they log in."
+      },
+      "allowPortraitUploads": {
+        "Name": "Allow portrait uploads",
+        "Hint": "Let players upload a portrait for their character. The GM's browser saves it."
+      },
+      "maxUploadMB": {
+        "Name": "Largest portrait file (MB)",
+        "Hint": "The largest image a player may choose, before it is resized to 1024 px."
+      },
+      "ringColors": {
+        "Name": "Default token ring colors",
+        "Hint": "Used when a player doesn't choose ring colors. Unset means the player's user color."
+      }
     }
   }
 }

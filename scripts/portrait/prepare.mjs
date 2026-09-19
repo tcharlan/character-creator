@@ -5,6 +5,7 @@
  */
 
 import { LIMITS, makeError } from "../contracts.mjs";
+import { readSettings } from "../settings/settings.mjs";
 
 const ACCEPTED = ["image/png", "image/jpeg", "image/webp"];
 const QUALITIES = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3];
@@ -20,10 +21,11 @@ export class PortraitError extends Error {
 /**
  * Check, resize and encode an image file.
  * @param {Blob} file
- * @param {{ maxSourceBytes?: number }} [options]   The GM's source size setting (PLAN 2.10).
+ * @param {{ maxSourceBytes?: number }} [options]   Default: the GM's upload size setting (PLAN 2.10).
  * @returns {Promise<{ mime: "image/webp", data: string, width: number, height: number }>}
  */
-export async function preparePortrait(file, { maxSourceBytes = LIMITS.portraitSourceMaxBytes } = {}) {
+export async function preparePortrait(file, { maxSourceBytes = readSettings().portraits.maxSourceBytes } = {}) {
+  if ( !readSettings().portraits.enabled ) throw new PortraitError("UPLOADS_DISABLED");
   if ( !ACCEPTED.includes(file?.type) ) throw new PortraitError("WRONG_IMAGE_TYPE", { type: file?.type ?? null });
   if ( file.size > maxSourceBytes ) throw new PortraitError("IMAGE_TOO_LARGE", { bytes: file.size, max: maxSourceBytes });
   let bitmap;

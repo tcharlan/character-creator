@@ -4,6 +4,7 @@
  * validator. The filter rules live in ./filters.mjs.
  */
 
+import { readSettings } from "../settings/settings.mjs";
 import { MODULE_ID } from "../contracts.mjs";
 import { buildCatalogData, isAllowed, shortfall, normalizeUuid, NO_RESTRICTIONS } from "./filters.mjs";
 
@@ -77,10 +78,13 @@ export async function buildCatalog({ rules = game.settings.get("dnd5e", "rulesVe
 const cache = new Map();
 let generation = 0;
 
-/** The cached catalog for these options (built on first use, rebuilt after invalidation). */
+/**
+ * The cached catalog for these options (built on first use, rebuilt after invalidation). Restrictions default to
+ * the GM's setting (PLAN 2.10).
+ */
 export function getCatalog(options = {}) {
   const rules = options.rules ?? game.settings.get("dnd5e", "rulesVersion");
-  const restrictions = options.restrictions ?? NO_RESTRICTIONS;
+  const restrictions = options.restrictions ?? readSettings().restrictions;
   const user = options.user ?? game.user;
   const key = JSON.stringify([rules, restrictions, user?.id, user?.role]);
   if ( !cache.has(key) ) {

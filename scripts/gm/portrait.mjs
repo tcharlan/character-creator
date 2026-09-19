@@ -41,10 +41,10 @@ export async function inspectImage(image) {
 /**
  * Save a portrait for an actor (D22: file `<actorId>.webp` uploaded with `{ uuid: actor.uuid }`, stored as
  * `worlds/<w>/assets/actors/<actorId>-<random>.webp` and removed by the server with the actor) and set img,
- * token texture and ring. Callers check permissions first.
+ * token texture and ring. Callers check permissions and the uploads setting first.
  * @returns {Promise<{ ok: true, path: string }|{ ok: false, error: object }>}
  */
-export async function savePortrait(actor, image, ring = {}, user = game.user) {
+export async function savePortrait(actor, image, ring = {}, user = game.user, { ringDefaults = {} } = {}) {
   const checked = await inspectImage(image);
   if ( checked.error ) return { ok: false, error: checked.error };
   const file = new File([checked.blob], `${actor.id}.webp`, { type: "image/webp" });
@@ -61,7 +61,9 @@ export async function savePortrait(actor, image, ring = {}, user = game.user) {
     "prototypeToken.texture.src": res.path,
     "prototypeToken.ring": {
       enabled: true,
-      colors: { ring: color(ring?.ring) ?? user.color?.css ?? null, background: color(ring?.background) },
+      // The player's choice, else the GM's default (setting), else the player's user color.
+      colors: { ring: color(ring?.ring) ?? color(ringDefaults.ring) ?? user.color?.css ?? null,
+        background: color(ring?.background) ?? color(ringDefaults.background) },
       effects: Number.isInteger(ring?.effects) ? ring.effects : 1,
       subject: { texture: res.path, scale: 1 }
     }
