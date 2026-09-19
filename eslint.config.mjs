@@ -15,14 +15,15 @@ const foundryGlobals = {
   User: "readonly",
   ChatMessage: "readonly",
   Roll: "readonly",
-  dnd5e: "readonly"
+  dnd5e: "readonly",
+  fromUuid: "readonly"
 };
 
 export default [
   { ignores: ["node_modules/**", "dist/**", "docs/**"] },
   js.configs.recommended,
   {
-    files: ["scripts/**/*.mjs", "quench/**/*.mjs", "dev/**/*.js"],
+    files: ["scripts/**/*.mjs", "quench/**/*.mjs", "spike/**/*.mjs", "dev/**/*.js"],
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "module",
