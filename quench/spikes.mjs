@@ -246,4 +246,185 @@ export function registerSpikeBatches(quench) {
       });
     });
   }, { displayName: "Character Creator: Spike 1.4 (needs GM)" });
+
+  /* -------------------------------------------- */
+
+  // Player side only, with no GM online: checks, resize, WebP encoding, and the offline refusal (A5).
+  quench.registerBatch(`${MODULE_ID}.spike-1-5`, ({ describe, it, before, assert }) => {
+    describe("Spike 1.5 — portrait: player-side preparation", () => {
+      let P;
+      const expectCode = async (promise, code) => {
+        try {
+          await promise;
+        } catch ( err ) {
+          assert.equal(err.code, code, err.message);
+          return;
+        }
+        assert.fail(`expected ${code}`);
+      };
+      before(async () => {
+        P = await import("../spike/portrait.mjs");
+      });
+
+      it("resizes a large PNG to ≤ 1024 px WebP ≤ 512 KB, keeping the aspect ratio", async function() {
+        this.timeout(60_000);
+        const src = await P.makeTestImage(3000, 2000);
+        const t0 = performance.now();
+        const out = await P.preparePortrait(src);
+        out.ms = Math.round(performance.now() - t0);
+        assert.equal(out.mime, "image/webp");
+        assert.equal(out.width, 1024);
+        assert.equal(out.height, 683);
+        assert.isAtMost(out.bytes, P.LIMITS.maxBytes);
+        console.log(`${MODULE_ID} | spike 1.5 resize: ${JSON.stringify({ ...out, data: `${out.data.length} chars` })}`);
+      });
+      it("does not upscale a small image", async function() {
+        this.timeout(30_000);
+        const out = await P.preparePortrait(await P.makeTestImage(400, 300));
+        assert.deepEqual([out.width, out.height], [400, 300]);
+      });
+      it("steps quality down until a noisy image fits in 512 KB", async function() {
+        this.timeout(120_000);
+        const src = await P.makeTestImage(1400, 1400, { noise: true });  // ~7.8 MB PNG, under the 10 MB limit
+        assert.isBelow(src.size, P.LIMITS.maxSourceBytes);
+        const t0 = performance.now();
+        const out = await P.preparePortrait(src);
+        out.ms = Math.round(performance.now() - t0);
+        assert.isAtMost(out.bytes, P.LIMITS.maxBytes);
+        assert.isBelow(out.quality, 0.9);
+        console.log(`${MODULE_ID} | spike 1.5 noisy: ${JSON.stringify({ bytes: out.bytes, quality: out.quality, ms: out.ms })}`);
+      });
+      it("rejects a non-image type before decoding", async () => {
+        await expectCode(P.preparePortrait(new Blob(["hello"], { type: "text/plain" })), "WRONG_TYPE");
+      });
+      it("rejects a file over 10 MB before decoding", async () => {
+        await expectCode(P.preparePortrait(new Blob([new Uint8Array(11 * 1024 * 1024)], { type: "image/png" })), "TOO_LARGE");
+      });
+      it("rejects a corrupt image", async () => {
+        await expectCode(P.preparePortrait(new Blob([new Uint8Array(1000)], { type: "image/png" })), "UNREADABLE");
+      });
+      it("refuses to send when no GM is online (A5)", async function() {
+        this.timeout(30_000);
+        assert.notExists(game.users.activeGM, "a GM is online — close other GM sessions for this batch");
+        const out = await P.preparePortrait(await P.makeTestImage(200, 200));
+        await expectCode(P.sendPortrait("Actor.x", out), "GM_OFFLINE");
+      });
+    });
+  }, { displayName: "Character Creator: Spike 1.5 (player side)" });
+
+  // The relay: player → active GM → FilePicker.upload → actor img, token texture and ring.
+  quench.registerBatch(`${MODULE_ID}.spike-1-5@gm`, ({ describe, it, before, after, assert }) => {
+    describe("Spike 1.5 — portrait relay through the active GM", () => {
+      let P;
+      let submit;
+      let actor;
+      let image;
+      let first;
+      let second;
+      let writes;
+      const ring = { ring: "#c9a227", background: "#1b2a49", effects: 3 };
+      const query = (name, data) => game.users.activeGM.query(name, data, { timeout: 60_000 });
+      const waitFor = async (fn, ms = 10_000) => {
+        const end = Date.now() + ms;
+        while ( Date.now() < end ) {
+          const v = await fn();
+          if ( v ) return v;
+          await new Promise(r => setTimeout(r, 150));
+        }
+        return null;
+      };
+      const status = async path => (await fetch(`/${path}`, { cache: "no-store" })).status;
+
+      before(async function() {
+        this.timeout(60_000);
+        P = await import("../spike/portrait.mjs");
+        submit = await import("../spike/submit.mjs");
+        await query(submit.CLEANUP, {});
+        const { uuid } = await query(P.MAKE_ACTOR, { owned: true });
+        actor = await waitFor(() => fromUuidSync(uuid));
+        image = await P.preparePortrait(await P.makeTestImage(1600, 1600));
+      });
+      after(async function() {
+        this.timeout(30_000);
+        if ( submit && game.users.activeGM ) await query(submit.CLEANUP, {});
+      });
+
+      it("the player has no upload permission of their own", () => {
+        assert.isFalse(game.user.can("FILES_UPLOAD"));
+        assert.isFalse(game.user.can("FILES_BROWSE"));
+      });
+
+      it("the GM saves the portrait under the actor's asset path", async function() {
+        this.timeout(60_000);
+        const { watchDb } = await import("../spike/lib.mjs");
+        const stop = watchDb();
+        const t0 = performance.now();
+        first = await P.sendPortrait(actor.uuid, image, ring);
+        first.roundTripMs = Math.round(performance.now() - t0);
+        writes = stop();
+        assert.isTrue(first.ok, JSON.stringify(first));
+        assert.match(first.path, new RegExp(`^worlds/${game.world.id}/assets/actors/${actor.id}-[A-Za-z0-9]+\\.webp$`));
+        console.log(`${MODULE_ID} | spike 1.5 upload: ${JSON.stringify({ path: first.path, roundTripMs: first.roundTripMs, ...first.diagnostics })}`);
+      });
+
+      it("the player's client wrote nothing", () => {
+        assert.deepEqual(writes, []);
+      });
+
+      it("the file is served to the player, byte for byte", async () => {
+        const res = await fetch(`/${first.path}`, { cache: "no-store" });
+        assert.equal(res.status, 200);
+        assert.match(res.headers.get("content-type") ?? "", /image\/webp/);
+        assert.equal((await res.arrayBuffer()).byteLength, image.bytes);
+      });
+
+      it("img, token texture and ring all point at it, with the chosen colors", async () => {
+        const ok = await waitFor(() => actor.img === first.path);
+        assert.isTrue(!!ok, `img is ${actor.img}`);
+        const t = actor.prototypeToken;
+        assert.equal(t.texture.src, first.path);
+        assert.isTrue(t.ring.enabled);
+        assert.equal(t.ring.subject.texture, first.path);
+        assert.equal(t.ring.colors.ring.css, ring.ring);
+        assert.equal(t.ring.colors.background.css, ring.background);
+        assert.equal(t.ring.effects, ring.effects);
+      });
+
+      it("refuses an actor the player doesn't own", async () => {
+        const { uuid } = await query(P.MAKE_ACTOR, { owned: false });
+        const res = await P.sendPortrait(uuid, image, ring);
+        assert.deepEqual([res.ok, res.code], [false, "NOT_OWNER"]);
+      });
+
+      it("refuses tampered images (type, size, signature, dimensions)", async () => {
+        const bad = [
+          { ...image, mime: "image/png" },
+          { ...image, data: btoa("x".repeat(600 * 1024)) },
+          { ...image, data: btoa(`GIF89a${"x".repeat(100)}`) },
+          { ...image, width: image.width + 1 }
+        ];
+        for ( const img of bad ) {
+          const res = await P.sendPortrait(actor.uuid, img, ring);
+          assert.deepEqual([res.ok, res.code], [false, "BAD_IMAGE"], JSON.stringify(res.detail));
+        }
+      });
+
+      it("a second upload gets a new file name (no stale cache) and the actor follows it", async function() {
+        this.timeout(60_000);
+        const img2 = await P.preparePortrait(await P.makeTestImage(800, 1200));
+        second = await P.sendPortrait(actor.uuid, img2, ring);
+        assert.isTrue(second.ok);
+        assert.notEqual(second.path, first.path);
+        assert.isTrue(!!(await waitFor(() => actor.img === second.path)));
+        assert.equal(await status(first.path), 200, "the previous file stays until the actor is deleted");
+      });
+
+      it("deleting the actor deletes its uploaded files (server-side)", async function() {
+        this.timeout(30_000);
+        await query(submit.CLEANUP, {});
+        const gone = await waitFor(async () => (await status(first.path)) === 404 && (await status(second.path)) === 404);
+        assert.isTrue(!!gone, "uploaded portraits still served after the actor was deleted");
+      });
+    });
+  }, { displayName: "Character Creator: Spike 1.5 (needs GM)" });
 }

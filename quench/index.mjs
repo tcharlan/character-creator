@@ -1,6 +1,7 @@
 import { registerHelloBatch } from "./hello.mjs";
 import { registerSpikeBatches } from "./spikes.mjs";
 import { registerSpikeQueries } from "../spike/submit.mjs";
+import { registerPortraitQueries } from "../spike/portrait.mjs";
 
 /**
  * Register every Quench batch for this module, plus the test-only query handlers they need.
@@ -9,6 +10,7 @@ import { registerSpikeQueries } from "../spike/submit.mjs";
  */
 export function registerQuenchBatches(quench) {
   registerSpikeQueries();
+  registerPortraitQueries();
   registerHelloBatch(quench);
   registerSpikeBatches(quench);
 }
