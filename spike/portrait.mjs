@@ -119,11 +119,19 @@ const isActiveGM = () => game.user.isGM && game.users.activeGM?.isSelf;
  */
 async function handleUpload(data, { user }) {
   if ( !isActiveGM() ) throw new Error("Only the active GM handles uploads");
-  const started = performance.now();
   const { actorUuid, image, ring = {} } = data ?? {};
   const actor = typeof actorUuid === "string" ? await fromUuid(actorUuid) : null;
   if ( !(actor instanceof Actor) ) return { ok: false, code: "NO_ACTOR" };
   if ( !actor.testUserPermission(user, "OWNER") ) return { ok: false, code: "NOT_OWNER" };
+  return savePortrait(actor, image, ring, user);
+}
+
+/**
+ * GM side: check an image (type, size, signature, real dimensions), save it with the document-scoped
+ * upload (D22) and point img, token texture and ring at it. Callers check permissions first.
+ */
+export async function savePortrait(actor, image, ring = {}, user = game.user) {
+  const started = performance.now();
 
   // Never trust the player's claims: check type, size, signature and real dimensions.
   if ( image?.mime !== "image/webp" || typeof image.data !== "string" ) return { ok: false, code: "BAD_IMAGE", detail: "type" };

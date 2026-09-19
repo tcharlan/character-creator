@@ -25,14 +25,24 @@ export async function classSpellFacts(classDoc, { score = 14, levels } = {}) {
   const cls = embed(actor, classDoc, { "system.levels": 1 });
   actor.updateSource({ "system.details.originalClass": cls.id });
   actor.reset();
-  const item = actor.items.get(cls.id);
+  return factsFromActor(actor, actor.items.get(cls.id), levels);
+}
+
+/**
+ * Level-1 spellcasting facts for a class item on any actor. Use the fully built character: level-1
+ * options can change the numbers through Active Effects (spike 1.9: Thaumaturge, Magician), and a
+ * scale entry may then be a plain number instead of a ScaleValue object.
+ */
+export function factsFromActor(actor, item, levels) {
+  const cls = item;
   const sc = item.system.spellcasting ?? {};
   const id = item.identifier;
-  const scale = Object.fromEntries(Object.entries(actor.system.scale?.[id] ?? {}).map(([k, v]) => [k, v?.value ?? v]));
+  const scale = Object.fromEntries(Object.entries(actor.system.scale?.[id] ?? {})
+    .map(([k, v]) => [k, (v && typeof v === "object" && "value" in v) ? v.value : v]));
   const spells = actor.system.spells ?? {};
 
   const facts = {
-    name: classDoc.name, identifier: id,
+    name: item.name, identifier: id,
     progression: sc.progression, type: sc.type ?? null, ability: sc.ability ?? null,
     preparation: { formula: sc.preparation?.formula ?? "", max: sc.preparation?.max ?? null },
     scale,
