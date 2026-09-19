@@ -59,6 +59,9 @@
       "NO_ACTOR": "That character no longer exists.",
       "NOT_OWNER": "You can only change the portrait of your own character.",
       "UPLOAD_FAILED": "The portrait couldn't be saved. Your character is fine; try uploading it again later."
+    },
+    "AbilityRoll": {
+      "Flavor": "Ability scores for a new character (4d6, drop the lowest, six times)"
     }
   }
 }

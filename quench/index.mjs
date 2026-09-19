@@ -3,6 +3,7 @@ import { registerSpikeBatches } from "./spikes.mjs";
 import { registerPhase1Batch } from "./phase1.mjs";
 import { registerCatalogBatches, registerCatalogTestQueries } from "./catalog.mjs";
 import { registerRulesBatches } from "./rules.mjs";
+import { registerAbilityBatches, registerAbilityTestQueries } from "./abilities.mjs";
 import { registerSpikeQueries } from "../spike/submit.mjs";
 import { registerPortraitQueries } from "../spike/portrait.mjs";
 import { registerPhase1Queries } from "../spike/phase1.mjs";
@@ -17,9 +18,11 @@ export function registerQuenchBatches(quench) {
   registerPortraitQueries();
   registerPhase1Queries();
   registerCatalogTestQueries();
+  registerAbilityTestQueries();
   registerHelloBatch(quench);
   registerSpikeBatches(quench);
   registerPhase1Batch(quench);
   registerCatalogBatches(quench);
   registerRulesBatches(quench);
+  registerAbilityBatches(quench);
 }
