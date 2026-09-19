@@ -16,7 +16,8 @@ const foundryGlobals = {
   ChatMessage: "readonly",
   Roll: "readonly",
   dnd5e: "readonly",
-  fromUuid: "readonly"
+  fromUuid: "readonly",
+  fromUuidSync: "readonly"
 };
 
 export default [

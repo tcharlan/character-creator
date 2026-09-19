@@ -1,4 +1,4 @@
-/* global Hooks, quench */
+/* global CONFIG, game, Hooks, quench */
 /*
  * Dev-only: run the module's Quench batches in the local dev Foundry, unattended.
  *   npm run test:foundry                       both test worlds, as Player A
@@ -145,12 +145,17 @@ async function joinAs(browser, userName) {
   return { context, page, errors, notes };
 }
 
-/** Run this module's Quench batches in the page; resolves with Quench's JSON report. */
-function runBatches(page, filter) {
-  return page.evaluate(async ({ moduleId, filter, timeoutMs }) => {
+/** This module's Quench batch keys in the page that contain `filter`. */
+function listBatches(page, filter) {
+  return page.evaluate(({ moduleId, filter }) => {
     if ( !globalThis.quench ) throw new Error("Quench is not active in this world");
-    const keys = [...quench._testBatches.keys()].filter(k => k.startsWith(`${moduleId}.`) && k.includes(filter));
-    if ( !keys.length ) throw new Error(`No batches match "${filter}"`);
+    return [...quench._testBatches.keys()].filter(k => k.startsWith(`${moduleId}.`) && k.includes(filter));
+  }, { moduleId: MODULE_ID, filter });
+}
+
+/** Run the given Quench batches in the page; resolves with Quench's JSON report (parsed). */
+async function runBatches(page, keys) {
+  const json = await page.evaluate(async ({ keys, timeoutMs }) => {
     // Quench browses __snapshots__/ for every batch before running, which a Player-role user may
     // not do (FILES_BROWSE). We use no snapshots, so skip that step in this test page only.
     if ( !globalThis.game.user.isGM ) {
@@ -166,9 +171,13 @@ function runBatches(page, filter) {
     const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error(
       `Quench run did not finish within ${timeoutMs / 1000}s`)), timeoutMs));
     await Promise.race([quench.runBatches(keys), timeout]);
-    return { keys, json: await Promise.race([report, timeout]) };
-  }, { moduleId: MODULE_ID, filter, timeoutMs: RUN_TIMEOUT_MS });
+    return Promise.race([report, timeout]);
+  }, { keys, timeoutMs: RUN_TIMEOUT_MS });
+  return JSON.parse(json);
 }
+
+/** Batches whose key ends in "@gm" need a GM online while they run. */
+const needsGM = key => key.endsWith("@gm");
 
 /* -------------------------------------------- */
 /*  Main                                        */
@@ -200,17 +209,35 @@ async function main() {
         log(`${world}: joining as ${PLAYER}`);
         const session = await joinAs(browser, PLAYER);
         const started = Date.now();
-        const { keys, json } = await runBatches(session.page, batchFilter);
-        const report = JSON.parse(json);
+        const keys = await listBatches(session.page, batchFilter);
+        if ( !keys.length ) throw new Error(`No batches match "${batchFilter}"`);
+        const report = { passes: [], failures: [], pending: [] };
+        const merge = r => {
+          for ( const k of ["passes", "failures", "pending"] ) report[k].push(...(r[k] ?? []));
+        };
+        const alone = keys.filter(k => !needsGM(k));
+        const withGM = keys.filter(needsGM);
+        if ( alone.length ) merge(await runBatches(session.page, alone));
+        let gm = null;
+        if ( withGM.length ) {
+          log(`${world}: joining as ${GM} for ${withGM.join(", ")}`);
+          gm = await joinAs(browser, GM);
+          // The GM's copy of the module registers the test query handlers at quenchReady.
+          await gm.page.waitForFunction(id => `${id}.spikeSubmit` in CONFIG.queries, MODULE_ID, { timeout: 60_000 });
+          await session.page.waitForFunction(() => !!game.users.activeGM, null, { timeout: 30_000 });
+          merge(await runBatches(session.page, withGM));
+          await gm.context.close();
+        }
         result.batches = keys;
         result.seconds = Math.round((Date.now() - started) / 100) / 10;
         result.passes = report.passes?.length ?? 0;
         result.failures = report.failures?.length ?? 0;
         result.pending = report.pending?.length ?? 0;
-        result.moduleErrors = session.errors.filter(e => e.includes(MODULE_ID));
+        result.moduleErrors = [...session.errors, ...(gm?.errors ?? [])].filter(e => e.includes(MODULE_ID));
         await mkdir(join(REPO, "test-results"), { recursive: true });
         await writeFile(join(REPO, "test-results", `${world}.json`),
-          JSON.stringify({ ...result, consoleErrors: session.errors, notes: session.notes, report }, null, 2));
+          JSON.stringify({ ...result, consoleErrors: session.errors, gmConsoleErrors: gm?.errors ?? [],
+            notes: [...session.notes, ...(gm?.notes ?? [])], report }, null, 2));
 
         console.log(`\n${world} (${PLAYER}) — ${keys.join(", ")}`);
         for ( const t of report.passes ?? [] ) console.log(`  ✔ ${title(t)}`);
