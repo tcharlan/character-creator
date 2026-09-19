@@ -667,4 +667,53 @@ export function registerSpikeBatches(quench) {
       });
     });
   }, { displayName: "Character Creator: Spike 1.7" });
+
+  /* -------------------------------------------- */
+
+  quench.registerBatch(`${MODULE_ID}.spike-1-8`, ({ describe, it, before, assert }) => {
+    describe("Spike 1.8 — species structure (2014 subraces, 2024 lineages)", () => {
+      let rows;
+      before(async function() {
+        this.timeout(300_000);
+        rows = await (await import("../spike/species.mjs")).survey(rules());
+        console.log(`${MODULE_ID} | spike 1.8 survey (${rules()}): ${JSON.stringify(rows)}`);
+      });
+
+      it("the pack holds each species/subrace/lineage as its own item (2014 subraces, 2024 lineages)", () => {
+        const names = rows.map(r => r.name).sort();
+        const want = rules() === "legacy"
+          ? ["Dragonborn", "Half-Elf", "Half-Orc", "High Elf", "Hill Dwarf", "Human", "Lightfoot Halfling", "Rock Gnome", "Tiefling"]
+          : ["Dragonborn", "Dwarf", "Elf, Drow", "Elf, High", "Elf, Wood", "Gnome, Forest", "Gnome, Rock", "Goliath",
+            "Halfling", "Human", "Orc", "Tiefling, Abyssal", "Tiefling, Chthonic", "Tiefling, Infernal"];
+        assert.deepEqual(names, want);
+      });
+      it("every species builds with no errors", () => {
+        assert.deepEqual(rows.filter(r => r.errors.length).map(r => [r.name, r.errors]), []);
+      });
+      it("every species replays identically and passes the 1.3 validator", () => {
+        assert.deepEqual(rows.filter(r => r.replayErrors?.length).map(r => [r.name, r.replayErrors]), []);
+        assert.deepEqual(rows.filter(r => !r.replayEqual).map(r => r.name), []);
+      });
+      it("no species build puts the same compendium item on the actor twice", () => {
+        assert.deepEqual(rows.filter(r => r.duplicateSources?.length).map(r => [r.name, r.duplicateSources]), []);
+      });
+      it("in-species item choices: 2014 Dragonborn/High Elf, 2024 Goliath/Human only", () => {
+        const withChoice = rows.filter(r => r.steps.some(s => s.type === "ItemChoice")).map(r => r.name).sort();
+        assert.deepEqual(withChoice, rules() === "legacy" ? ["Dragonborn", "High Elf"] : ["Goliath", "Human"]);
+      });
+      it("movement and creature type come from the species once details.race is set", () => {
+        for ( const r of rows ) {
+          assert.isAbove(r.speed, 0, `${r.name} speed`);
+          assert.equal(r.speed, r.raceSpeed, `${r.name} speed matches the race item`);
+          assert.equal(r.actorCreatureType, r.creatureType, `${r.name} creature type`);
+        }
+      });
+      it("the 2014 High Elf cantrip (no list in the data) is chosen from all level-0 spells", function() {
+        if ( rules() !== "legacy" ) this.skip();
+        const he = rows.find(r => r.name === "High Elf");
+        const step = he.steps.find(s => s.type === "ItemChoice");
+        assert.lengthOf(step.data.selected, 1);
+      });
+    });
+  }, { displayName: "Character Creator: Spike 1.8" });
 }

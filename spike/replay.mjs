@@ -11,7 +11,7 @@
 
 import {
   PICKS, BASE_SCORES, watchDb, buildCharacter, findFirst, makeActor, embed, getAdv, snapshot, compare,
-  normalizeUuid, schemaInitials
+  normalizeUuid, schemaInitials, spellListUuids
 } from "./lib.mjs";
 
 /** Error codes the replay validator reports (a preview of contracts.mjs error codes). */
@@ -57,6 +57,8 @@ export async function replay(recipe) {
   const fail = (code, step, detail) => errors.push({ code, step, detail });
   const actor = makeActor(recipe.base);
 
+  const pointer = { species: "system.details.race", background: "system.details.background",
+    class: "system.details.originalClass" };
   for ( const role of ["species", "background", "class"] ) {
     const doc = await fromUuid(recipe.picks[role]);
     if ( !doc ) {
@@ -64,7 +66,7 @@ export async function replay(recipe) {
       continue;
     }
     const item = embed(actor, doc, role === "class" ? { "system.levels": 1 } : {});
-    if ( role === "class" ) actor.updateSource({ "system.details.originalClass": item.id });
+    actor.updateSource({ [pointer[role]]: item.id });
   }
   actor.reset();
 
@@ -82,7 +84,7 @@ export async function replay(recipe) {
       continue;
     }
     const data = foundry.utils.deepClone(step.data ?? {});
-    for ( const e of await checkBefore(adv, step.level, data) ) fail(e.code, label, e.detail);
+    for ( const e of await checkBefore(adv, step.level, data, recipe) ) fail(e.code, label, e.detail);
     try {
       await adv.apply(step.level, data);
     } catch ( err ) {
@@ -110,7 +112,7 @@ export async function replay(recipe) {
 }
 
 /** Checks on the data before apply(), using the advancement's own configuration. */
-async function checkBefore(adv, level, data) {
+async function checkBefore(adv, level, data, recipe) {
   const out = [];
   const config = adv.configuration;
   switch ( adv.type ) {
@@ -142,7 +144,7 @@ async function checkBefore(adv, level, data) {
       const selected = (data.selected ?? []).map(normalizeUuid);
       if ( selected.length > count ) out.push({ code: CODES.TOO_MANY_PICKS, detail: { selected: selected.length, max: count } });
       if ( selected.length < count ) out.push({ code: CODES.UNFULFILLED, detail: { selected: selected.length, needed: count } });
-      const offered = await offeredByItemChoice(config);
+      const offered = await offeredByItemChoice(config, recipe.rules);
       const bad = selected.filter(u => !offered.has(u));
       if ( bad.length ) out.push({ code: CODES.NOT_OFFERED, detail: bad });
       break;
@@ -191,22 +193,11 @@ async function checkAfter(adv) {
   return out;
 }
 
-/** UUIDs an ItemChoice offers: its pool, or (empty pool) what its restriction allows. */
-async function offeredByItemChoice(config) {
+/** UUIDs an ItemChoice offers: its pool, or (empty pool) what its restriction allows (shared with the builder). */
+async function offeredByItemChoice(config, rules) {
   const pool = config.pool.map(p => normalizeUuid(p.uuid));
   if ( pool.length ) return new Set(pool);
-  const { restriction = {} } = config;
-  let uuids = [];
-  for ( const key of restriction.list ?? [] ) {
-    const [type, id] = key.split(":");
-    uuids.push(...(dnd5e.registry.spellLists.forType(type, id)?.uuids ?? []));
-  }
-  uuids = [...new Set(uuids)];
-  if ( restriction.level !== "" && restriction.level != null ) {
-    const levels = await Promise.all(uuids.map(async u => (await fromUuid(u))?.system.level));
-    uuids = uuids.filter((u, i) => levels[i] === Number(restriction.level));
-  }
-  return new Set(uuids.map(normalizeUuid));
+  return new Set((await spellListUuids(config, rules)).map(normalizeUuid));
 }
 
 /* -------------------------------------------- */

@@ -108,16 +108,20 @@ export const getAdv = (actor, itemId, advId) => actor.items.get(itemId)?.advance
  * @param {object} [opts.overrides]           `"<item name>/<advancement title>"` → data for apply
  * @param {object} [opts.base]                base ability scores
  * @param {boolean} [opts.skipSubclass]       stop before the Subclass advancement
+ * @param {object} [opts.picks]               override PICKS entries, e.g. `{ species: [[pack, name, "race"]] }`
  * @returns {Promise<{actor, steps, ids}>}    `ids`: role → item id; steps: one per advancement applied
  */
-export async function buildCharacter(rules, { overrides = {}, base = BASE_SCORES, skipSubclass = false } = {}) {
-  const picks = PICKS[rules];
+export async function buildCharacter(rules, { overrides = {}, base = BASE_SCORES, skipSubclass = false, picks: pickOverrides } = {}) {
+  const picks = { ...PICKS[rules], ...(pickOverrides ?? {}) };
   const actor = makeActor(base);
   const ids = {};
   const species = embed(actor, await findFirst(picks.species));
   const background = embed(actor, await findFirst(picks.background));
   const cls = embed(actor, await findFirst(picks.class), { "system.levels": 1 });
-  actor.updateSource({ "system.details.originalClass": cls.id });
+  // dnd5e sets these in RaceData/BackgroundData._onCreate (real creates only); movement, senses and
+  // creature type are derived from details.race during data preparation.
+  actor.updateSource({ "system.details.originalClass": cls.id, "system.details.race": species.id,
+    "system.details.background": background.id });
   actor.reset();
   Object.assign(ids, { species: species.id, background: background.id, class: cls.id });
 
@@ -200,7 +204,7 @@ export async function buildData(ctx, adv, level, step) {
       const count = config.choices[level]?.count ?? 0;
       if ( !count ) return undefined;
       let uuids = config.pool.map(p => p.uuid);
-      if ( uuids.length < count ) uuids = await spellListUuids(config);
+      if ( uuids.length < count ) uuids = await spellListUuids(config, ctx.rules);
       const held = new Set(ctx.actor.items.map(i => normalizeUuid(i._stats?.compendiumSource)).filter(Boolean));
       return {
         selected: uuids.filter(u => !held.has(normalizeUuid(u))).slice(0, count),
@@ -240,10 +244,24 @@ export async function buildData(ctx, adv, level, step) {
   }
 }
 
-async function spellListUuids(config) {
+/** Spell pack per rule set (the real module takes spells from the catalog). */
+export const SPELL_PACKS = { legacy: "dnd5e.spells", modern: "dnd5e.spells24" };
+
+/**
+ * UUIDs an empty-pool spell ItemChoice offers: its restriction's spell lists and level. With no list
+ * (e.g. the 2014 SRD High Elf cantrip), dnd5e accepts any spell of that level, so we offer every one in
+ * the rule set's spell pack (read from the index).
+ */
+export async function spellListUuids(config, rules) {
   const { restriction = {} } = config;
+  const lists = [...(restriction.list ?? [])];
+  if ( !lists.length && config.type === "spell" && rules ) {
+    const index = await game.packs.get(SPELL_PACKS[rules]).getIndex({ fields: ["system.level"] });
+    const want = restriction.level === "" || restriction.level == null ? null : Number(restriction.level);
+    return index.filter(e => want === null || e.system?.level === want).map(e => e.uuid);
+  }
   let uuids = [];
-  for ( const key of restriction.list ?? [] ) {
+  for ( const key of lists ) {
     const [type, id] = key.split(":");
     const list = dnd5e.registry.spellLists.forType(type, id);
     if ( list ) uuids.push(...list.uuids);
