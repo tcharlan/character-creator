@@ -566,4 +566,105 @@ export function registerSpikeBatches(quench) {
       });
     });
   }, { displayName: "Character Creator: Spike 1.6" });
+
+  /* -------------------------------------------- */
+
+  quench.registerBatch(`${MODULE_ID}.spike-1-7`, ({ describe, it, before, assert }) => {
+    describe("Spike 1.7 — level-1 spell counts from class data", () => {
+      let rows;
+      before(async function() {
+        this.timeout(120_000);
+        const SP = await import("../spike/spells.mjs");
+        rows = await SP.survey(rules());
+        console.log(`${MODULE_ID} | spike 1.7 survey (${rules()}): ${JSON.stringify(rows)}`);
+      });
+      it("surveys all 12 SRD classes", () => {
+        assert.lengthOf(rows, 12);
+      });
+
+      // Oracle: level-1 numbers from the 2014 / 2024 Player's Handbooks (test expectations only —
+      // the module reads them from dnd5e's data). Scores are all 14 (+2), so 2014 prepared = 2 + 1.
+      const ORACLE = {
+        legacy: {
+          Bard: ["known", 2, 4], Cleric: ["prepared", 3, 3], Druid: ["prepared", 2, 3], Sorcerer: ["known", 4, 2],
+          Warlock: ["known", 2, 2], Wizard: ["prepared", 3, 3, 6], Paladin: ["none", 0, 0], Ranger: ["none", 0, 0]
+        },
+        modern: {
+          Bard: ["prepared", 2, 4], Cleric: ["prepared", 3, 4], Druid: ["prepared", 2, 4], Paladin: ["prepared", 0, 2],
+          Ranger: ["prepared", 0, 2], Sorcerer: ["prepared", 4, 2], Warlock: ["prepared", 2, 2], Wizard: ["prepared", 3, 4, 6]
+        }
+      };
+      const casterRows = () => rows.filter(r => ORACLE[rules()][r.name]?.[0] !== "none" && ORACLE[rules()][r.name]);
+
+      it("requirements read from dnd5e's data match the Player's Handbook for every class", async () => {
+        const core = await import("../spike/spells-core.mjs");
+        const got = {};
+        for ( const r of rows ) {
+          const q = core.requirements(r);
+          got[r.name] = [q.mode, q.cantrips, q.spells, ...(q.spellbook ? [q.spellbook] : [])];
+        }
+        const want = Object.fromEntries(rows.map(r => [r.name, ORACLE[rules()][r.name] ?? ["none", 0, 0]]));
+        assert.deepEqual(got, want);
+      });
+
+      it("Warlock uses pact magic with one level-1 slot", async () => {
+        const core = await import("../spike/spells-core.mjs");
+        const w = rows.find(r => r.name === "Warlock");
+        assert.deepEqual([core.requirements(w).method, w.slots.pact, w.slots.pactLevel], ["pact", 1, 1]);
+      });
+
+      it("every caster's class list has enough cantrips and level-1 spells in this rule set's pack", async () => {
+        const core = await import("../spike/spells-core.mjs");
+        for ( const r of casterRows() ) {
+          const q = core.requirements(r);
+          assert.isAtLeast(r.list.level0, q.cantrips, `${r.name} cantrips`);
+          assert.isAtLeast(r.list.level1, Math.max(q.spells, q.spellbook), `${r.name} level 1`);
+          assert.equal(r.list.outsidePack, 0, `${r.name} list points outside the pack`);
+        }
+      });
+
+      it("a legal selection validates, and dnd5e counts the prepared spells as expected", async function() {
+        this.timeout(120_000);
+        const core = await import("../spike/spells-core.mjs");
+        const SP = await import("../spike/spells.mjs");
+        const levels = await SP.spellLevels(rules());
+        const report = {};
+        for ( const r of casterRows() ) {
+          const q = core.requirements(r);
+          const list = [...r.live.listUuids];
+          const cantrips = list.filter(u => levels.get(u) === 0).slice(0, q.cantrips);
+          const lvl1 = list.filter(u => levels.get(u) === 1);
+          const spellbook = lvl1.slice(0, q.spellbook);
+          const spells = (q.spellbook ? spellbook : lvl1).slice(0, q.spells);
+          const sel = { cantrips, spells, spellbook };
+          assert.deepEqual(core.validateSpells(q, sel, r.live.listUuids, levels), [], r.name);
+          const out = await SP.embedSpells(r, sel);
+          const expectPrepared = q.mode === "prepared" ? spells.length : 0;
+          assert.equal(out.preparedValue, expectPrepared, `${r.name}: dnd5e prepared count`);
+          assert.isAtMost(out.preparedValue, out.preparedMax, `${r.name}: over dnd5e's maximum`);
+          assert.deepEqual(out.classIdentifiers, [r.identifier], `${r.name}: spells linked to the class`);
+          report[r.name] = { ...out, cantrips: cantrips.length, spells: spells.length, spellbook: spellbook.length };
+        }
+        console.log(`${MODULE_ID} | spike 1.7 embedded (${rules()}): ${JSON.stringify(report)}`);
+      });
+
+      it("tampered selections are rejected: off-list spell, level-2 spell, too many", async () => {
+        const core = await import("../spike/spells-core.mjs");
+        const SP = await import("../spike/spells.mjs");
+        const levels = await SP.spellLevels(rules());
+        const target = casterRows().find(r => r.name === "Cleric");
+        const wizard = rows.find(r => r.name === "Wizard");
+        const q = core.requirements(target);
+        const mine = [...target.live.listUuids];
+        const cantrips = mine.filter(u => levels.get(u) === 0).slice(0, q.cantrips);
+        const offList = [...wizard.live.listUuids].find(u => levels.get(u) === 1 && !target.live.listUuids.has(u));
+        const level2 = mine.find(u => levels.get(u) === 2);
+        const lvl1 = mine.filter(u => levels.get(u) === 1);
+        const codes = spells => core.validateSpells(q, { cantrips, spells }, target.live.listUuids, levels).map(e => e.code);
+        assert.include(codes([offList]), "NOT_ON_LIST");
+        assert.include(codes([level2]), "WRONG_LEVEL");
+        assert.include(codes(lvl1.slice(0, q.spells + 1)), "SPELL_COUNT");
+      });
+    });
+  }, { displayName: "Character Creator: Spike 1.7" });
 }
