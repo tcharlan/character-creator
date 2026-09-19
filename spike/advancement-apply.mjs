@@ -59,11 +59,13 @@ export async function run({ rules = game.settings.get("dnd5e", "rulesVersion") }
   try {
     // 1. Scratch actor — constructed, never saved.
     const abilities = Object.fromEntries(Object.entries(BASE_SCORES).map(([k, v]) => [k, { value: v }]));
-    const actor = new Actor.implementation({
+    // Built from a toObject() copy so it never shares arrays with schema defaults (spike 1.2 finding).
+    const seed = new Actor.implementation({
       type: "character", name: "Spike scratch",
       ownership: { default: 0, [game.user.id]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER },
       system: { abilities }
     });
+    const actor = new Actor.implementation(seed.toObject());
     report.scratch = { id: actor.id, inCollection: game.actors.has(actor.id), isEmbedded: actor.isEmbedded };
 
     // 2. Embed the picked items in order: species, background, class (at level 1, original class).

@@ -7,3 +7,5 @@ Thumbs.db
 # Release builds (Phase 6)
 dist/
 *.zip
+# In-Foundry test reports (npm run test:foundry)
+test-results/
