@@ -601,3 +601,8 @@
 .cc-carry { width: 100%; margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
 .cc-carry li { display: flex; gap: 8px; font-size: 14px; color: var(--cc-muted); }
 .cc-carry__count { margin-left: auto; color: var(--cc-faint); }
+
+/* Spells */
+.cc-cards--spells { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+.cc-cards--spells .cc-card:disabled { opacity: 0.45; cursor: default; }
+.cc-known { display: flex; flex-direction: column; gap: 4px; text-align: center; font-size: 14px; color: var(--cc-muted); }

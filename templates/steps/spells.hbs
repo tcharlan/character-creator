@@ -1,0 +1,56 @@
+{{!-- Spells (PLAN 3.6): cantrips, and the class's own shape — prepared, known, or a spellbook. --}}
+<div class="cc-columns cc-columns--wide">
+  <section class="cc-detail">
+    <header class="cc-pane__header">
+      <h1 class="cc-pane__title">{{stepTitle}}</h1>
+      <p class="cc-pane__hint">{{stepHint}}</p>
+    </header>
+
+    {{#unless spells.caster}}
+    <p class="cc-empty">{{localize "CHARCREATOR.Spells.NoSpells"}}</p>
+    {{else}}
+    <div class="cc-methods" role="tablist" aria-label="{{localize 'CHARCREATOR.Spells.Lists'}}">
+      {{#each spells.tabs as |t|}}
+      <button type="button" role="tab" class="cc-method{{#if t.open}} cc-method--selected{{/if}}" data-action="spell-tab"
+              data-tab="{{t.key}}" aria-selected="{{t.open}}">
+        {{localize (concat "CHARCREATOR.Spells." t.key)}} {{t.chosen}} / {{t.needed}}
+      </button>
+      {{/each}}
+    </div>
+
+    {{#with spells.open as |o|}}
+    <p class="cc-hint">{{localize (concat "CHARCREATOR.Spells." o.key "Hint")}}</p>
+    <div class="cc-cards cc-cards--spells">
+      {{#each o.list as |s|}}
+      <button type="button" class="cc-card{{#if s.selected}} cc-card--selected{{/if}}" data-action="spell" data-uuid="{{s.uuid}}"
+              data-kind="{{o.key}}" aria-pressed="{{s.selected}}" {{#if s.disabled}}disabled{{/if}}>
+        {{#if s.img}}<img src="{{s.img}}" alt="">{{/if}}
+        <span>{{s.name}}</span>
+        {{#if s.already}}<span class="cc-card__warn">{{localize "CHARCREATOR.Spells.AlreadyKnown"}}</span>{{/if}}
+      </button>
+      {{/each}}
+      {{#unless o.list.length}}<p class="cc-empty">{{localize "CHARCREATOR.Spells.NothingToShow"}}</p>{{/unless}}
+    </div>
+    {{/with}}
+    {{/unless}}
+  </section>
+
+  <aside class="cc-art cc-art--numbers">
+    {{#if spells.caster}}
+    <dl class="cc-facts">
+      {{#each spells.tabs as |t|}}
+      <div><dt>{{localize (concat "CHARCREATOR.Spells." t.key)}}</dt><dd>{{t.chosen}} / {{t.needed}}</dd></div>
+      {{/each}}
+    </dl>
+    {{#if spells.known.length}}
+    <div class="cc-known">
+      <span class="cc-points__label">{{localize "CHARCREATOR.Spells.FromElsewhere"}}</span>
+      <span>{{spells.knownText}}</span>
+    </div>
+    {{/if}}
+    {{#if spells.errors.length}}
+    <ul class="cc-problems">{{#each spells.errors as |e|}}<li class="cc-problem">{{localize e}}</li>{{/each}}</ul>
+    {{/if}}
+    {{/if}}
+  </aside>
+</div>

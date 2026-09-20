@@ -280,6 +280,19 @@
       "Roll": "Roll for gold",
       "RollHint": "The roll is posted to chat. You can only roll once.",
       "Rolled": "Rolled with"
+    },
+    "Spells": {
+      "Lists": "Spell lists",
+      "cantrips": "Cantrips",
+      "spellbook": "Spellbook",
+      "spells": "Prepared",
+      "cantripsHint": "Cantrips you can cast at will.",
+      "spellbookHint": "The level-1 spells written in your spellbook.",
+      "spellsHint": "The spells you have ready to cast. You can change these after a long rest.",
+      "NoSpells": "Your class doesn't cast spells at level 1, so there's nothing to choose here.",
+      "NothingToShow": "Nothing to choose here yet.",
+      "AlreadyKnown": "you already have it",
+      "FromElsewhere": "Already known"
     }
   }
 }

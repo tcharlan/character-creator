@@ -844,3 +844,160 @@ export function registerEquipmentStepBatch(quench) {
     });
   }, { displayName: "Character Creator: Wizard equipment" });
 }
+
+/*
+ * The Spells step (PLAN 3.6): cantrips, the class's own shape, and the counts.
+ */
+export function registerSpellsStepBatch(quench) {
+  const rules = () => game.settings.get("dnd5e", "rulesVersion");
+  const FIXED = {
+    legacy: { species: "Hill Dwarf", background: "Acolyte" },
+    modern: { species: "Human", background: "Sage" }
+  };
+
+  quench.registerBatch(`${MODULE_ID}.wizard-spells`, ({ describe, it, before, after, afterEach, assert }) => {
+    describe("Spells step, as Player A", () => {
+      let CharacterWizard;
+      let catalog;
+      let saved;
+      let app = null;
+      const el = () => app.element;
+      const query = selector => [...el().querySelectorAll(selector)];
+      const norm = u => u.replace(/^(Compendium\.[^.]+\.[^.]+\.)(?!Item\.)/, "$1Item.");
+      const pick = (category, name) => norm(catalog.byCategory[category].find(e => e.name === name).uuid);
+      const open = async className => {
+        app = await CharacterWizard.open();
+        assert.exists(app, "the wizard didn't open");
+        await app.settle();
+        const spec = FIXED[rules()];
+        await app.update(d => {
+          d.picks.species = pick("species", spec.species);
+          d.picks.background = pick("background", spec.background);
+          d.picks.class = pick("class", className);
+        }, { wait: true });
+        await app.settle();
+        await app.goTo("spells");
+        await app.settle();
+        return app;
+      };
+      const cards = () => query(".cc-cards--spells .cc-card");
+      const tabs = () => query('[data-action="spell-tab"]');
+      /** Fill the open list, then move on, until every list is done. */
+      const fillAll = async () => {
+        for ( let guard = 0; guard < 40; guard++ ) {
+          const tab = tabs().find(t => {
+            const [chosen, needed] = t.textContent.trim().split(/\s+/).slice(-3).filter(x => /^\d+$/.test(x)).map(Number);
+            return chosen < needed;
+          });
+          if ( !tab ) return true;
+          if ( tab.getAttribute("aria-selected") !== "true" ) {
+            tab.click();
+            await app.settle();
+            continue;
+          }
+          const card = cards().find(c => !c.disabled && (c.getAttribute("aria-pressed") !== "true"));
+          if ( !card ) return false;
+          card.click();
+          await app.settle();
+        }
+        return false;
+      };
+
+      before(async function() {
+        this.timeout(120_000);
+        ({ CharacterWizard } = await import("../scripts/wizard/app.mjs"));
+        catalog = await (await import("../scripts/catalog/catalog.mjs")).getCatalog();
+        saved = flag();
+        await game.user.unsetFlag(MODULE_ID, DRAFT_FLAG);
+      });
+      afterEach(async function() {
+        this.timeout(30_000);
+        if ( app?.rendered ) await app.close();
+        app = null;
+        await game.user.unsetFlag(MODULE_ID, DRAFT_FLAG);
+      });
+      after(async function() {
+        this.timeout(30_000);
+        if ( saved === undefined ) await game.user.unsetFlag(MODULE_ID, DRAFT_FLAG);
+        else await raw(saved);
+      });
+
+      it("a non-caster is told there's nothing to choose", async function() {
+        this.timeout(180_000);
+        await open("Fighter");
+        assert.lengthOf(tabs(), 0, "no lists for a Fighter at level 1");
+        assert.include(el().querySelector(".cc-empty").textContent, "doesn't cast spells");
+        assert.deepEqual(app.validation.errors.filter(e => e.step === "spells"), []);
+      });
+
+      it("a Wizard fills cantrips, a spellbook of six, and prepares from the book", async function() {
+        this.timeout(300_000);
+        await open("Wizard");
+        const keys = tabs().map(t => t.dataset.tab);
+        assert.deepEqual(keys, ["cantrips", "spellbook", "spells"]);
+        assert.isTrue(await fillAll(), "the lists couldn't be filled");
+        const { cantrips, spellbook, spells } = app.draft.spells;
+        assert.equal(spellbook.length, 6);
+        assert.isAbove(cantrips.length, 0);
+        assert.isTrue(spells.every(u => spellbook.includes(u)), "prepared spells come from the book");
+        assert.deepEqual(app.validation.errors.filter(e => e.step === "spells"), [], "the validator is happy");
+        console.log(`${MODULE_ID} | wizard spells (${rules()}): ${cantrips.length} cantrips, ${spellbook.length} in the book, ${spells.length} prepared`);
+      });
+
+      it("the prepared list only offers what's in the spellbook", async function() {
+        this.timeout(300_000);
+        await open("Wizard");
+        // Fill the book first.
+        assert.isTrue(await fillAll());
+        tabs().find(t => t.dataset.tab === "spells").click();
+        await app.settle();
+        const offered = cards().map(c => c.dataset.uuid).sort();
+        assert.deepEqual(offered, [...app.draft.spells.spellbook].sort());
+      });
+
+      it("a prepared caster picks cantrips and spells, and can't take more than the count", async function() {
+        this.timeout(300_000);
+        await open("Cleric");
+        assert.includeMembers(tabs().map(t => t.dataset.tab), ["cantrips", "spells"]);
+        assert.notInclude(tabs().map(t => t.dataset.tab), "spellbook", "a Cleric has no spellbook");
+        assert.isTrue(await fillAll());
+        const cantripTab = tabs().find(t => t.dataset.tab === "cantrips");
+        cantripTab.click();
+        await app.settle();
+        assert.isTrue(cards().filter(c => c.getAttribute("aria-pressed") !== "true").every(c => c.disabled),
+          "with the count reached, the rest are out of reach");
+        assert.deepEqual(app.validation.errors.filter(e => e.step === "spells"), []);
+      });
+
+      it("a spell the character already has is marked and can't be picked again", async function() {
+        if ( rules() !== "legacy" ) this.skip();
+        this.timeout(300_000);
+        // The 2014 High Elf knows a wizard cantrip already.
+        app = await CharacterWizard.open();
+        await app.settle();
+        await app.update(d => {
+          d.picks.species = pick("species", "High Elf");
+          d.picks.background = pick("background", "Acolyte");
+          d.picks.class = pick("class", "Wizard");
+        }, { wait: true });
+        await app.settle();
+        await app.goTo("choices");
+        await app.settle();
+        // Answer the species cantrip choice so the character really knows it.
+        const choice = app.build.results.find(r => (r.type === "ItemChoice") && (r.path[0] === "species"));
+        if ( choice ) {
+          await app.openChoice(choice.key);
+          const card = query(".cc-cards button")[0];
+          card.click();
+          await app.settle();
+        }
+        await app.goTo("spells");
+        await app.settle();
+        const known = query(".cc-known");
+        const marked = cards().filter(c => c.querySelector(".cc-card__warn"));
+        assert.isTrue((known.length > 0) || (marked.length > 0), "a known spell isn't shown as already known");
+        assert.isTrue(marked.every(c => c.disabled), "an already-known spell can still be picked");
+      });
+    });
+  }, { displayName: "Character Creator: Wizard spells" });
+}

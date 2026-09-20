@@ -18,6 +18,8 @@ import { abilitiesModel, setMethod, spendPoint, assignValue } from "./abilities-
 import { choicesModel, answerData } from "./choices-step.mjs";
 import { sourceModel, setMode, chooseBranch, setPick, setWealth, EQUIPMENT_SOURCES } from "./equipment-step.mjs";
 import { equipmentContext, rollStartingWealth } from "../rules/equipment-items.mjs";
+import { spellsModel, toggleSpell } from "./spells-step.mjs";
+import { spellContext } from "../rules/spell-facts.mjs";
 import { rollAbilityScores } from "../rules/ability-roll.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
@@ -30,7 +32,8 @@ const STEP_PARTIALS = {
   background: `modules/${MODULE_ID}/templates/steps/options.hbs`,
   abilities: `modules/${MODULE_ID}/templates/steps/abilities.hbs`,
   choices: `modules/${MODULE_ID}/templates/steps/choices.hbs`,
-  equipment: `modules/${MODULE_ID}/templates/steps/equipment.hbs`
+  equipment: `modules/${MODULE_ID}/templates/steps/equipment.hbs`,
+  spells: `modules/${MODULE_ID}/templates/steps/spells.hbs`
 };
 
 /** Shared pieces the step templates include. */
@@ -60,6 +63,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   #auto = new Set();
   #openChoice = null;
   #equipment = null;
+  #spellTab = null;
 
   static DEFAULT_OPTIONS = {
     id: "character-creator-wizard",
@@ -88,7 +92,9 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       "asi-lower": onAsiLower,
       "equip-mode": onEquipMode,
       "equip-branch": onEquipBranch,
-      "equip-roll": onEquipRoll
+      "equip-roll": onEquipRoll,
+      "spell-tab": onSpellTab,
+      spell: onSpell
     }
   };
 
@@ -311,6 +317,22 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     await this.settle();
   }
 
+  /** Show one of the spell lists (cantrips, spellbook, prepared). */
+  async openSpellList(tab) {
+    this.#spellTab = tab;
+    await this.render({ parts: ["body"] });
+  }
+
+  /** Choose or drop a spell in the open list. */
+  async toggleSpell(kind, uuid) {
+    const context = spellContext(this.#build, this.#catalog);
+    let changed = false;
+    await this.update(d => {
+      changed = !!toggleSpell(d, kind, uuid, context.req, context.owned);
+    });
+    if ( changed ) await this.settle();
+  }
+
   /** Filter the option list of the current step. */
   async search(text) {
     this.#search[this.#current] = text;
@@ -427,6 +449,13 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   /** Whatever the current step's pane needs (PLAN 3.2: the option steps). */
   async #stepContext() {
     if ( this.#current === "equipment" ) return { equipment: this.#equipmentModel() };
+    if ( this.#current === "spells" ) {
+      const context = spellContext(this.#build, this.#catalog);
+      const model = spellsModel(context, this.draft, this.#spellTab, this.#catalog);
+      this.#spellTab = model.open?.key ?? null;
+      return { spells: { ...model, knownText: model.known.join(", "),
+        errors: (this.#validation?.errors ?? []).filter(e => e.step === "spells").map(e => e.key) } };
+    }
     if ( this.#current === "choices" ) {
       const choices = choicesModel(this.#build, this.#catalog, this.#openChoice);
       this.#openChoice = choices.open?.key ?? null;
@@ -629,6 +658,14 @@ function onEquipBranch(event, target) {
 
 function onEquipRoll(event, target) {
   return this.rollWealth(target.dataset.role);
+}
+
+function onSpellTab(event, target) {
+  return this.openSpellList(target.dataset.tab);
+}
+
+function onSpell(event, target) {
+  return this.toggleSpell(target.dataset.kind, target.dataset.uuid);
 }
 
 function onStep(event, target) {

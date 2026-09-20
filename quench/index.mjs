@@ -6,7 +6,7 @@ import { registerPhase2Batch } from "./phase2.mjs";
 import { registerPortraitBatches, registerPortraitTestQueries } from "./portrait.mjs";
 import { registerSpeciesBatch } from "./species.mjs";
 import { registerArtBatch } from "./art.mjs";
-import { registerWizardBatches, registerOptionStepBatches, registerAbilityStepBatch, registerChoicesStepBatch, registerEquipmentStepBatch } from "./wizard.mjs";
+import { registerWizardBatches, registerOptionStepBatches, registerAbilityStepBatch, registerChoicesStepBatch, registerEquipmentStepBatch, registerSpellsStepBatch } from "./wizard.mjs";
 import { registerCatalogBatches, registerCatalogTestQueries } from "./catalog.mjs";
 import { registerRulesBatches } from "./rules.mjs";
 import { registerAbilityBatches, registerAbilityTestQueries } from "./abilities.mjs";
@@ -48,5 +48,6 @@ export function registerQuenchBatches(quench) {
   registerAbilityStepBatch(quench);
   registerChoicesStepBatch(quench);
   registerEquipmentStepBatch(quench);
+  registerSpellsStepBatch(quench);
   registerPhase2Batch(quench);
 }
