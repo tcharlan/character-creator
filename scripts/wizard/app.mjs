@@ -21,6 +21,7 @@ import { sourceModel, setMode, chooseBranch, setPick, setWealth, EQUIPMENT_SOURC
 import { equipmentContext, rollStartingWealth } from "../rules/equipment-items.mjs";
 import { spellsModel, toggleSpell } from "./spells-step.mjs";
 import { spellContext } from "../rules/spell-facts.mjs";
+import { traitReference, summaryCached, summariesReady, loadSummaries, spellMeta } from "./descriptions.mjs";
 import { detailsModel, setDetail, PERSONALITY } from "./details-step.mjs";
 import { portraitModel, setImage, clearImage, skipPortrait, setRingColor } from "./portrait-step.mjs";
 import { preparePortrait } from "../portrait/prepare.mjs";
@@ -575,6 +576,24 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     }
   }
 
+  /**
+   * Add the short explanation each row has (a skill's rules page, a spell's own card). Whatever is loaded is
+   * handed out now; the rest is fetched in the background and the step renders again when it arrives, so a
+   * click never waits for a compendium read.
+   * @param {object[]} rows
+   * @param {(row) => string|null} source   The document each row is explained by.
+   */
+  #described(rows, source) {
+    const uuids = rows.map(row => source(row));
+    if ( !summariesReady(uuids) ) {
+      const step = this.#current;
+      loadSummaries(uuids)
+        .then(() => (this.rendered && (this.#current === step)) ? this.render({ parts: ["body"] }) : null)
+        .catch(err => console.warn(`${MODULE_ID} | couldn't read the descriptions`, err));
+    }
+    return rows.map((row, i) => ({ ...row, hint: summaryCached(uuids[i]) }));
+  }
+
   /** Each source's starting-equipment tree, candidates and proficiency, for the equipment step. */
   async #equipmentContexts() {
     const contexts = {};
@@ -662,12 +681,19 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       const context = spellContext(this.#build, this.#catalog);
       const model = spellsModel(context, this.draft, this.#spellTab, this.#catalog);
       this.#spellTab = model.open?.key ?? null;
-      return { spells: { ...model, knownText: model.known.join(", "),
+      const open = model.open ? { ...model.open, list: this.#described(model.open.list.map(s => ({ ...s,
+        meta: spellMeta(this.#catalog?.get?.(s.uuid)) })), s => s.uuid) } : null;
+      return { spells: { ...model, open, knownText: model.known.join(", "),
         errors: (this.#validation?.errors ?? []).filter(e => e.step === "spells").map(e => e.key) } };
     }
     if ( this.#current === "choices" ) {
       const choices = choicesModel(this.#build, this.#catalog, this.#openChoice);
       this.#openChoice = choices.open?.key ?? null;
+      const widget = choices.open?.widget;
+      if ( widget?.type === "Trait" ) {
+        choices.open = { ...choices.open,
+          widget: { ...widget, list: this.#described(widget.list, o => traitReference(o.key)) } };
+      }
       return { choices };
     }
     if ( this.#current === "abilities" ) {

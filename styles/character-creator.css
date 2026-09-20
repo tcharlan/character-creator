@@ -725,3 +725,14 @@ li.notification button.cc-entry-prompt {
 }
 
 .cc-field__problem { margin: 0; font-size: 13px; color: var(--cc-warn); }
+
+/* What an option is for (PLAN 3.11): a line of plain text from the compendium, under the option's name. */
+.cc-key--described { align-items: flex-start; padding: 10px 12px; }
+.cc-key__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cc-key__hint { font-size: 12px; line-height: 1.4; color: var(--cc-muted); }
+
+.cc-card--spell { align-items: flex-start; }
+.cc-card__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cc-card__name { font-weight: 500; }
+.cc-card__meta { font-size: 12px; letter-spacing: 0.04em; color: var(--cc-gold); }
+.cc-card__hint { font-size: 12px; line-height: 1.4; color: var(--cc-muted); }

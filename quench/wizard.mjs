@@ -715,6 +715,22 @@ export function registerChoicesStepBatch(quench) {
         }
       });
 
+      it("a skill choice says what each skill is for, from the rules compendium", async function() {
+        this.timeout(180_000);
+        await open();
+        const skills = app.build.results.find(r => (r.type === "Trait")
+          && (r.options.allowed ?? []).some(k => k.startsWith("skills:")));
+        assert.exists(skills, "no skill choice in this build");
+        await app.openChoice(skills.key);
+        // The explanations are read from the compendium after the first render.
+        const hints = () => query(".cc-key__hint").map(n => n.textContent.trim()).filter(Boolean);
+        for ( let i = 0; i < 100 && !hints().length; i++ ) await new Promise(r => setTimeout(r, 100));
+        assert.isNotEmpty(hints(), "no explanation under any skill");
+        assert.isAbove(hints()[0].length, 10, "the explanation is a sentence, not a stub");
+        const { traitReference } = await import("../scripts/wizard/descriptions.mjs");
+        assert.exists(traitReference("skills:ath"), "dnd5e documents the skills; the key should find the page");
+      });
+
       it("every choice can be answered through the widgets, and nothing is left open", async function() {
         this.timeout(600_000);
         await open();
@@ -999,6 +1015,18 @@ export function registerSpellsStepBatch(quench) {
         assert.isTrue(spells.every(u => spellbook.includes(u)), "prepared spells come from the book");
         assert.deepEqual(app.validation.errors.filter(e => e.step === "spells"), [], "the validator is happy");
         console.log(`${MODULE_ID} | wizard spells (${rules()}): ${cantrips.length} cantrips, ${spellbook.length} in the book, ${spells.length} prepared`);
+      });
+
+      it("each spell says its level, its school and what it does", async function() {
+        this.timeout(180_000);
+        await open("Cleric");
+        if ( !app.element.querySelector(".cc-cards--spells .cc-card") ) this.skip();   // not a caster
+        const meta = () => query(".cc-card__meta").map(n => n.textContent.trim()).filter(Boolean);
+        const hints = () => query(".cc-card__hint").map(n => n.textContent.trim()).filter(Boolean);
+        assert.isNotEmpty(meta(), "no level or school on the cards");
+        for ( let i = 0; i < 100 && !hints().length; i++ ) await new Promise(r => setTimeout(r, 100));
+        assert.isNotEmpty(hints(), "no description under any spell");
+        assert.isAbove(hints()[0].length, 10, "the description is a sentence, not a stub");
       });
 
       it("the prepared list only offers what's in the spellbook", async function() {

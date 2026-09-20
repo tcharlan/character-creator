@@ -13,7 +13,7 @@ import { buildCatalogData, isAllowed, shortfall, normalizeUuid, NO_RESTRICTIONS 
  * categories and rules, class links, equipment categories, spell levels, magic, grants and kits.
  */
 export const INDEX_FIELDS = Object.freeze(["type", "img", "system.identifier", "system.source", "system.classIdentifier",
-  "system.type.value", "system.type.subtype", "system.type.baseItem", "system.level", "system.properties",
+  "system.type.value", "system.type.subtype", "system.type.baseItem", "system.level", "system.school", "system.properties",
   "system.rarity", "system.advancement", "system.startingEquipment"]);
 
 /** World settings whose change invalidates the catalog. */

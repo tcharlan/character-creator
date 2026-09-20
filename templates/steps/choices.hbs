@@ -45,9 +45,12 @@
       <p class="cc-hint">{{localize "CHARCREATOR.Choices.Chosen"}} {{w.chosen}} / {{w.needed}}</p>
       <div class="cc-keys">
         {{#each w.list as |o|}}
-        <label class="cc-key{{#if o.checked}} cc-key--checked{{/if}}">
+        <label class="cc-key{{#if o.checked}} cc-key--checked{{/if}}{{#if o.hint}} cc-key--described{{/if}}">
           <input type="checkbox" class="cc-toggle" data-toggle="trait" data-key="{{o.key}}" {{#if o.checked}}checked{{/if}} {{#if o.disabled}}disabled{{/if}}>
-          <span>{{o.label}}</span>
+          <span class="cc-key__text">
+            <span>{{o.label}}</span>
+            {{#if o.hint}}<span class="cc-key__hint">{{o.hint}}</span>{{/if}}
+          </span>
           {{#if o.granted}}<span class="cc-key__note">{{localize "CHARCREATOR.Choices.Granted"}}</span>{{/if}}
         </label>
         {{/each}}

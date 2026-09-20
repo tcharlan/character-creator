@@ -22,10 +22,14 @@
     <p class="cc-hint">{{localize (concat "CHARCREATOR.Spells." o.key "Hint")}}</p>
     <div class="cc-cards cc-cards--spells">
       {{#each o.list as |s|}}
-      <button type="button" class="cc-card{{#if s.selected}} cc-card--selected{{/if}}" data-action="spell" data-uuid="{{s.uuid}}"
-              data-kind="{{o.key}}" aria-pressed="{{s.selected}}" {{#if s.disabled}}disabled{{/if}}>
+      <button type="button" class="cc-card cc-card--spell{{#if s.selected}} cc-card--selected{{/if}}" data-action="spell"
+              data-uuid="{{s.uuid}}" data-kind="{{o.key}}" aria-pressed="{{s.selected}}" {{#if s.disabled}}disabled{{/if}}>
         {{#if s.img}}<img src="{{s.img}}" alt="">{{/if}}
-        <span>{{s.name}}</span>
+        <span class="cc-card__text">
+          <span class="cc-card__name">{{s.name}}</span>
+          {{#if s.meta}}<span class="cc-card__meta">{{s.meta}}</span>{{/if}}
+          {{#if s.hint}}<span class="cc-card__hint">{{s.hint}}</span>{{/if}}
+        </span>
         {{#if s.already}}<span class="cc-card__warn">{{localize "CHARCREATOR.Spells.AlreadyKnown"}}</span>{{/if}}
       </button>
       {{/each}}
