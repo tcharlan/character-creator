@@ -169,16 +169,15 @@ export async function rollStartingWealth(draft, source, wealth) {
 }
 
 /**
- * GM check of a source's wealth roll against the chat record. Also rejects rolling and then taking the
- * items instead (A10), even with the roll removed from the draft.
+ * GM check of a source's wealth roll against the chat record. Rolling and then taking the items instead is
+ * fine (D26): the roll is kept with the draft, unused, and taking the gold again uses that same roll.
  */
 export function checkWealthRoll(draft, source, selection, wealth, { userId }) {
   const option = wealthOption(wealth);
-  const onRecord = rollMessagesFor(draft.id, userId, ROLL_PURPOSE.WEALTH, source);
   const rolledMode = selection?.mode === "wealth" && option?.number;
-  if ( !rolledMode ) {
-    return onRecord.length ? [makeError("WEALTH_ROLL_INVALID", { source, rolledButMode: selection?.mode ?? null, messages: onRecord })] : [];
-  }
+  // Taking the items: the roll is simply unused (D26).
+  if ( !rolledMode ) return [];
+  const onRecord = rollMessagesFor(draft.id, userId, ROLL_PURPOSE.WEALTH, source);
   const messageId = selection.wealth?.messageId;
   const record = readRollRecord(messageId ? game.messages.get(messageId) : null);
   return checkRecord(record, { code: "WEALTH_ROLL_INVALID", draftId: draft.id, userId, purpose: ROLL_PURPOSE.WEALTH, source,

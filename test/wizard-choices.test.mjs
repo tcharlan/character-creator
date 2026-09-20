@@ -133,3 +133,18 @@ test("every type the widgets cover has an answer path", () => {
     assert.doesNotThrow(() => choicesModel({ results: [r] }, catalog), type);
   }
 });
+
+test("at the count, the rest are out of reach on screen, not just refused", () => {
+  const trait = { type: "Trait", allowed: ["skills:his", "skills:ins", "skills:med"], grants: [], max: 2 };
+  const widget = data => choicesModel({ results: [result({ options: trait, data })] }, catalog).open.widget;
+  assert.deepEqual(widget({ chosen: ["skills:his"] }).list.map(o => o.disabled), [false, false, false],
+    "room for one more");
+  assert.deepEqual(widget({ chosen: ["skills:his", "skills:ins"] }).list.map(o => o.disabled), [false, false, true],
+    "the two chosen can still be turned off; the third can't be turned on");
+
+  const items = { type: "ItemChoice", itemType: "feat", count: 1, options: [U("a"), U("b")] };
+  const cards = data => choicesModel({ results: [result({ type: "ItemChoice", options: items, data })] }, catalog)
+    .open.widget.list;
+  assert.deepEqual(cards(null).map(o => o.disabled), [false, false]);
+  assert.deepEqual(cards({ selected: [U("a")] }).map(o => o.disabled), [false, true]);
+});

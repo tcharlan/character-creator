@@ -56,8 +56,8 @@ export function checkAbilities(abilities, { allowedMethods = ABILITY_METHODS } =
   if ( !ABILITY_METHODS.includes(method) || !allowedMethods.includes(method) ) {
     return [makeError("ABILITY_METHOD_NOT_ALLOWED", { method, allowed: [...allowedMethods] })];
   }
-  // A10: rolled results lock in — rolling and then switching to another method isn't allowed.
-  if ( roll && method !== "rolled" ) return [makeError("ROLL_INVALID", { rolledButMethod: method })];
+  // D26: a roll stays with the draft even when another method is chosen — it is simply not used. One roll per
+  // draft still holds (A10), which is what the chat record checks.
 
   const scores = scoresOf(base);
   const missing = ABILITIES.filter((k, i) => !Number.isInteger(scores[i]));

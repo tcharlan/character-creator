@@ -304,15 +304,15 @@ export function registerEquipmentBatches(quench) {
         d.equipment.class.wealth.messageId = a.messageId;
         assert.deepEqual(why(await check(d)), ["WEALTH_ROLL_INVALID:wrongDraft"]);
       });
-      it("rolling again, or rolling and then taking the items, is rejected", async () => {
+      it("rolling again is rejected; rolling and then taking the items is not (D26)", async () => {
         const d = await rolled();
         const second = await EQ.rollStartingWealth({ id: d.id, equipment: {} }, "class", base.wealth);   // bypassing the lock
         d.equipment.class.wealth = second;
         assert.deepEqual(why(await check(d)), ["WEALTH_ROLL_INVALID:rerolled"]);
         const e = await rolled();
         e.equipment.class = null;   // back to items with the default choices below
-        const res = await check(e);
-        assert.include(why(res), "WEALTH_ROLL_INVALID:rolledButMode");
+        assert.notInclude(why(await check(e)).join(" "), "WEALTH_ROLL_INVALID",
+          "the roll is kept with the draft, unused");
       });
     });
   }, { displayName: "Character Creator: Starting wealth roll" });

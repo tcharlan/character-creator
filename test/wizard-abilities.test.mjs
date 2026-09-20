@@ -24,13 +24,14 @@ test("choosing a method starts it off: point buy at the minimum, the others unas
   assert.deepEqual(checkDraftShape(d), []);
 });
 
-test("switching method clears the old scores; a roll is kept (A10)", () => {
-  const rolled = { method: "rolled", base: { str: 15, dex: 14, con: 13, int: 12, wis: 10, cha: 8 },
-    roll: { messageId: ID("m"), results: [15, 14, 13, 12, 10, 8] } };
+test("switching method clears the old scores, but never the roll (D26)", () => {
+  const roll = { messageId: ID("m"), results: [15, 14, 13, 12, 10, 8] };
+  const rolled = { method: "rolled", base: { str: 15, dex: 14, con: 13, int: 12, wis: 10, cha: 8 }, roll };
   const d = setMethod(draft(rolled), "pointBuy");
   assert.equal(d.abilities.base.str, 8);
-  assert.equal(d.abilities.roll, null, "point buy has no roll");
+  assert.deepEqual(d.abilities.roll, roll, "the roll is kept aside, so it can never be rolled twice");
   const back = setMethod(d, "rolled");
+  assert.deepEqual(back.abilities.roll, roll, "and it is there again on the way back");
   assert.deepEqual(back.abilities.base, { str: null, dex: null, con: null, int: null, wis: null, cha: null },
     "the scores are assigned again from the roll");
 });

@@ -96,3 +96,15 @@ test("errors are grouped by the wizard step to revisit, in step order", () => {
     [["start", ["CHARACTER_LIMIT"]], ["class", ["CLASS_NOT_ALLOWED"]], ["details", ["NAME_REQUIRED"]]]);
   assert.deepEqual(errorsByStep([]), []);
 });
+
+test("details: the name is required, and the numeric fields can't be nonsense", () => {
+  const details = over => ({ details: { name: "Brenna", age: "", height: "", weight: "", ...over } });
+  assert.deepEqual(checkDetails(details()), []);
+  assert.deepEqual(checkDetails(details({ age: "1,000", height: "6 ft", weight: "180 lb" })), []);
+  assert.deepEqual(checkDetails(details({ name: "  " })).map(e => e.code), ["NAME_REQUIRED"]);
+  const bad = checkDetails(details({ age: "-4" }));
+  assert.deepEqual(bad.map(e => e.code), ["DETAIL_INVALID"]);
+  assert.deepEqual(bad[0].detail, { field: "age", problem: "negative" });
+  assert.equal(bad[0].step, "details", "it points at the step to revisit");
+  assert.deepEqual(checkDetails(details({ age: "ancient", weight: "-2" })).map(e => e.detail.field), ["age", "weight"]);
+});

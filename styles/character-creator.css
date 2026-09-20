@@ -723,3 +723,5 @@ li.notification button.cc-entry-prompt {
   line-height: 1.6;
   vertical-align: baseline;
 }
+
+.cc-field__problem { margin: 0; font-size: 13px; color: var(--cc-warn); }

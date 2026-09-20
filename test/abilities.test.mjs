@@ -61,11 +61,12 @@ test("rolled: the scores are the recorded results, assigned in any order", () =>
   assert.deepEqual(codes(checkAbilities({ ...ok, roll: { ...ok.roll, results: results.slice(0, 5) } })), ["ROLL_INVALID"]);
 });
 
-test("rolled results lock in: switching method after rolling is rejected (A10)", () => {
+test("a roll kept aside while another method is chosen is fine (D26)", () => {
   const roll = { messageId: "a".repeat(16), results: [15, 14, 13, 12, 10, 8] };
-  const errs = checkAbilities({ method: "standardArray", base: base(...STANDARD_ARRAY), roll });
-  assert.deepEqual(codes(errs), ["ROLL_INVALID"]);
-  assert.deepEqual(detail(errs), { rolledButMethod: "standardArray" });
+  assert.deepEqual(checkAbilities({ method: "standardArray", base: base(...STANDARD_ARRAY), roll }), [],
+    "the roll stays with the draft, unused; only the chosen method is checked");
+  assert.deepEqual(codes(checkAbilities({ method: "standardArray", base: base(15, 15, 13, 12, 10, 8), roll })),
+    ["STANDARD_ARRAY_INVALID"], "and the chosen method is still checked");
 });
 
 /* -------------------------------------------- */

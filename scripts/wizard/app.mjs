@@ -304,7 +304,12 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     if ( !open ) return;
     const result = this.#build.results.find(r => r.key === open.key);
     const data = answerData(result, click);
-    if ( !data ) return;
+    if ( !data ) {
+      // The click changes nothing (one pick too many, a granted trait). A checkbox has already ticked itself,
+      // so put the screen back the way the draft says it is.
+      await this.render({ parts: ["body"] });
+      return;
+    }
     this.#openChoice = open.key;
     await this.update(d => answerStep(d, result, data));
     await this.settle();

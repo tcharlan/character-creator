@@ -5,6 +5,7 @@
  */
 
 import { DETAIL_FIELDS, LIMITS } from "../contracts.mjs";
+import { detailProblem } from "../rules/draft-checks.mjs";
 
 /** Fields that get a text area rather than a line. */
 const LONG = Object.freeze(["appearance", "biography", "traits", "ideals", "bonds", "flaws"]);
@@ -40,14 +41,18 @@ export function setDetail(draft, field, value) {
  */
 export function detailsModel(draft, { rules, tables = {} } = {}) {
   const details = draft?.details ?? {};
-  const fields = fieldsFor(rules).map(key => ({
-    key,
-    value: details[key] ?? "",
-    long: LONG.includes(key),
-    required: key === "name",
-    max: maxLength(key),
-    table: tables[key] ?? null
-  }));
+  const fields = fieldsFor(rules).map(key => {
+    const problem = detailProblem(key, details[key]);
+    return {
+      key,
+      value: details[key] ?? "",
+      long: LONG.includes(key),
+      required: key === "name",
+      max: maxLength(key),
+      table: tables[key] ?? null,
+      problem: problem ? `CHARCREATOR.Details.Problem.${problem}` : null
+    };
+  });
   return {
     fields,
     name: details.name ?? "",

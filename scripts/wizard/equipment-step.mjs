@@ -105,11 +105,15 @@ export function sourceModel({ role, name, tree, wealthOption, candidates, isProf
 
 const blank = () => ({ mode: "items", choices: {}, picks: {} });
 
-/** Take the items, or the starting wealth (D23: one source at a time). */
+/**
+ * Take the items, or the starting wealth (D23: one source at a time). A roll made for this source stays on
+ * the draft either way (D26), so switching back to the gold finds the same total and never rolls twice.
+ */
 export function setMode(draft, role, mode) {
   const current = draft.equipment[role] ?? blank();
-  if ( mode === "wealth" ) draft.equipment[role] = { mode: "wealth", choices: {}, picks: {}, ...(current.wealth ? { wealth: current.wealth } : {}) };
-  else draft.equipment[role] = { mode: "items", choices: current.choices ?? {}, picks: current.picks ?? {} };
+  const wealth = current.wealth ? { wealth: current.wealth } : {};
+  if ( mode === "wealth" ) draft.equipment[role] = { mode: "wealth", choices: {}, picks: {}, ...wealth };
+  else draft.equipment[role] = { mode: "items", choices: current.choices ?? {}, picks: current.picks ?? {}, ...wealth };
   return draft;
 }
 

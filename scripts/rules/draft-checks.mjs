@@ -69,8 +69,33 @@ export function checkBuiltStructure(summary, { isAllowed }) {
 }
 
 /** Name present (after trimming). */
+/**
+ * Detail fields that hold a number. Kept deliberately loose: this is a fantasy setting, so "1,000" and
+ * "6 ft 2 in" are fine — only a negative number, or an age with no number in it at all, is not.
+ */
+export const NUMERIC_DETAILS = Object.freeze({ age: { needsNumber: true }, height: {}, weight: {} });
+
+/**
+ * What's wrong with one detail field, if anything.
+ * @returns {"negative"|"notANumber"|null}
+ */
+export function detailProblem(field, value) {
+  const rule = NUMERIC_DETAILS[field];
+  const text = String(value ?? "").trim();
+  if ( !rule || !text ) return null;
+  if ( /[-\u2212]\s*\d/.test(text) ) return "negative";
+  if ( rule.needsNumber && !/\d/.test(text) ) return "notANumber";
+  return null;
+}
+
 export function checkDetails(draft) {
-  return String(draft?.details?.name ?? "").trim() ? [] : [makeError("NAME_REQUIRED")];
+  const details = draft?.details ?? {};
+  const errors = String(details.name ?? "").trim() ? [] : [makeError("NAME_REQUIRED")];
+  for ( const field of Object.keys(NUMERIC_DETAILS) ) {
+    const problem = detailProblem(field, details[field]);
+    if ( problem ) errors.push(makeError("DETAIL_INVALID", { field, problem }));
+  }
+  return errors;
 }
 
 /** A portrait sent with the submission (optional): WebP within the size limits. */

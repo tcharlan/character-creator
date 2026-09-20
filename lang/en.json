@@ -59,7 +59,8 @@
       "UPLOADS_DISABLED": "Your GM has turned portrait uploads off.",
       "NO_ACTOR": "That character no longer exists.",
       "NOT_OWNER": "You can only change the portrait of your own character.",
-      "UPLOAD_FAILED": "The portrait couldn't be saved. Your character is fine; try uploading it again later."
+      "UPLOAD_FAILED": "The portrait couldn't be saved. Your character is fine; try uploading it again later.",
+      "DETAIL_INVALID": "Check the age, height and weight: they should be numbers (as large as you like, but not negative)."
     },
     "AbilityRoll": {
       "Flavor": "Ability scores for a new character (4d6, drop the lowest, six times)"
@@ -347,7 +348,11 @@
       "flaws": "Flaws",
       "Required": "needed",
       "Roll": "Roll one",
-      "PersonalityHint": "Personality traits, ideals, bonds and flaws are yours to write — or roll from your background's tables."
+      "PersonalityHint": "Personality traits, ideals, bonds and flaws are yours to write — or roll from your background's tables.",
+      "Problem": {
+        "negative": "That can't be a negative number.",
+        "notANumber": "Give this as a number — 300, or 1,000 if you like."
+      }
     },
     "Review": {
       "Level": "level",

@@ -24,8 +24,8 @@ export async function rollAbilityScores(draft) {
 
 /**
  * Full ability check for the GM's validator (PLAN 2.6 wires it in): the scores for their method, and for
- * rolled scores the chat record. Also rejects a draft that rolled and then switched method, even if the
- * player cleared the roll from the draft.
+ * rolled scores the chat record. A draft that rolled and then chose another method is fine (D26): the roll
+ * is kept aside, unused, and only the chosen method's scores are checked.
  * @param {object} draft
  * @param {{ userId: string, allowedMethods?: string[] }} options
  * @returns {object[]} makeError() objects
@@ -34,10 +34,9 @@ export function checkDraftAbilities(draft, { userId, allowedMethods } = {}) {
   const a = draft.abilities ?? {};
   const errors = checkAbilities(a, { allowedMethods });
   if ( errors.length ) return errors;
+  // Another method: whatever was rolled is unused, so there is nothing to check against chat (D26).
+  if ( a.method !== "rolled" ) return [];
   const onRecord = rollMessagesFor(draft.id, userId, ROLL_PURPOSE.ABILITIES);
-  if ( a.method !== "rolled" ) {
-    return onRecord.length ? [makeError("ROLL_INVALID", { rolledButMethod: a.method, messages: onRecord })] : [];
-  }
   const record = readRollRecord(game.messages.get(a.roll.messageId));
   return checkRollRecord(record, { draftId: draft.id, userId, results: a.roll.results,
     others: onRecord.filter(id => id !== a.roll.messageId) });

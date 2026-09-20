@@ -32,10 +32,11 @@ function traitWidget(result) {
   const chosen = data?.chosen ?? [];
   const granted = new Set(options.grants ?? []);
   const needed = options.max ?? 0;
+  const full = chosen.length >= needed;
   const list = (options.allowed ?? []).map(key => ({
     key, label: label(key), checked: chosen.includes(key), granted: granted.has(key),
     // Only the picks beyond the grants can be turned off, and nothing beyond the count can be turned on.
-    disabled: granted.has(key) && chosen.includes(key)
+    disabled: (granted.has(key) && chosen.includes(key) && !options.replacements) || (full && !chosen.includes(key))
   }));
   return { type: "Trait", list, chosen: chosen.length, needed, replacements: !!options.replacements };
 }
@@ -44,12 +45,15 @@ function traitWidget(result) {
 function itemChoiceWidget(result, catalog) {
   const { options, data } = result;
   const selected = data?.selected ?? [];
+  const full = selected.length >= options.count;
   return {
     type: "ItemChoice",
     itemType: options.itemType,
     needed: options.count,
     chosen: selected.length,
-    list: (options.options ?? []).map(uuid => ({ ...entry(catalog, uuid), selected: selected.includes(uuid) })),
+    // Past the count the rest are out of reach rather than hidden, so the screen never shows an illegal pick.
+    list: (options.options ?? []).map(uuid => ({ ...entry(catalog, uuid), selected: selected.includes(uuid),
+      disabled: full && !selected.includes(uuid) })),
     ability: abilityWidget(options, data)
   };
 }

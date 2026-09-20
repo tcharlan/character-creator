@@ -142,10 +142,14 @@ export function registerAbilityBatches(quench) {
         assert.deepEqual(why(await check(d)), ["ROLL_INVALID:rerolled"]);
       });
 
-      it("the GM rejects switching method after rolling, even with the roll removed from the draft", async () => {
+      it("a roll kept aside while another method is chosen is accepted (D26)", async () => {
         const d = await rolledDraft();
-        d.abilities = { method: "standardArray", base: { str: 15, dex: 14, con: 13, int: 12, wis: 10, cha: 8 }, roll: null };
-        assert.deepEqual(why(await check(d)), ["ROLL_INVALID:rolledButMethod"]);
+        const roll = d.abilities.roll;
+        d.abilities = { method: "standardArray", base: { str: 15, dex: 14, con: 13, int: 12, wis: 10, cha: 8 }, roll };
+        assert.deepEqual(await check(d), [], "the roll stays with the draft and is simply unused");
+        // The same holds when the player never kept it on the draft.
+        d.abilities.roll = null;
+        assert.deepEqual(await check(d), []);
       });
 
       it("point buy and standard array need no chat record", async () => {

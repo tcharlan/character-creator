@@ -63,3 +63,16 @@ test("the model marks which fields are long, and which can be rolled", () => {
   assert.equal(model.fields.find(f => f.key === "pronouns").long, false);
   assert.equal(detailsModel(d, { rules: "modern" }).personality, false);
 });
+
+test("the numeric details are checked, but only just: no negatives, and an age is a number", () => {
+  const model = over => detailsModel({ details: { name: "Brenna", ...over } }, { rules: "modern" });
+  const problem = (over, field) => model(over).fields.find(f => f.key === field).problem;
+  assert.equal(problem({ age: "1,000" }, "age"), null, "a very old elf is fine");
+  assert.equal(problem({ age: "300 years" }, "age"), null);
+  assert.equal(problem({ age: "" }, "age"), null, "an empty field is fine");
+  assert.equal(problem({ age: "-4" }, "age"), "CHARCREATOR.Details.Problem.negative");
+  assert.equal(problem({ age: "ancient" }, "age"), "CHARCREATOR.Details.Problem.notANumber");
+  assert.equal(problem({ height: "tall" }, "height"), null, "height and weight take any words");
+  assert.equal(problem({ weight: "-20 lb" }, "weight"), "CHARCREATOR.Details.Problem.negative");
+  assert.equal(problem({ eyes: "-blue" }, "eyes"), null, "only the numeric fields are checked");
+});

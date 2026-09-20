@@ -60,7 +60,7 @@
       <div class="cc-cards">
         {{#each w.list as |o|}}
         <button type="button" class="cc-card{{#if o.selected}} cc-card--selected{{/if}}" data-action="item" data-uuid="{{o.uuid}}"
-                aria-pressed="{{o.selected}}">
+                aria-pressed="{{o.selected}}" {{#if o.disabled}}disabled{{/if}}>
           {{#if o.img}}<img src="{{o.img}}" alt="">{{/if}}<span>{{o.name}}</span>
         </button>
         {{/each}}

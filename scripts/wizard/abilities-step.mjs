@@ -13,10 +13,13 @@ export function startingScores(method) {
   return Object.fromEntries(ABILITIES.map(a => [a, null]));
 }
 
-/** Switch method: the scores that belong to the old one go, and a rolled draft keeps its roll (A10). */
+/**
+ * Switch method: the scores that belong to the old one go, but the roll stays with the draft (D26), so
+ * coming back to the rolled method finds the same results and there is never a second roll (A10).
+ */
 export function setMethod(draft, method) {
   if ( !ABILITY_METHODS.includes(method) || (draft.abilities.method === method) ) return draft;
-  draft.abilities = { method, base: startingScores(method), roll: method === "rolled" ? draft.abilities.roll : null };
+  draft.abilities = { method, base: startingScores(method), roll: draft.abilities.roll ?? null };
   return draft;
 }
 
