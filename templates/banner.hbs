@@ -1,0 +1,14 @@
+{{!-- Step banner (PLAN 3.1): roman numeral, step name, and the pick made so far. --}}
+<nav class="cc-banner" aria-label="{{localize 'CHARCREATOR.Nav.Steps'}}">
+  {{#each steps as |s|}}
+  <button type="button" class="cc-step cc-step--{{s.state}}" data-action="step" data-step="{{s.key}}"
+          {{#if s.locked}}disabled{{/if}} {{#if (eq s.state "current")}}aria-current="step"{{/if}}>
+    <span class="cc-step__numeral">{{s.numeral}}</span>
+    <span class="cc-step__name">{{localize (concat "CHARCREATOR.Step." s.key ".Title")}}</span>
+    <span class="cc-step__label">
+      {{~#if s.label}}{{s.label}}{{else if (eq s.state "current")}}{{localize "CHARCREATOR.Nav.Choosing"}}{{/if~}}
+    </span>
+    {{#if s.count}}<span class="cc-step__count" aria-label="{{localize 'CHARCREATOR.Nav.NeedsAttention'}}">{{s.count}}</span>{{/if}}
+  </button>
+  {{/each}}
+</nav>

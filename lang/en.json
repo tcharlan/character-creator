@@ -100,6 +100,99 @@
         "Name": "Default token ring colors",
         "Hint": "Used when a player doesn't choose ring colors. Unset means the player's user color."
       }
+    },
+    "Nav": {
+      "Steps": "Creation steps",
+      "Choosing": "Choosing…",
+      "Chosen": "Chosen",
+      "NeedsAttention": "Needs attention",
+      "GoToStep": "Go to this step",
+      "Next": "Next: {step}",
+      "Review": "Review",
+      "Start": "Start",
+      "Discard": "Discard draft",
+      "Working": "Rebuilding your character…",
+      "AllGood": "Everything checks out so far. Your draft is saved as you go.",
+      "Attention": "Things to fix:"
+    },
+    "Step": {
+      "species": {
+        "Title": "Species",
+        "Hint": "Choose your species. Its traits, speed and size come with it."
+      },
+      "class": {
+        "Title": "Class",
+        "Hint": "Choose your class. It sets your hit points, proficiencies and level-1 features."
+      },
+      "background": {
+        "Title": "Background",
+        "Hint": "Choose your background. It adds skills, tools and starting equipment."
+      },
+      "abilities": {
+        "Title": "Ability scores",
+        "Hint": "Set your six ability scores with a method your GM allows."
+      },
+      "choices": {
+        "Title": "Choices",
+        "Hint": "Make the choices your species, background and class offer at level 1."
+      },
+      "equipment": {
+        "Title": "Equipment",
+        "Hint": "Take your starting equipment, or the starting wealth where it's offered."
+      },
+      "spells": {
+        "Title": "Spells",
+        "Hint": "Choose your cantrips and level-1 spells."
+      },
+      "details": {
+        "Title": "Details",
+        "Hint": "Name your character and add the details you want."
+      },
+      "portrait": {
+        "Title": "Portrait",
+        "Hint": "Upload a portrait, or skip it and add one later."
+      },
+      "review": {
+        "Title": "Review",
+        "Hint": "Check everything, then create your character."
+      }
+    },
+    "Summary": {
+      "Allowed": "Options your GM allows",
+      "Methods": "Methods allowed",
+      "Choices": "Choices in this build",
+      "Open": "Still to choose",
+      "NextChoice": "Next choice",
+      "Items": "Items on the character",
+      "HitPoints": "Hit points",
+      "Equipment": "Equipment lines",
+      "Ready": "Everything checks out. You can create your character."
+    },
+    "Placeholder": {
+      "Coming": "This step's screen is still being built. What the engine already knows:"
+    },
+    "Notify": {
+      "Resumed": "Your draft was resumed.",
+      "WaitingForGM": "Your character is waiting for a GM to come online.",
+      "AlreadyCreated": "Your character has already been created."
+    },
+    "Discard": {
+      "Title": "Discard this draft?",
+      "Confirm": "Discard",
+      "editable": "Your draft will be deleted and you'll start again from the beginning.",
+      "otherWorld": "This draft was started in another world, so it can't be continued here. Discard it and start a new one?",
+      "otherRules": "This draft was started under different rules than this world uses. Discard it and start a new one?",
+      "tooNew": "This draft was saved by a newer version of Character Creator. Ask your GM to update the module, or discard it and start again.",
+      "broken": "This draft can't be read. Discard it and start a new one?"
+    },
+    "Abilities": {
+      "pointBuy": "Point buy",
+      "standardArray": "Standard array",
+      "rolled": "Rolled"
+    },
+    "Portrait": {
+      "Ready": "Uploaded",
+      "Skipped": "Skipped"
     }
   }
 }

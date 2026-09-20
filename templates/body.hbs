@@ -1,0 +1,55 @@
+{{!-- The step pane. Until PLAN 3.2–3.9 build each step, it shows what the engine already knows. --}}
+<section class="cc-pane" data-step="{{step}}">
+  <header class="cc-pane__header">
+    <h1 class="cc-pane__title">{{stepTitle}}</h1>
+    <p class="cc-pane__hint">{{stepHint}}</p>
+  </header>
+
+  {{#if errors.length}}
+  <ul class="cc-problems" aria-label="{{localize 'CHARCREATOR.Nav.NeedsAttention'}}">
+    {{#each errors as |e|}}<li class="cc-problem">{{localize e.key}}</li>{{/each}}
+  </ul>
+  {{/if}}
+
+  {{#if (eq step "review")}}
+  <div class="cc-review">
+    <dl class="cc-facts">
+      <div><dt>{{localize "CHARCREATOR.Summary.Items"}}</dt><dd>{{summary.items}}</dd></div>
+      <div><dt>{{localize "CHARCREATOR.Summary.HitPoints"}}</dt><dd>{{#if summary.hp}}{{summary.hp}}{{else}}—{{/if}}</dd></div>
+      <div><dt>{{localize "CHARCREATOR.Summary.Equipment"}}</dt><dd>{{summary.equipment}}</dd></div>
+      <div><dt>{{localize "CHARCREATOR.Summary.Choices"}}</dt><dd>{{summary.choices.total}}</dd></div>
+    </dl>
+    {{#if problems.length}}
+    <div class="cc-problems-by-step">
+      {{#each problems as |p|}}
+      <div class="cc-problems-group">
+        <h2>{{p.title}}</h2>
+        <ul>{{#each p.errors as |e|}}<li>{{e.message}}</li>{{/each}}</ul>
+        <button type="button" class="cc-link" data-action="step" data-step="{{p.step}}">{{localize "CHARCREATOR.Nav.GoToStep"}}</button>
+      </div>
+      {{/each}}
+    </div>
+    {{else}}
+    <p class="cc-ready">{{localize "CHARCREATOR.Summary.Ready"}}</p>
+    {{/if}}
+  </div>
+  {{else}}
+  <div class="cc-placeholder">
+    <p>{{localize "CHARCREATOR.Placeholder.Coming"}}</p>
+    <dl class="cc-facts">
+      {{#if (eq step "species")}}<div><dt>{{localize "CHARCREATOR.Summary.Allowed"}}</dt><dd>{{summary.counts.species}}</dd></div>{{/if}}
+      {{#if (eq step "class")}}<div><dt>{{localize "CHARCREATOR.Summary.Allowed"}}</dt><dd>{{summary.counts.class}}</dd></div>{{/if}}
+      {{#if (eq step "background")}}<div><dt>{{localize "CHARCREATOR.Summary.Allowed"}}</dt><dd>{{summary.counts.background}}</dd></div>{{/if}}
+      {{#if (eq step "abilities")}}<div><dt>{{localize "CHARCREATOR.Summary.Methods"}}</dt><dd>{{summary.methods}}</dd></div>{{/if}}
+      {{#if (eq step "choices")}}
+        <div><dt>{{localize "CHARCREATOR.Summary.Choices"}}</dt><dd>{{summary.choices.total}}</dd></div>
+        <div><dt>{{localize "CHARCREATOR.Summary.Open"}}</dt><dd>{{summary.choices.open}}</dd></div>
+        {{#if summary.choices.next}}<div><dt>{{localize "CHARCREATOR.Summary.NextChoice"}}</dt><dd>{{summary.choices.next}}</dd></div>{{/if}}
+      {{/if}}
+      {{#if (eq step "equipment")}}<div><dt>{{localize "CHARCREATOR.Summary.Equipment"}}</dt><dd>{{summary.equipment}}</dd></div>{{/if}}
+      {{#if (eq step "spells")}}<div><dt>{{localize "CHARCREATOR.Summary.Allowed"}}</dt><dd>{{summary.counts.spell}}</dd></div>{{/if}}
+      <div><dt>{{localize "CHARCREATOR.Summary.Items"}}</dt><dd>{{summary.items}}</dd></div>
+    </dl>
+  </div>
+  {{/if}}
+</section>

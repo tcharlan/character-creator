@@ -1,0 +1,16 @@
+{{!-- Footer (PLAN 3.1): back, save and attention status, next. --}}
+<footer class="cc-footer">
+  <button type="button" class="cc-button" data-action="back" {{#unless canBack}}disabled{{/unless}}>
+    <i class="fa-solid fa-chevron-left"></i>{{backLabel}}
+  </button>
+  <span class="cc-status" role="status">
+    {{#if busy}}{{localize "CHARCREATOR.Nav.Working"}}
+    {{else if attention.ready}}{{localize "CHARCREATOR.Nav.AllGood"}}
+    {{else}}{{localize "CHARCREATOR.Nav.Attention" }} {{attention.errors}}
+    {{/if}}
+  </span>
+  <button type="button" class="cc-button cc-button--quiet" data-action="discard">{{localize "CHARCREATOR.Nav.Discard"}}</button>
+  <button type="button" class="cc-button cc-button--primary" data-action="next" {{#unless canNext}}disabled{{/unless}}>
+    {{nextLabel}}<i class="fa-solid fa-chevron-right"></i>
+  </button>
+</footer>

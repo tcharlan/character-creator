@@ -1,1 +1,227 @@
-/* Character Creator — styles are added with the wizard (Phase 3). */
+/*
+ * Character Creator — wizard shell (PLAN 3.1; visual system D25).
+ * Dark slate ground with gold accents, the step banner across the top, the step pane in the middle and the
+ * footer below. Type: Cinzel (display) over Alegreya Sans (body), bundled in fonts/ (A9; see styles/fonts.css).
+ */
+
+.character-creator {
+  --cc-ground: #0f1114;
+  --cc-base: #14171b;
+  --cc-panel: #1a1e24;
+  --cc-raised: #222831;
+  --cc-line: #313844;
+  --cc-line-soft: #262c35;
+  --cc-text: #ede6d8;
+  --cc-muted: #aaa396;
+  --cc-faint: #7f796e;
+  --cc-gold: #d4ad57;
+  --cc-gold-deep: #8a6a2a;
+  --cc-gold-dim: #2c2416;
+  --cc-ok: #8fbf8a;
+  --cc-warn: #e0a15a;
+  --cc-bad: #e27d6d;
+  --cc-display: "CC Cinzel", "Bookman Old Style", Georgia, serif;
+  --cc-body: "CC Alegreya Sans", "Segoe UI", system-ui, sans-serif;
+  --cc-radius: 6px;
+}
+
+/* The window itself */
+.cc-wizard .window-content {
+  padding: 0;
+  background: var(--cc-ground);
+  color: var(--cc-text);
+  font-family: var(--cc-body);
+  font-size: 15px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.cc-wizard a { color: var(--cc-gold); }
+.cc-wizard a:hover { color: #f0cd7a; }
+.cc-wizard :focus-visible { outline: 2px solid var(--cc-gold); outline-offset: 2px; }
+
+/* Step banner */
+.cc-banner {
+  display: flex;
+  flex: 0 0 auto;
+  background: var(--cc-base);
+  border-bottom: 1px solid var(--cc-line);
+}
+
+.cc-step {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  position: relative;
+  min-height: 84px;
+  padding: 6px 14px;
+  background: transparent;
+  border: 0;
+  border-right: 1px solid var(--cc-line-soft);
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  color: var(--cc-faint);
+  text-align: left;
+  cursor: pointer;
+}
+
+.cc-step:hover:not(:disabled) { background: var(--cc-panel); color: var(--cc-text); }
+.cc-step:disabled { cursor: default; opacity: 0.55; }
+.cc-step__numeral { font-family: var(--cc-display); font-size: 12px; letter-spacing: 0.12em; color: inherit; }
+.cc-step__name { font-family: var(--cc-display); font-size: 15px; font-weight: 600; letter-spacing: 0.04em; color: var(--cc-text); }
+.cc-step__label {
+  max-width: 100%;
+  font-size: 12px;
+  color: var(--cc-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cc-step--current { background: var(--cc-panel); border-bottom-color: var(--cc-gold); }
+.cc-step--current .cc-step__numeral { color: var(--cc-gold); }
+.cc-step--done { border-bottom-color: var(--cc-gold-deep); }
+.cc-step--done .cc-step__numeral { color: var(--cc-gold-deep); }
+.cc-step--done .cc-step__label { color: var(--cc-muted); }
+.cc-step--attention { border-bottom-color: var(--cc-warn); }
+.cc-step--locked .cc-step__name { color: var(--cc-faint); }
+
+.cc-step__count {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--cc-warn);
+  color: #1a1408;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+}
+
+/* Step pane */
+.cc-pane {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 26px 34px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.cc-pane__header { display: flex; flex-direction: column; gap: 6px; }
+.cc-pane__title {
+  margin: 0;
+  border: 0;
+  font-family: var(--cc-display);
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: 0.03em;
+  color: var(--cc-text);
+}
+.cc-pane__hint { margin: 0; font-size: 14px; color: var(--cc-muted); }
+
+.cc-placeholder, .cc-review {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  background: var(--cc-panel);
+  border: 1px solid var(--cc-line-soft);
+  border-radius: var(--cc-radius);
+}
+.cc-placeholder > p { margin: 0; color: var(--cc-muted); }
+
+.cc-facts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px 20px;
+}
+.cc-facts div { display: flex; flex-direction: column; gap: 2px; }
+.cc-facts dt { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--cc-faint); }
+.cc-facts dd { margin: 0; font-size: 16px; color: var(--cc-text); }
+
+.cc-problems, .cc-problems-group ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.cc-problem, .cc-problems-group li { color: var(--cc-text); }
+.cc-problems-by-step { display: flex; flex-direction: column; gap: 14px; }
+.cc-problems-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  background: #2a1e14;
+  border: 1px solid #5a3d22;
+  border-radius: var(--cc-radius);
+}
+.cc-problems-group h2 { margin: 0; border: 0; font-family: var(--cc-display); font-size: 16px; color: var(--cc-warn); }
+.cc-ready { margin: 0; color: var(--cc-ok); }
+
+.cc-link {
+  align-self: flex-start;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--cc-gold);
+  font-family: var(--cc-body);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Footer */
+.cc-footer {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 28px;
+  background: var(--cc-base);
+  border-top: 1px solid var(--cc-line);
+}
+
+.cc-status { flex: 1 1 auto; font-size: 13px; color: var(--cc-muted); }
+
+.cc-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  background: transparent;
+  border: 1px solid var(--cc-line);
+  border-radius: var(--cc-radius);
+  color: var(--cc-text);
+  font-family: var(--cc-body);
+  font-size: 15px;
+  cursor: pointer;
+}
+.cc-button:hover:not(:disabled) { background: var(--cc-raised); }
+.cc-button:disabled { opacity: 0.5; cursor: default; }
+.cc-button--primary {
+  background: var(--cc-gold);
+  border-color: var(--cc-gold);
+  color: #1a1408;
+  font-family: var(--cc-display);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+.cc-button--primary:hover:not(:disabled) { background: #e5bf6a; }
+.cc-button--quiet { border-color: transparent; color: var(--cc-muted); }
+.cc-button--quiet:hover { color: var(--cc-text); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .cc-step, .cc-button { transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease; }
+}

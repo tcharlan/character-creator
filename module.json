@@ -17,8 +17,13 @@
       }
     ]
   },
-  "esmodules": ["scripts/main.mjs"],
-  "styles": ["styles/character-creator.css"],
+  "esmodules": [
+    "scripts/main.mjs"
+  ],
+  "styles": [
+    "styles/fonts.css",
+    "styles/character-creator.css"
+  ],
   "languages": [
     {
       "lang": "en",

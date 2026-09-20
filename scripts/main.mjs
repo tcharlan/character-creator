@@ -8,6 +8,7 @@ import { registerSettings } from "./settings/settings.mjs";
 import { registerCatalogHooks } from "./catalog/catalog.mjs";
 import { registerGmQueries } from "./gm/submit.mjs";
 import { registerPendingProcessor } from "./gm/pending.mjs";
+import { registerWizardApi } from "./wizard/app.mjs";
 
 export { MODULE_ID };
 
@@ -18,6 +19,8 @@ Hooks.once("init", () => {
   registerGmQueries();
   registerPendingProcessor();
 });
+
+Hooks.once("ready", () => registerWizardApi());
 
 // In-Foundry integration tests; only loaded when the Quench module is active.
 Hooks.once("quenchReady", async quench => {
