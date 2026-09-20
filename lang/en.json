@@ -193,6 +193,43 @@
     "Portrait": {
       "Ready": "Uploaded",
       "Skipped": "Skipped"
+    },
+    "Start": {
+      "Heading": "Create your character",
+      "Lead": "This takes you through your species, class, background, ability scores and the choices they offer. Your GM decides which options you can use.",
+      "Rules": "Rules",
+      "Note": "Your draft saves itself as you go, so you can close this and come back later.",
+      "Begin": "Begin",
+      "Resume": "Continue where you left off"
+    },
+    "Rules": {
+      "legacy": "2014 rules",
+      "modern": "2024 rules"
+    },
+    "Options": {
+      "Allowed": "Allowed:",
+      "Search": "Search",
+      "None": "Nothing matches.",
+      "Choose": "Choose an option on the left.",
+      "Features": "What it gives you",
+      "Granted": "Included",
+      "YouChoose": "You choose",
+      "AutoSelected": "Your GM allows only this one, so it's already chosen.",
+      "Subclass": "Subclass",
+      "SubclassHint": "This class chooses its subclass at level 1.",
+      "ArtIcon": "The compendium's icon for this option",
+      "ArtSystem": "Artwork from the dnd5e system"
+    },
+    "Facts": {
+      "Size": "Size",
+      "Speed": "Speed",
+      "Type": "Creature type",
+      "Vision": "Vision",
+      "HitDie": "Hit die",
+      "Primary": "Primary ability",
+      "Spellcasting": "Spellcasting",
+      "Wealth": "Starting wealth",
+      "Equipment": "Equipment entries"
     }
   }
 }

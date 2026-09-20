@@ -1,17 +1,21 @@
 {{!-- The step pane. Until PLAN 3.2–3.9 build each step, it shows what the engine already knows. --}}
-<section class="cc-pane" data-step="{{step}}">
+<section class="cc-pane{{#if stepPartial}} cc-pane--full{{/if}}" data-step="{{step}}">
+  {{#unless stepPartial}}
   <header class="cc-pane__header">
     <h1 class="cc-pane__title">{{stepTitle}}</h1>
     <p class="cc-pane__hint">{{stepHint}}</p>
   </header>
+  {{/unless}}
 
   {{#if errors.length}}
-  <ul class="cc-problems" aria-label="{{localize 'CHARCREATOR.Nav.NeedsAttention'}}">
+  <ul class="cc-problems cc-problems--pane" aria-label="{{localize 'CHARCREATOR.Nav.NeedsAttention'}}">
     {{#each errors as |e|}}<li class="cc-problem">{{localize e.key}}</li>{{/each}}
   </ul>
   {{/if}}
 
-  {{#if (eq step "review")}}
+  {{#if stepPartial}}
+  {{> (lookup . "stepPartial") }}
+  {{else if (eq step "review")}}
   <div class="cc-review">
     <dl class="cc-facts">
       <div><dt>{{localize "CHARCREATOR.Summary.Items"}}</dt><dd>{{summary.items}}</dd></div>

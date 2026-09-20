@@ -9,10 +9,21 @@ import { MODULE_ID, STATUS } from "../contracts.mjs";
 import { DraftStore } from "../draft/store.mjs";
 import { getCatalog } from "../catalog/catalog.mjs";
 import { validateDraft } from "../rules/validate.mjs";
+import { buildCharacter } from "../rules/build.mjs";
 import { readSettings } from "../settings/settings.mjs";
 import { bannerSteps, canOpen, moveStep, groupErrors, attention, BANNER_STEPS } from "./steps-model.mjs";
+import { applyPick, answerStep } from "./picks.mjs";
+import { optionList, optionDetail, subclassOptions, subclassStep, STEP_CATEGORY } from "./options-step.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
+
+/** Templates for the step panes (PLAN 3.2–3.9 fill these in; the rest fall back to the placeholder). */
+const STEP_PARTIALS = {
+  start: `modules/${MODULE_ID}/templates/steps/start.hbs`,
+  species: `modules/${MODULE_ID}/templates/steps/options.hbs`,
+  class: `modules/${MODULE_ID}/templates/steps/options.hbs`,
+  background: `modules/${MODULE_ID}/templates/steps/options.hbs`
+};
 const T = (key, data) => (data ? game.i18n.format(`CHARCREATOR.${key}`, data) : game.i18n.localize(`CHARCREATOR.${key}`));
 
 /** How long to wait after a change before rebuilding and revalidating. */
@@ -27,8 +38,11 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   #current = BANNER_STEPS[0];
   #visited = [];
   #validation = null;
+  #build = null;
   #busy = false;
   #timer = null;
+  #search = {};
+  #auto = new Set();
 
   static DEFAULT_OPTIONS = {
     id: "character-creator-wizard",
@@ -40,7 +54,10 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       step: onStep,
       back: onBack,
       next: onNext,
-      discard: onDiscard
+      discard: onDiscard,
+      begin: onBegin,
+      pick: onPick,
+      subclass: onSubclass
     }
   };
 
@@ -63,6 +80,11 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   /** The last validation result (null until the first rebuild). */
   get validation() {
     return this.#validation;
+  }
+
+  /** The last rebuild with automatic steps filled in and each open step's options (what the panes show). */
+  get build() {
+    return this.#build;
   }
 
   /* -------------------------------------------- */
@@ -90,6 +112,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     switch ( state ) {
       case "none":
         await this.#store.create();
+        this.#current = "start";
         break;
       case "editable":
         this.#current = canOpen(draft.step, draft) ? draft.step : BANNER_STEPS[0];
@@ -131,11 +154,37 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** Go to a step (if its picks are in place). */
   async goTo(step) {
-    if ( !canOpen(step, this.draft) ) return;
+    if ( (step !== "start") && !canOpen(step, this.draft) ) return;
     if ( !this.#visited.includes(this.#current) ) this.#visited.push(this.#current);
     this.#current = step;
     if ( this.draft ) await this.update(() => null);
     else this.render({ parts: ["banner", "body", "footer"] });
+  }
+
+  /**
+   * Choose the species, class or background for the current step (PLAN 3.2). Answers that belonged to the old
+   * pick are dropped (picks.mjs).
+   */
+  async pick(uuid) {
+    const role = STEP_CATEGORY[this.#current];
+    if ( !role ) return;
+    this.#auto.delete(role);
+    await this.update(d => applyPick(d, role, uuid));
+    await this.settle();
+  }
+
+  /** Choose a subclass the class grants at level 1. */
+  async chooseSubclass(uuid) {
+    const step = subclassStep(this.#build);
+    if ( !step ) return;
+    await this.update(d => answerStep(d, step, { uuid }));
+    await this.settle();
+  }
+
+  /** Filter the option list of the current step. */
+  async search(text) {
+    this.#search[this.#current] = text;
+    await this.render({ parts: ["body"] });
   }
 
   /**
@@ -165,6 +214,16 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     if ( !this.draft ) return;
     this.#busy = true;
     try {
+      await this.#autoSelect();
+      // Rebuild with automatic steps filled in (D18). Its recipe is what the draft keeps: it carries the
+      // automatic answers, and leaves out answers that no longer fit (a changed pick, or content the GM
+      // stopped allowing — A6).
+      this.#build = await buildCharacter({ picks: this.draft.picks, base: this.draft.abilities.base,
+        steps: this.draft.recipe.steps }, { catalog: this.#catalog, fill: true, withOptions: true });
+      const next = this.#build.recipe.steps;
+      if ( JSON.stringify(next) !== JSON.stringify(this.draft.recipe.steps) ) {
+        await this.#store.update(d => d.recipe.steps = foundry.utils.deepClone(next));
+      }
       this.#validation = await validateDraft(this.draft, { catalog: this.#catalog, userId: game.user.id,
         allowedMethods: readSettings().abilityMethods });
     } catch ( err ) {
@@ -172,6 +231,17 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       this.#validation = null;
     } finally {
       this.#busy = false;
+    }
+  }
+
+  /** D4: a category the GM narrowed to a single option is chosen for the player. */
+  async #autoSelect() {
+    for ( const [step, category] of Object.entries(STEP_CATEGORY) ) {
+      const only = this.#catalog?.byCategory?.[category];
+      if ( only?.length !== 1 || this.draft.picks[step] ) continue;
+      const uuid = only[0].uuid.replace(/^(Compendium\.[^.]+\.[^.]+\.)(?!Item\.)/, "$1Item.");
+      await this.#store.update(d => applyPick(d, step, uuid));
+      this.#auto.add(step);
     }
   }
 
@@ -198,12 +268,44 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       problems: Object.entries(errorsByStep).map(([step, errors]) => ({ step, title: T(`Step.${step}.Title`),
         errors: errors.map(e => ({ ...e, message: game.i18n.localize(e.key) })) })),
       summary: this.#summary(),
+      stepPartial: STEP_PARTIALS[this.#current] ?? null,
+      rulesLabel: T(`Rules.${this.draft?.rules ?? "legacy"}`),
+      resuming: (this.draft?.recipe?.steps?.length ?? 0) > 0 || Object.values(this.draft?.picks ?? {}).some(Boolean),
+      ...(await this.#stepContext()),
       attention: state,
       backLabel: back ? T(`Step.${back}.Title`) : T("Nav.Start"),
       nextLabel: next ? T("Nav.Next", { step: T(`Step.${next}.Title`) }) : T("Nav.Review"),
       canBack: !!back,
       canNext: !!next
     });
+  }
+
+  /** Whatever the current step's pane needs (PLAN 3.2: the option steps). */
+  async #stepContext() {
+    const role = STEP_CATEGORY[this.#current];
+    if ( !role ) return {};
+    const selected = this.draft?.picks?.[role] ?? null;
+    const options = optionList(this.#catalog, this.#current, { search: this.#search[this.#current] ?? "", selected });
+    const detail = selected ? await optionDetail(selected, this.#current) : null;
+    if ( detail ) detail.auto = this.#auto.has(role);
+    let subclass = null;
+    if ( (this.#current === "class") && detail?.identifier ) {
+      const step = subclassStep(this.#build);
+      if ( step ) {
+        const chosen = step.data?.uuid ?? null;
+        subclass = { list: subclassOptions(this.#catalog, detail.identifier, chosen), chosen };
+      }
+    }
+    return { options, detail, subclass };
+  }
+
+  /** @inheritDoc */
+  _onRender(context, options) {
+    super._onRender(context, options);
+    const search = this.element.querySelector(".cc-search");
+    if ( search ) {
+      search.addEventListener("input", foundry.utils.debounce(event => this.search(event.target.value), 200));
+    }
   }
 
   /** The picks' names for the banner. */
@@ -225,7 +327,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   /** What the engine knows so far, shown in each step's placeholder pane until PLAN 3.2–3.9 replace it. */
   #summary() {
     const v = this.#validation;
-    const built = v?.built;
+    const built = this.#build ?? v?.built;
     const catalog = this.#catalog;
     const counts = catalog ? Object.fromEntries(Object.entries(catalog.byCategory).map(([k, list]) => [k, list.length])) : {};
     const needsInput = built?.results?.filter(r => r.status === "needsInput") ?? [];
@@ -264,13 +366,26 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
 /*  Actions                                     */
 /* -------------------------------------------- */
 
+function onBegin() {
+  return this.goTo(BANNER_STEPS[0]);
+}
+
+function onPick(event, target) {
+  return this.pick(target.dataset.uuid);
+}
+
+function onSubclass(event, target) {
+  return this.chooseSubclass(target.dataset.uuid);
+}
+
 function onStep(event, target) {
   return this.goTo(target.dataset.step);
 }
 
 function onBack() {
   const back = moveStep(this.step, -1, this.draft);
-  return back ? this.goTo(back) : null;
+  if ( back ) return this.goTo(back);
+  return this.step === BANNER_STEPS[0] ? this.goTo("start") : null;
 }
 
 function onNext() {
@@ -292,6 +407,11 @@ function confirmDialog(title, content, yes) {
     no: { label: game.i18n.localize("Cancel") },
     modal: true
   });
+}
+
+/** Load the step templates as partials (body.hbs picks one by name). */
+export function preloadWizardTemplates() {
+  return foundry.applications.handlebars.loadTemplates([...new Set(Object.values(STEP_PARTIALS))]);
 }
 
 /** The module's public entry point (used by the sidebar button and the tests; PLAN 3.10 adds the UI entries). */

@@ -1,0 +1,69 @@
+{{!-- Species, class and background (PLAN 3.2): options, details, art. --}}
+<div class="cc-columns">
+  <section class="cc-options" aria-label="{{stepTitle}}">
+    <div class="cc-options__head">
+      <h2>{{stepTitle}}</h2>
+      <span class="cc-options__count">{{localize "CHARCREATOR.Options.Allowed" }} {{options.total}}</span>
+    </div>
+    {{#if options.searchable}}
+    <input type="search" class="cc-search" value="{{options.search}}" aria-label="{{localize 'CHARCREATOR.Options.Search'}}"
+           placeholder="{{localize 'CHARCREATOR.Options.Search'}}">
+    {{/if}}
+    <div class="cc-options__list">
+      {{#each options.list as |o|}}
+      <button type="button" class="cc-option{{#if o.selected}} cc-option--selected{{/if}}" data-action="pick" data-uuid="{{o.uuid}}"
+              aria-pressed="{{o.selected}}">
+        <img class="cc-option__icon" src="{{o.img}}" alt="">
+        <span class="cc-option__name">{{o.name}}</span>
+      </button>
+      {{/each}}
+      {{#unless options.list.length}}<p class="cc-empty">{{localize "CHARCREATOR.Options.None"}}</p>{{/unless}}
+    </div>
+  </section>
+
+  <section class="cc-detail">
+    {{#if detail}}
+    <header class="cc-pane__header">
+      <h1 class="cc-pane__title">{{detail.name}}</h1>
+      {{#if detail.auto}}<p class="cc-chosen-for-you">{{localize "CHARCREATOR.Options.AutoSelected"}}</p>{{/if}}
+    </header>
+    {{#if detail.chips.length}}
+    <div class="cc-chips">{{#each detail.chips as |c|}}<span class="cc-chip">{{c}}</span>{{/each}}</div>
+    {{/if}}
+    <div class="cc-description">{{{detail.description}}}</div>
+    {{#if detail.features.length}}
+    <h3 class="cc-section-title">{{localize "CHARCREATOR.Options.Features"}}</h3>
+    <ul class="cc-features">
+      {{#each detail.features as |f|}}<li><span class="cc-feature__name">{{f.title}}</span><span class="cc-feature__note">{{f.note}}</span></li>{{/each}}
+    </ul>
+    {{/if}}
+    {{#if subclass}}
+    <h3 class="cc-section-title">{{localize "CHARCREATOR.Options.Subclass"}}</h3>
+    <p class="cc-hint">{{localize "CHARCREATOR.Options.SubclassHint"}}</p>
+    <div class="cc-subclasses">
+      {{#each subclass.list as |s|}}
+      <button type="button" class="cc-option cc-option--wide{{#if s.selected}} cc-option--selected{{/if}}" data-action="subclass"
+              data-uuid="{{s.uuid}}" aria-pressed="{{s.selected}}">
+        <img class="cc-option__icon" src="{{s.img}}" alt="">
+        <span class="cc-option__name">{{s.name}}</span>
+      </button>
+      {{/each}}
+    </div>
+    {{/if}}
+    {{else}}
+    <p class="cc-empty">{{localize "CHARCREATOR.Options.Choose"}}</p>
+    {{/if}}
+  </section>
+
+  <aside class="cc-art">
+    {{#if detail}}
+    <figure class="cc-art__frame{{#if detail.largeArt}} cc-art__frame--large{{/if}}">
+      <img src="{{detail.img}}" alt="">
+    </figure>
+    <figcaption class="cc-art__caption">{{detail.artNote}}</figcaption>
+    {{#if detail.facts.length}}
+    <dl class="cc-facts">{{#each detail.facts as |f|}}<div><dt>{{f.label}}</dt><dd>{{f.value}}</dd></div>{{/each}}</dl>
+    {{/if}}
+    {{/if}}
+  </aside>
+</div>

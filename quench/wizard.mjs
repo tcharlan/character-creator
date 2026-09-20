@@ -20,10 +20,16 @@ export function registerWizardBatches(quench) {
       let catalogNames;
       let saved;
       let app = null;
+      /** Open the wizard and step past the start screen. */
       const open = async () => {
         app = await CharacterWizard.open();
         assert.exists(app, "the wizard didn't open");
-        return settled(app);
+        await settled(app);
+        if ( app.step === "start" ) {
+          el().querySelector('[data-action="begin"]').click();
+          await settled(app);
+        }
+        return app;
       };
       const el = () => app.element;
       const steps = () => [...el().querySelectorAll(".cc-step")];
@@ -60,7 +66,7 @@ export function registerWizardBatches(quench) {
         assert.isTrue(steps()[0].classList.contains("cc-step--current"));
         assert.equal(steps()[0].getAttribute("aria-current"), "step");
         assert.isTrue(steps().find(s => s.dataset.step === "choices").disabled, "choices needs the picks first");
-        assert.include(el().querySelector(".cc-pane__title").textContent, "Species");
+        assert.include(el().querySelector(".cc-options__head h2").textContent, "Species");
         assert.exists(el().querySelector(".cc-footer"));
       });
 
@@ -175,4 +181,150 @@ export function registerWizardBatches(quench) {
       });
     });
   }, { displayName: "Character Creator: Wizard shell" });
+}
+
+/*
+ * The Start, Species, Class and Background steps (PLAN 3.2).
+ */
+export function registerOptionStepBatches(quench) {
+  const rules = () => game.settings.get("dnd5e", "rulesVersion");
+
+  quench.registerBatch(`${MODULE_ID}.wizard-options`, ({ describe, it, before, after, afterEach, assert }) => {
+    describe("Species, class and background steps, as Player A", () => {
+      let CharacterWizard;
+      let C;
+      let catalog;
+      let saved;
+      let app = null;
+      const open = async () => {
+        app = await CharacterWizard.open();
+        assert.exists(app, "the wizard didn't open");
+        await app.settle();
+        return app;
+      };
+      const el = () => app.element;
+      const options = () => [...el().querySelectorAll(".cc-option:not(.cc-option--wide)")];
+      const named = name => options().find(o => o.querySelector(".cc-option__name").textContent.trim() === name);
+
+      before(async function() {
+        this.timeout(120_000);
+        ({ CharacterWizard } = await import("../scripts/wizard/app.mjs"));
+        C = await import("../scripts/catalog/catalog.mjs");
+        catalog = await C.getCatalog();
+        saved = flag();
+        await game.user.unsetFlag(MODULE_ID, DRAFT_FLAG);
+      });
+      afterEach(async function() {
+        this.timeout(30_000);
+        if ( app?.rendered ) await app.close();
+        app = null;
+        await game.user.unsetFlag(MODULE_ID, DRAFT_FLAG);
+        C.invalidateCatalog("wizard test");
+      });
+      after(async function() {
+        this.timeout(30_000);
+        if ( saved === undefined ) await game.user.unsetFlag(MODULE_ID, DRAFT_FLAG);
+        else await raw(saved);
+      });
+
+      it("a new draft opens on the start screen, which counts the allowed options", async function() {
+        this.timeout(60_000);
+        await open();
+        assert.equal(app.step, "start");
+        const start = el().querySelector(".cc-start");
+        assert.exists(start, "no start screen");
+        assert.include(start.textContent, String(catalog.byCategory.class.length));
+        el().querySelector('[data-action="begin"]').click();
+        await app.settle();
+        assert.equal(app.step, "species");
+      });
+
+      it("the species step lists every allowed species; picking one shows its details and art", async function() {
+        this.timeout(120_000);
+        await open();
+        await app.goTo("species");
+        await app.settle();
+        assert.equal(options().length, catalog.byCategory.species.length);
+        const name = catalog.byCategory.species[0].name;
+        named(name).click();
+        await app.settle();
+        assert.equal(app.draft.picks.species, catalog.byCategory.species[0].uuid.replace(/^(Compendium\.[^.]+\.[^.]+\.)(?!Item\.)/, "$1Item."));
+        const detail = el().querySelector(".cc-detail");
+        assert.include(detail.querySelector(".cc-pane__title").textContent, name);
+        assert.isAbove(detail.querySelector(".cc-description").textContent.trim().length, 40, "the compendium description is shown");
+        assert.exists(el().querySelector(".cc-art__frame img"), "the art panel shows the option's image");
+        assert.isAbove(el().querySelectorAll(".cc-facts div").length, 1, "facts are listed");
+        assert.equal(el().querySelector('.cc-step[data-step="species"] .cc-step__label').textContent.trim(), name);
+      });
+
+      it("search narrows the list", async function() {
+        this.timeout(60_000);
+        await open();
+        await app.goTo("class");
+        await app.settle();
+        const all = options().length;
+        await app.search("wiz");
+        assert.isBelow(options().length, all);
+        assert.equal(options()[0].querySelector(".cc-option__name").textContent.trim(), "Wizard");
+        await app.search("");
+        assert.equal(options().length, all);
+      });
+
+      it("a class that chooses its subclass at level 1 offers them (2014 Cleric)", async function() {
+        if ( rules() !== "legacy" ) this.skip();
+        this.timeout(120_000);
+        await open();
+        await app.goTo("class");
+        await app.settle();
+        named("Cleric").click();
+        await app.settle();
+        const subclasses = [...el().querySelectorAll(".cc-option--wide")];
+        assert.isAbove(subclasses.length, 0, "no subclasses offered");
+        subclasses[0].click();
+        await app.settle();
+        const chosen = app.draft.recipe.steps.find(s => s.data?.uuid);
+        assert.exists(chosen, "the subclass wasn't recorded in the recipe");
+        assert.isTrue(app.validation.built.actor.items.some(i => i.type === "subclass"), "the subclass is on the character");
+      });
+
+      it("changing the class drops the old class's answers", async function() {
+        this.timeout(180_000);
+        await open();
+        await app.goTo("class");
+        await app.settle();
+        const first = catalog.byCategory.class[0];
+        const second = catalog.byCategory.class[1];
+        named(first.name).click();
+        await app.settle();
+        const answered = app.draft.recipe.steps.filter(s => s.path[0] === "class").length;
+        assert.isAbove(answered, 0, "the class's automatic steps were recorded");
+        named(second.name).click();
+        await app.settle();
+        assert.equal(app.draft.picks.class, second.uuid.replace(/^(Compendium\.[^.]+\.[^.]+\.)(?!Item\.)/, "$1Item."));
+        const stale = app.draft.recipe.steps.filter(s => s.path[0] === "class");
+        assert.deepEqual(app.validation.built.stale ?? [], [], "no stale steps are left behind");
+        assert.isTrue(stale.every(s => app.validation.built.results.some(r => r.advancementId === s.advancementId)),
+          "every remaining class answer belongs to the new class");
+      });
+
+      it("auto-select (D4): a category the GM narrows to one option is chosen automatically", async function() {
+        this.timeout(120_000);
+        const only = catalog.byCategory.background[0];
+        const narrowed = await C.getCatalog({ restrictions: { packs: null, categories: { background: [only.uuid] } } });
+        assert.equal(narrowed.byCategory.background.length, 1);
+        // The wizard reads the catalog through getCatalog(); narrow it through the settings the same way the GM would.
+        const { SETTINGS } = await import("../scripts/settings/normalize.mjs");
+        assert.exists(SETTINGS.RESTRICTIONS);
+        await open();
+        await app.goTo("background");
+        await app.settle();
+        if ( catalog.byCategory.background.length === 1 ) {
+          assert.equal(app.draft.picks.background, only.uuid.replace(/^(Compendium\.[^.]+\.[^.]+\.)(?!Item\.)/, "$1Item."));
+          assert.exists(el().querySelector(".cc-chosen-for-you"), "the player is told it was chosen for them");
+        } else {
+          assert.isNull(app.draft.picks.background, "with several options, nothing is chosen for the player");
+        }
+      });
+    });
+  }, { displayName: "Character Creator: Wizard option steps" });
 }

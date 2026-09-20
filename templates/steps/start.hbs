@@ -1,0 +1,15 @@
+{{!-- Start screen (PLAN 3.2): what this is, what the GM allows, and Begin / Resume. --}}
+<div class="cc-start">
+  <h1 class="cc-start__title">{{localize "CHARCREATOR.Start.Heading"}}</h1>
+  <p class="cc-start__lead">{{localize "CHARCREATOR.Start.Lead"}}</p>
+  <dl class="cc-facts">
+    <div><dt>{{localize "CHARCREATOR.Start.Rules"}}</dt><dd>{{rulesLabel}}</dd></div>
+    <div><dt>{{localize "CHARCREATOR.Step.species.Title"}}</dt><dd>{{summary.counts.species}}</dd></div>
+    <div><dt>{{localize "CHARCREATOR.Step.class.Title"}}</dt><dd>{{summary.counts.class}}</dd></div>
+    <div><dt>{{localize "CHARCREATOR.Step.background.Title"}}</dt><dd>{{summary.counts.background}}</dd></div>
+  </dl>
+  <p class="cc-start__note">{{localize "CHARCREATOR.Start.Note"}}</p>
+  <button type="button" class="cc-button cc-button--primary cc-start__go" data-action="begin">
+    {{#if resuming}}{{localize "CHARCREATOR.Start.Resume"}}{{else}}{{localize "CHARCREATOR.Start.Begin"}}{{/if}}
+  </button>
+</div>
