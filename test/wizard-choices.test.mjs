@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { choicesModel, answerData, CHOICE_TYPES } from "../scripts/wizard/choices-step.mjs";
+import { choicesModel, answerData, nextOpenChoice, CHOICE_TYPES } from "../scripts/wizard/choices-step.mjs";
 
 const ID = n => String(n).padEnd(16, "0");
 const U = n => `Compendium.test.x.Item.${ID(n)}`;
@@ -147,4 +147,21 @@ test("at the count, the rest are out of reach on screen, not just refused", () =
     .open.widget.list;
   assert.deepEqual(cards(null).map(o => o.disabled), [false, false]);
   assert.deepEqual(cards({ selected: [U("a")] }).map(o => o.disabled), [false, true]);
+});
+
+test("Next walks through the choices that still need an answer, then stops", () => {
+  const trait = allowed => ({ type: "Trait", allowed, grants: [], max: 1 });
+  const built = { results: [
+    result({ key: "a", item: "High Elf", status: "done", data: { chosen: ["skills:per"] }, options: trait(["skills:per"]) }),
+    result({ key: "b", item: "Cleric", status: "needsInput", options: trait(["skills:his"]) }),
+    result({ key: "c", item: "Cleric", status: "invalid", options: trait(["skills:med"]) }),
+    result({ key: "d", item: "Cleric", status: "done", data: { chosen: ["skills:rel"] }, options: trait(["skills:rel"]) })
+  ] };
+  const model = key => choicesModel(built, catalog, key);
+  assert.equal(nextOpenChoice(model("b"), "b"), "c", "on to the next one that needs input");
+  assert.equal(nextOpenChoice(model("c"), "c"), "b", "and round again to the one before it");
+  assert.equal(nextOpenChoice(model("a"), "a"), "b", "from a finished choice, the first open one");
+  assert.equal(nextOpenChoice(model(null), null), "b", "with nothing open yet, the first");
+  const done = { results: built.results.filter(r => r.status === "done") };
+  assert.equal(nextOpenChoice(choicesModel(done, catalog, "a"), "a"), null, "nothing left: Next moves on");
 });

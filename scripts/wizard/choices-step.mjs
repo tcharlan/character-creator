@@ -156,6 +156,19 @@ export function choicesModel(built, catalog, openKey = null) {
   };
 }
 
+/**
+ * The choice to walk to next: the first one after `currentKey` that still needs an answer, wrapping round to
+ * the ones before it. Null when nothing is left open.
+ * @param {ReturnType<choicesModel>} model
+ * @param {string|null} currentKey
+ */
+export function nextOpenChoice(model, currentKey = null) {
+  const all = (model?.groups ?? []).flatMap(g => g.choices);
+  const at = all.findIndex(c => c.key === currentKey);
+  const order = at < 0 ? all : [...all.slice(at + 1), ...all.slice(0, at)];
+  return order.find(c => c.needsInput || c.invalid)?.key ?? null;
+}
+
 function buildWidget(result, catalog) {
   switch ( result.type ) {
     case "Trait": return traitWidget(result);

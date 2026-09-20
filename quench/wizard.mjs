@@ -467,6 +467,35 @@ export function registerAbilityStepBatch(quench) {
         assert.deepEqual(offered, [...roll.results].sort((a, b) => b - a));
       });
 
+      it("assignments show at once and are replayed when the player leaves the step", async function() {
+        this.timeout(180_000);
+        await open();
+        const catalog = await (await import("../scripts/catalog/catalog.mjs")).getCatalog();
+        const norm = u => u.replace(/^(Compendium\.[^.]+\.[^.]+\.)(?!Item\.)/, "$1Item.");
+        await app.update(d => {
+          d.picks.species = norm(catalog.byCategory.species[0].uuid);
+          d.picks.background = norm(catalog.byCategory.background[0].uuid);
+          d.picks.class = norm(catalog.byCategory.class[0].uuid);
+        }, { wait: true });
+        method("standardArray").click();
+        await app.settle();
+        const built = app.build;
+        const select = el().querySelector('.cc-assign[data-ability="str"]');
+        select.value = "15";
+        select.dispatchEvent(new Event("change"));
+        // Longer than the wizard's rebuild delay: a replay would have happened by now.
+        await new Promise(r => setTimeout(r, 1600));
+        assert.equal(app.draft.abilities.base.str, 15, "the assignment is kept");
+        assert.equal(app.build, built, "the character is not replayed while the player is still assigning");
+        const shown = Number(scores()[0].querySelector(".cc-score__total").textContent);
+        const bonus = built.actor.system.abilities.str.value - 10;   // an unassigned score starts at 10
+        assert.equal(shown, 15 + bonus, "the final score is worked out on the spot");
+        await app.goTo("details");
+        assert.notEqual(app.build, built, "leaving the step replays the character once");
+        assert.equal(app.build.actor.system.abilities.str.value, 15 + bonus,
+          "and the replay agrees with what the step showed");
+      });
+
       it("only the methods the GM allows are offered", async function() {
         this.timeout(120_000);
         const { readSettings } = await import("../scripts/settings/settings.mjs");
@@ -562,6 +591,64 @@ export function registerChoicesStepBatch(quench) {
         else await raw(saved);
       });
 
+      /** Answer whichever choice is still open, through the widgets, and report whether there was one. */
+      const answerOne = async () => {
+        const next = app.build.results.find(r => r.status === "needsInput");
+        if ( !next ) return false;
+        await app.openChoice(next.key);
+        const w = next.options;
+        const where = `${next.item} / ${next.title}`;
+        switch ( next.type ) {
+          case "Trait": {
+            const need = w.max - (next.data?.chosen?.length ?? 0);
+            for ( let i = 0; i < need; i++ ) {
+              const box = traitBoxes().filter(b => !b.disabled && !b.checked)[0];
+              assert.exists(box, `${where}: nothing left to check`);
+              box.click();
+              await app.settle();
+            }
+            break;
+          }
+          case "ItemChoice": {
+            const need = w.count - (next.data?.selected?.length ?? 0);
+            for ( let i = 0; i < need; i++ ) {
+              const card = query(".cc-cards button").filter(c => c.getAttribute("aria-pressed") !== "true")[0];
+              assert.exists(card, `${where}: no option to pick`);
+              card.click();
+              await app.settle();
+            }
+            if ( w.abilityOptions?.length > 1 ) {
+              el().querySelector(".cc-ability-picker button").click();
+              await app.settle();
+            }
+            break;
+          }
+          case "ItemGrant": {
+            if ( w.abilityOptions?.length > 1 ) el().querySelector(".cc-ability-picker button").click();
+            else query(".cc-key input").forEach(b => b.click());
+            await app.settle();
+            break;
+          }
+          case "AbilityScoreImprovement": {
+            for ( let i = 0; i < (w.points ?? 0); i++ ) {
+              const plus = query(".cc-score__step").filter(b => !b.disabled && b.textContent.includes("+"))[0];
+              assert.exists(plus, `${where}: no ability can be raised`);
+              plus.click();
+              await app.settle();
+            }
+            break;
+          }
+          case "Size":
+          case "Subclass":
+            el().querySelector(".cc-cards button").click();
+            await app.settle();
+            break;
+          default:
+            assert.fail(`no widget for ${next.type} (${where})`);
+        }
+        return true;
+      };
+
       it("lists every choice, grouped by the item that offers it, and opens the first one to make", async function() {
         this.timeout(180_000);
         await open();
@@ -573,6 +660,28 @@ export function registerChoicesStepBatch(quench) {
         assert.exists(first, "nothing is marked as still to choose");
         assert.equal(first.getAttribute("aria-pressed"), "true", "it's the one open");
         assert.exists(el().querySelector(".cc-detail .cc-pane__title"));
+      });
+
+      it("Next walks through the choices that are still open, then moves on", async function() {
+        this.timeout(300_000);
+        await open();
+        const next = () => el().querySelector('[data-action="next"]');
+        const openKeys = () => app.build.results.filter(r => r.status === "needsInput").map(r => r.key);
+        assert.isAbove(openKeys().length, 1, "this build should have several choices to make");
+        const title = () => el().querySelector(".cc-detail .cc-pane__title").textContent.trim();
+        const first = title();
+        next().click();
+        await app.settle();
+        assert.equal(app.step, "choices", "Next stays here while choices are open");
+        assert.notEqual(title(), first, "it opened the next choice to answer");
+        // Answer them all, then Next leaves the step.
+        for ( let guard = 0; guard < 40; guard++ ) {
+          if ( !await answerOne() ) break;
+        }
+        assert.isEmpty(openKeys(), "the walk-through left something open");
+        next().click();
+        await app.settle();
+        assert.notEqual(app.step, "choices", "with nothing left, Next moves on");
       });
 
       it("a trait choice checks off skills up to its count, and refuses more", async function() {
@@ -593,74 +702,22 @@ export function registerChoicesStepBatch(quench) {
         assert.exists(answered, "the choice wasn't recorded");
         assert.equal(answered.data.chosen.length, trait.options.max);
         assert.equal(app.build.results.find(r => r.key === trait.key).status, "done");
-        const spare = traitBoxes().filter(b => !b.disabled && !b.checked)[0];
+        assert.isEmpty(traitBoxes().filter(b => !b.disabled && !b.checked),
+          "at the count, the rest of the list is out of reach");
+        // Clicking one anyway (a stale screen, a keyboard) still changes nothing.
+        const spare = traitBoxes().filter(b => !b.checked)[0];
         if ( spare ) {
           spare.click();
           await app.settle();
           assert.equal(app.draft.recipe.steps.find(s => s.advancementId === trait.advancementId).data.chosen.length,
             trait.options.max, "the extra pick was refused");
+          assert.isFalse(traitBoxes().find(b => b === spare)?.checked ?? false, "and the box did not stay ticked");
         }
       });
 
       it("every choice can be answered through the widgets, and nothing is left open", async function() {
         this.timeout(600_000);
         await open();
-        const answerOne = async () => {
-          const next = app.build.results.find(r => r.status === "needsInput");
-          if ( !next ) return false;
-          await app.openChoice(next.key);
-          const w = next.options;
-          const where = `${next.item} / ${next.title}`;
-          switch ( next.type ) {
-            case "Trait": {
-              const need = w.max - (next.data?.chosen?.length ?? 0);
-              for ( let i = 0; i < need; i++ ) {
-                const box = traitBoxes().filter(b => !b.disabled && !b.checked)[0];
-                assert.exists(box, `${where}: nothing left to check`);
-                box.click();
-                await app.settle();
-              }
-              break;
-            }
-            case "ItemChoice": {
-              const need = w.count - (next.data?.selected?.length ?? 0);
-              for ( let i = 0; i < need; i++ ) {
-                const card = query(".cc-cards button").filter(c => c.getAttribute("aria-pressed") !== "true")[0];
-                assert.exists(card, `${where}: no option to pick`);
-                card.click();
-                await app.settle();
-              }
-              if ( w.abilityOptions?.length > 1 ) {
-                el().querySelector(".cc-ability-picker button").click();
-                await app.settle();
-              }
-              break;
-            }
-            case "ItemGrant": {
-              if ( w.abilityOptions?.length > 1 ) el().querySelector(".cc-ability-picker button").click();
-              else query(".cc-key input").forEach(b => b.click());
-              await app.settle();
-              break;
-            }
-            case "AbilityScoreImprovement": {
-              for ( let i = 0; i < (w.points ?? 0); i++ ) {
-                const plus = query(".cc-score__step").filter(b => !b.disabled && b.textContent.includes("+"))[0];
-                assert.exists(plus, `${where}: no ability can be raised`);
-                plus.click();
-                await app.settle();
-              }
-              break;
-            }
-            case "Size":
-            case "Subclass":
-              el().querySelector(".cc-cards button").click();
-              await app.settle();
-              break;
-            default:
-              assert.fail(`no widget for ${next.type} (${where})`);
-          }
-          return true;
-        };
         let guard = 0;
         let more = true;
         while ( more && (guard++ < 30) ) more = await answerOne();
@@ -1081,6 +1138,22 @@ export function registerDetailsStepBatch(quench) {
         assert.include(app.draft.details.appearance, "ink-stained");
         const { checkDraftShape } = await import("../scripts/contracts.mjs");
         assert.deepEqual(checkDraftShape(app.draft), []);
+      });
+
+      it("rolling keeps the player where they were on the page", async function() {
+        this.timeout(180_000);
+        await open();
+        const pane = () => el().querySelector(".cc-detail");
+        const roll = () => el().querySelector('[data-action="detail-roll"][data-detail="traits"]');
+        if ( !roll() ) this.skip();   // 2024: no personality tables
+        pane().scrollTop = pane().scrollHeight;
+        const was = pane().scrollTop;
+        assert.isAbove(was, 0, "the page has to scroll for this to mean anything");
+        roll().click();
+        for ( let i = 0; i < 100 && !app.draft.details.traits; i++ ) await new Promise(r => setTimeout(r, 100));
+        await app.settle();
+        assert.isNotEmpty(app.draft.details.traits, "nothing was rolled");
+        assert.equal(pane().scrollTop, was, "the pane scrolled back to the top");
       });
 
       it("2014: the personality fields can be rolled from the background's tables", async function() {

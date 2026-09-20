@@ -114,7 +114,8 @@
       "Discard": "Discard draft",
       "Working": "Rebuilding your character…",
       "AllGood": "Everything checks out so far. Your draft is saved as you go.",
-      "Attention": "Things to fix:"
+      "Attention": "Things to fix:",
+      "NextChoice": "Next choice"
     },
     "Step": {
       "species": {

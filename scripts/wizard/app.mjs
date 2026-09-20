@@ -16,7 +16,7 @@ import { bannerSteps, canOpen, moveStep, groupErrors, attention, BANNER_STEPS } 
 import { applyPick, answerStep, syncRecipe } from "./picks.mjs";
 import { optionList, optionDetail, optionDescription, subclassOptions, subclassStep, STEP_CATEGORY } from "./options-step.mjs";
 import { abilitiesModel, setMethod, spendPoint, assignValue } from "./abilities-step.mjs";
-import { choicesModel, answerData } from "./choices-step.mjs";
+import { choicesModel, answerData, nextOpenChoice } from "./choices-step.mjs";
 import { sourceModel, setMode, chooseBranch, setPick, setWealth, EQUIPMENT_SOURCES } from "./equipment-step.mjs";
 import { equipmentContext, rollStartingWealth } from "../rules/equipment-items.mjs";
 import { spellsModel, toggleSpell } from "./spells-step.mjs";
@@ -75,6 +75,9 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   #spellTab = null;
   #tables = null;
   #submitting = false;
+  // Set while a step holds its changes back (the ability scores): the rebuild happens when the player leaves.
+  #deferred = false;
+  #bonuses = {};
 
   static DEFAULT_OPTIONS = {
     id: "character-creator-wizard",
@@ -120,7 +123,10 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
 
   static PARTS = {
     banner: { template: `modules/${MODULE_ID}/templates/banner.hbs` },
-    body: { template: `modules/${MODULE_ID}/templates/body.hbs`, scrollable: [""] },
+    // Each step's own scrolling column is listed, so a re-render (a roll, a pick) leaves the player where
+    // they were rather than at the top.
+    body: { template: `modules/${MODULE_ID}/templates/body.hbs`,
+      scrollable: ["", ".cc-detail", ".cc-options__list", ".cc-fields", ".cc-art"] },
     footer: { template: `modules/${MODULE_ID}/templates/footer.hbs` }
   };
 
@@ -211,9 +217,10 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
    * The change takes effect at once; saving it is debounced by the store, so we don't wait for the write —
    * waiting would make every click feel a second slow. Closing the wizard flushes whatever is still waiting.
    * @param {(draft: object) => void} change
-   * @param {{ wait?: boolean }} [options]   `wait: true` waits for the save.
+   * @param {{ wait?: boolean, rebuild?: boolean }} [options]   `wait: true` waits for the save;
+   *   `rebuild: false` holds the replay back until the player leaves the step (the ability scores).
    */
-  async update(change, { wait = false } = {}) {
+  async update(change, { wait = false, rebuild = true } = {}) {
     const saved = this.#store.update(d => {
       change(d);
       d.step = this.#current;
@@ -222,16 +229,39 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       ui.notifications?.error(game.i18n.localize(err?.error?.key ?? "CHARCREATOR.Error.BAD_REQUEST"));
     });
     if ( wait ) await saved;
-    this.#schedule();
+    if ( rebuild ) this.#schedule();
+    else this.#deferred = true;
   }
 
   /** Go to a step (if its picks are in place). */
   async goTo(step) {
     if ( (step !== "start") && !canOpen(step, this.draft) ) return;
     if ( !this.#visited.includes(this.#current) ) this.#visited.push(this.#current);
+    // Arriving at the choices step, open the first one that still needs an answer.
+    if ( (step === "choices") && (this.#current !== "choices") ) this.#openChoice = null;
+    const held = this.#deferred;
     this.#current = step;
-    if ( this.draft ) await this.update(() => null);
+    if ( this.draft ) await this.update(() => null, { rebuild: !held });
     else this.render({ parts: ["banner", "body", "footer"] });
+    // The step we just left held its changes back: replay the character now.
+    if ( held ) await this.settle();
+  }
+
+  /**
+   * The Next button. On the Choices step it walks through the choices that still need an answer, and only
+   * moves on to the next step once they are all done.
+   */
+  async next() {
+    const choice = this.#nextChoice();
+    if ( choice ) return this.openChoice(choice);
+    const step = moveStep(this.#current, 1, this.draft);
+    if ( step ) await this.goTo(step);
+  }
+
+  /** The next choice to walk to from here, or null (also used for the Next button's label). */
+  #nextChoice() {
+    if ( (this.#current !== "choices") || !this.#build ) return null;
+    return nextOpenChoice(choicesModel(this.#build, this.#catalog, this.#openChoice), this.#openChoice);
   }
 
   /**
@@ -258,25 +288,25 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** Choose how ability scores are set (only the methods the GM allows are offered). */
   async chooseMethod(method) {
-    await this.update(d => setMethod(d, method));
+    await this.update(d => setMethod(d, method), { rebuild: false });
     await this.render({ parts: ["banner", "body", "footer"] });
   }
 
   /** Point buy: raise or lower one score. */
   async spend(ability, delta) {
-    await this.update(d => spendPoint(d, ability, delta));
+    await this.update(d => spendPoint(d, ability, delta), { rebuild: false });
     await this.render({ parts: ["banner", "body", "footer"] });
   }
 
   /** Standard array and rolled: put a value on an ability (they swap if it was taken). */
   async assign(ability, value) {
-    await this.update(d => assignValue(d, ability, value));
+    await this.update(d => assignValue(d, ability, value), { rebuild: false });
     await this.render({ parts: ["banner", "body", "footer"] });
   }
 
   /** Roll the six scores in this browser and post them to chat (D15). Only possible once (A10). */
   async rollScores() {
-    if ( this.draft?.abilities?.roll ) return;
+    if ( this.draft?.abilities?.roll ) return;   // one roll per draft (A10)
     try {
       const roll = await rollAbilityScores(this.draft);
       await this.update(d => d.abilities.roll = roll, { wait: true });
@@ -494,6 +524,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
    * (The tests use it; so does anything that must show the result at once.)
    */
   async settle() {
+    this.#deferred = false;
     await this.#store.flush();
     if ( this.#timer ) {
       clearTimeout(this.#timer);
@@ -505,6 +536,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** Rebuild and revalidate after a short pause, so quick clicking stays smooth. */
   #schedule() {
+    this.#deferred = false;
     if ( this.#timer ) clearTimeout(this.#timer);
     this.#timer = setTimeout(() => {
       this.#timer = null;
@@ -530,6 +562,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
           await this.#store.update(d => d.recipe.steps = foundry.utils.deepClone(next));
         }
       }
+      this.#bonuses = abilityBonuses(this.#build, this.draft.abilities.base);
       const { errors, equipment } = await checkBuilt(this.draft, this.#build, { catalog: this.#catalog,
         userId: game.user.id, allowedMethods: readSettings().abilityMethods });
       this.#validation = { ok: !errors.length, errors, built: this.#build, equipment };
@@ -575,6 +608,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     const state = attention(errorsByStep);
     const back = moveStep(this.#current, -1, draft);
     const next = moveStep(this.#current, 1, draft);
+    const choice = this.#nextChoice();
     return Object.assign(context, {
       moduleId: MODULE_ID,
       busy: this.#busy,
@@ -593,9 +627,9 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       ...(await this.#stepContext()),
       attention: state,
       backLabel: back ? T(`Step.${back}.Title`) : T("Nav.Start"),
-      nextLabel: next ? T("Nav.Next", { step: T(`Step.${next}.Title`) }) : T("Nav.Review"),
+      nextLabel: choice ? T("Nav.NextChoice") : (next ? T("Nav.Next", { step: T(`Step.${next}.Title`) }) : T("Nav.Review")),
       canBack: !!back,
-      canNext: !!next
+      canNext: !!next || !!choice
     });
   }
 
@@ -637,9 +671,15 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       return { choices };
     }
     if ( this.#current === "abilities" ) {
-      const actor = this.#build?.actor;
-      const finals = actor ? Object.fromEntries(Object.entries(actor.system.abilities ?? {})
-        .map(([key, a]) => [key, { value: a.value, mod: a.mod }])) : {};
+      // The increases from species, background and choices don't depend on the scores themselves, so the
+      // final numbers can be shown as the player assigns, without replaying the character for every click.
+      const base = this.draft?.abilities?.base ?? {};
+      const finals = {};
+      for ( const [key, bonus] of Object.entries(this.#bonuses) ) {
+        if ( !Number.isInteger(base[key]) ) continue;
+        const value = base[key] + bonus;
+        finals[key] = { value, mod: Math.floor((value - 10) / 2) };
+      }
       return { abilities: abilitiesModel(this.draft, { allowedMethods: readSettings().abilityMethods, finals }) };
     }
     const role = STEP_CATEGORY[this.#current];
@@ -903,9 +943,21 @@ function onBack() {
   return this.step === BANNER_STEPS[0] ? this.goTo("start") : null;
 }
 
+/**
+ * What each ability gains on top of its base score (species, background, ability increases). Taken from the last
+ * replay so the ability step can show the final numbers as the player assigns, without replaying every click.
+ */
+function abilityBonuses(built, base) {
+  const out = {};
+  for ( const [key, ability] of Object.entries(built?.actor?.system?.abilities ?? {}) ) {
+    // makeScratchActor() starts an unassigned score at 10 (rules/scratch.mjs).
+    out[key] = ability.value - (Number.isInteger(base?.[key]) ? base[key] : 10);
+  }
+  return out;
+}
+
 function onNext() {
-  const next = moveStep(this.step, 1, this.draft);
-  return next ? this.goTo(next) : null;
+  return this.next();
 }
 
 async function onDiscard() {
