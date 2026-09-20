@@ -1001,3 +1001,109 @@ export function registerSpellsStepBatch(quench) {
     });
   }, { displayName: "Character Creator: Wizard spells" });
 }
+
+/*
+ * The Details step (PLAN 3.7): the name, the optional fields, and the 2014 personality tables.
+ */
+export function registerDetailsStepBatch(quench) {
+  const rules = () => game.settings.get("dnd5e", "rulesVersion");
+
+  quench.registerBatch(`${MODULE_ID}.wizard-details`, ({ describe, it, before, after, afterEach, assert }) => {
+    describe("Details step, as Player A", () => {
+      let CharacterWizard;
+      let catalog;
+      let saved;
+      let app = null;
+      const el = () => app.element;
+      const query = selector => [...el().querySelectorAll(selector)];
+      const norm = u => u.replace(/^(Compendium\.[^.]+\.[^.]+\.)(?!Item\.)/, "$1Item.");
+      const pick = (category, name) => norm(catalog.byCategory[category].find(e => e.name === name).uuid);
+      const field = key => el().querySelector(`[data-detail="${key}"]`);
+      const type = async (key, value) => {
+        const input = field(key);
+        input.value = value;
+        await app.setDetail(key, value);
+        await app.render({ parts: ["body", "banner", "footer"] });
+      };
+      const open = async (background = "Acolyte") => {
+        app = await CharacterWizard.open();
+        assert.exists(app, "the wizard didn't open");
+        await app.settle();
+        await app.update(d => {
+          d.picks.species = pick("species", catalog.byCategory.species[0].name);
+          d.picks.background = pick("background", background);
+          d.picks.class = pick("class", "Cleric");
+        }, { wait: true });
+        await app.settle();
+        await app.goTo("details");
+        await app.settle();
+        return app;
+      };
+
+      before(async function() {
+        this.timeout(120_000);
+        ({ CharacterWizard } = await import("../scripts/wizard/app.mjs"));
+        catalog = await (await import("../scripts/catalog/catalog.mjs")).getCatalog();
+        saved = flag();
+        await game.user.unsetFlag(MODULE_ID, DRAFT_FLAG);
+      });
+      afterEach(async function() {
+        this.timeout(30_000);
+        if ( app?.rendered ) await app.close();
+        app = null;
+        await game.user.unsetFlag(MODULE_ID, DRAFT_FLAG);
+      });
+      after(async function() {
+        this.timeout(30_000);
+        if ( saved === undefined ) await game.user.unsetFlag(MODULE_ID, DRAFT_FLAG);
+        else await raw(saved);
+      });
+
+      it("typing a name satisfies the only required field, and the banner follows", async function() {
+        this.timeout(180_000);
+        await open();
+        assert.exists(field("name"), "no name field");
+        assert.include(app.validation.errors.map(e => e.code), "NAME_REQUIRED");
+        await type("name", "Ilyra of the Vale");
+        await app.settle();
+        assert.equal(app.draft.details.name, "Ilyra of the Vale");
+        assert.notInclude(app.validation.errors.map(e => e.code), "NAME_REQUIRED");
+        assert.include(el().querySelector('.cc-step[data-step="details"] .cc-step__label').textContent, "Ilyra");
+      });
+
+      it("the optional fields are saved as typed", async function() {
+        this.timeout(180_000);
+        await open();
+        await type("pronouns", "they/them");
+        await type("appearance", "Tall, with ink-stained fingers.");
+        await app.settle();
+        assert.equal(app.draft.details.pronouns, "they/them");
+        assert.include(app.draft.details.appearance, "ink-stained");
+        const { checkDraftShape } = await import("../scripts/contracts.mjs");
+        assert.deepEqual(checkDraftShape(app.draft), []);
+      });
+
+      it("2014: the personality fields can be rolled from the background's tables", async function() {
+        if ( rules() !== "legacy" ) this.skip();
+        this.timeout(180_000);
+        await open("Acolyte");
+        const rollers = query('[data-action="detail-roll"]');
+        assert.isAbove(rollers.length, 0, "the Acolyte's tables weren't found");
+        const key = rollers[0].dataset.detail;
+        rollers[0].click();
+        for ( let i = 0; i < 100 && !app.draft.details[key]; i++ ) await new Promise(r => setTimeout(r, 100));
+        assert.isAbove((app.draft.details[key] ?? "").length, 0, `${key} wasn't filled in`);
+        console.log(`${MODULE_ID} | rolled ${key}: ${app.draft.details[key].slice(0, 60)}`);
+      });
+
+      it("2024: there are no personality fields", async function() {
+        if ( rules() !== "modern" ) this.skip();
+        this.timeout(180_000);
+        await open("Sage");
+        assert.notExists(field("traits"), "2024 characters don't have personality traits here");
+        assert.exists(field("appearance"));
+        assert.lengthOf(query('[data-action="detail-roll"]'), 0);
+      });
+    });
+  }, { displayName: "Character Creator: Wizard details" });
+}

@@ -1,0 +1,44 @@
+{{!-- Details (PLAN 3.7): name and the rest. Only the name is needed. --}}
+<div class="cc-columns cc-columns--wide">
+  <section class="cc-detail">
+    <header class="cc-pane__header">
+      <h1 class="cc-pane__title">{{stepTitle}}</h1>
+      <p class="cc-pane__hint">{{stepHint}}</p>
+    </header>
+
+    <div class="cc-fields">
+      {{#each details.fields as |f|}}
+      <div class="cc-field{{#if f.long}} cc-field--long{{/if}}">
+        <label class="cc-field__label" for="cc-detail-{{f.key}}">
+          {{localize (concat "CHARCREATOR.Details." f.key)}}
+          {{#if f.required}}<span class="cc-field__required">{{localize "CHARCREATOR.Details.Required"}}</span>{{/if}}
+        </label>
+        {{#if f.long}}
+        <textarea id="cc-detail-{{f.key}}" class="cc-input cc-input--long" data-detail="{{f.key}}" rows="3"
+                  maxlength="{{f.max}}">{{f.value}}</textarea>
+        {{else}}
+        <input id="cc-detail-{{f.key}}" class="cc-input" type="text" data-detail="{{f.key}}" value="{{f.value}}"
+               maxlength="{{f.max}}" {{#if f.required}}required{{/if}}>
+        {{/if}}
+        {{#if f.table}}
+        <button type="button" class="cc-button cc-field__roll" data-action="detail-roll" data-detail="{{f.key}}">
+          {{localize "CHARCREATOR.Details.Roll"}}
+        </button>
+        {{/if}}
+      </div>
+      {{/each}}
+    </div>
+  </section>
+
+  <aside class="cc-art cc-art--numbers">
+    <dl class="cc-facts">
+      <div><dt>{{localize "CHARCREATOR.Details.name"}}</dt><dd>{{#if details.hasName}}{{details.name}}{{else}}—{{/if}}</dd></div>
+    </dl>
+    {{#if details.personality}}
+    <p class="cc-hint">{{localize "CHARCREATOR.Details.PersonalityHint"}}</p>
+    {{/if}}
+    {{#if errors.length}}
+    <ul class="cc-problems">{{#each errors as |e|}}<li class="cc-problem">{{localize e.key}}</li>{{/each}}</ul>
+    {{/if}}
+  </aside>
+</div>

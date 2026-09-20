@@ -293,6 +293,26 @@
       "NothingToShow": "Nothing to choose here yet.",
       "AlreadyKnown": "you already have it",
       "FromElsewhere": "Already known"
+    },
+    "Details": {
+      "name": "Name",
+      "pronouns": "Pronouns",
+      "alignment": "Alignment",
+      "age": "Age",
+      "height": "Height",
+      "weight": "Weight",
+      "eyes": "Eyes",
+      "hair": "Hair",
+      "skin": "Skin",
+      "appearance": "Appearance",
+      "biography": "Backstory",
+      "traits": "Personality traits",
+      "ideals": "Ideals",
+      "bonds": "Bonds",
+      "flaws": "Flaws",
+      "Required": "needed",
+      "Roll": "Roll one",
+      "PersonalityHint": "Personality traits, ideals, bonds and flaws are yours to write — or roll from your background's tables."
     }
   }
 }

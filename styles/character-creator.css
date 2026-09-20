@@ -606,3 +606,27 @@
 .cc-cards--spells { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
 .cc-cards--spells .cc-card:disabled { opacity: 0.45; cursor: default; }
 .cc-known { display: flex; flex-direction: column; gap: 4px; text-align: center; font-size: 14px; color: var(--cc-muted); }
+
+/* ---------------------------------------------- */
+/*  Details                                       */
+/* ---------------------------------------------- */
+
+.cc-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px 18px; }
+.cc-field { display: flex; flex-direction: column; gap: 6px; }
+.cc-field--long { grid-column: 1 / -1; }
+.cc-field__label { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--cc-faint); }
+.cc-field__required { margin-left: 6px; color: var(--cc-warn); letter-spacing: 0; text-transform: none; }
+.cc-field__roll { align-self: flex-start; min-height: 36px; padding: 0 12px; font-size: 13px; }
+
+.cc-input {
+  min-height: 44px;
+  padding: 8px 12px;
+  background: var(--cc-panel);
+  border: 1px solid var(--cc-line);
+  border-radius: var(--cc-radius);
+  color: var(--cc-text);
+  font-family: var(--cc-body);
+  font-size: 15px;
+}
+.cc-input--long { min-height: 84px; resize: vertical; line-height: 1.5; }
+.cc-input:focus { border-color: var(--cc-gold-deep); outline: none; }

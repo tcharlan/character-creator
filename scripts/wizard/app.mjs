@@ -20,6 +20,7 @@ import { sourceModel, setMode, chooseBranch, setPick, setWealth, EQUIPMENT_SOURC
 import { equipmentContext, rollStartingWealth } from "../rules/equipment-items.mjs";
 import { spellsModel, toggleSpell } from "./spells-step.mjs";
 import { spellContext } from "../rules/spell-facts.mjs";
+import { detailsModel, setDetail, PERSONALITY } from "./details-step.mjs";
 import { rollAbilityScores } from "../rules/ability-roll.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
@@ -33,7 +34,8 @@ const STEP_PARTIALS = {
   abilities: `modules/${MODULE_ID}/templates/steps/abilities.hbs`,
   choices: `modules/${MODULE_ID}/templates/steps/choices.hbs`,
   equipment: `modules/${MODULE_ID}/templates/steps/equipment.hbs`,
-  spells: `modules/${MODULE_ID}/templates/steps/spells.hbs`
+  spells: `modules/${MODULE_ID}/templates/steps/spells.hbs`,
+  details: `modules/${MODULE_ID}/templates/steps/details.hbs`
 };
 
 /** Shared pieces the step templates include. */
@@ -64,6 +66,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   #openChoice = null;
   #equipment = null;
   #spellTab = null;
+  #tables = null;
 
   static DEFAULT_OPTIONS = {
     id: "character-creator-wizard",
@@ -94,7 +97,8 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       "equip-branch": onEquipBranch,
       "equip-roll": onEquipRoll,
       "spell-tab": onSpellTab,
-      spell: onSpell
+      spell: onSpell,
+      "detail-roll": onDetailRoll
     }
   };
 
@@ -333,6 +337,52 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     if ( changed ) await this.settle();
   }
 
+  /** Type in one of the detail fields. */
+  async setDetail(field, value) {
+    await this.update(d => setDetail(d, field, value));
+    if ( field === "name" ) await this.render({ parts: ["banner", "footer"] });
+  }
+
+  /**
+   * Roll one of the 2014 personality fields on the background's table. It's flavour: the roll stays in this
+   * browser, isn't posted to chat, and nothing checks it.
+   */
+  async rollDetail(field) {
+    const uuid = (await this.#personalityTables())[field];
+    if ( !uuid ) return;
+    try {
+      const table = await fromUuid(uuid);
+      const { results } = await table.roll();
+      const text = results.map(r => r.description ?? r.text ?? r.name).join(" ").trim();
+      if ( text ) await this.setDetail(field, text);
+      await this.render({ parts: ["body"] });
+    } catch ( err ) {
+      console.warn(`${MODULE_ID} | couldn't roll ${field}`, err);
+    }
+  }
+
+  /**
+   * The background's personality tables, by field. 2014 backgrounds have tables named like
+   * "Personality Traits (Acolyte)" in the SRD; a background without them simply gets no roll buttons.
+   */
+  async #personalityTables() {
+    const background = this.#build?.actor?.items?.get(this.#build.roots?.background);
+    const key = background?.name ?? null;
+    if ( this.#tables?.for === key ) return this.#tables.tables;
+    const tables = {};
+    if ( key ) {
+      for ( const pack of game.packs.filter(p => (p.documentName === "RollTable") && p.visible) ) {
+        const index = await pack.getIndex();
+        for ( const [field, label] of Object.entries(PERSONALITY) ) {
+          const entry = index.find(e => e.name === `${label} (${key})`);
+          if ( entry ) tables[field] = entry.uuid;
+        }
+      }
+    }
+    this.#tables = { for: key, tables };
+    return tables;
+  }
+
   /** Filter the option list of the current step. */
   async search(text) {
     this.#search[this.#current] = text;
@@ -449,6 +499,10 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   /** Whatever the current step's pane needs (PLAN 3.2: the option steps). */
   async #stepContext() {
     if ( this.#current === "equipment" ) return { equipment: this.#equipmentModel() };
+    if ( this.#current === "details" ) {
+      const tables = this.draft.rules === "legacy" ? await this.#personalityTables() : {};
+      return { details: detailsModel(this.draft, { rules: this.draft.rules, tables }) };
+    }
     if ( this.#current === "spells" ) {
       const context = spellContext(this.#build, this.#catalog);
       const model = spellsModel(context, this.draft, this.#spellTab, this.#catalog);
@@ -498,6 +552,11 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     // Checkboxes answer on "change": a click inside a <label> would otherwise fire the action twice.
     for ( const box of this.element.querySelectorAll(".cc-toggle") ) {
       box.addEventListener("change", event => this.answer({ action: event.target.dataset.toggle, value: event.target.dataset.key }));
+    }
+    for ( const field of this.element.querySelectorAll("[data-detail]") ) {
+      if ( field.tagName === "BUTTON" ) continue;
+      field.addEventListener("input", foundry.utils.debounce(event =>
+        this.setDetail(event.target.dataset.detail, event.target.value), 300));
     }
     for ( const select of this.element.querySelectorAll(".cc-equip-pick") ) {
       select.addEventListener("change", event => {
@@ -666,6 +725,10 @@ function onSpellTab(event, target) {
 
 function onSpell(event, target) {
   return this.toggleSpell(target.dataset.kind, target.dataset.uuid);
+}
+
+function onDetailRoll(event, target) {
+  return this.rollDetail(target.dataset.detail);
 }
 
 function onStep(event, target) {
