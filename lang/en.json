@@ -207,7 +207,19 @@
     },
     "Portrait": {
       "Ready": "Uploaded",
-      "Skipped": "Skipped"
+      "Skipped": "Skipped",
+      "Choose": "Choose a picture",
+      "Remove": "Remove",
+      "Skip": "Continue without one",
+      "SkippedNote": "You're continuing without a portrait. You can add one later from your character sheet.",
+      "Disabled": "Your GM has turned portrait uploads off. You can still finish your character.",
+      "Limits": "Pictures up to",
+      "Resized": "It's resized in your browser before it's sent, so large pictures are fine.",
+      "RingColor": "Ring colour",
+      "BackgroundColor": "Ring background",
+      "ResetColors": "Use the default colours",
+      "Preview": "How your token will look",
+      "NoPicture": "No picture yet"
     },
     "Start": {
       "Heading": "Create your character",

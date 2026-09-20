@@ -21,6 +21,8 @@ import { equipmentContext, rollStartingWealth } from "../rules/equipment-items.m
 import { spellsModel, toggleSpell } from "./spells-step.mjs";
 import { spellContext } from "../rules/spell-facts.mjs";
 import { detailsModel, setDetail, PERSONALITY } from "./details-step.mjs";
+import { portraitModel, setImage, clearImage, skipPortrait, setRingColor } from "./portrait-step.mjs";
+import { preparePortrait } from "../portrait/prepare.mjs";
 import { rollAbilityScores } from "../rules/ability-roll.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
@@ -35,7 +37,8 @@ const STEP_PARTIALS = {
   choices: `modules/${MODULE_ID}/templates/steps/choices.hbs`,
   equipment: `modules/${MODULE_ID}/templates/steps/equipment.hbs`,
   spells: `modules/${MODULE_ID}/templates/steps/spells.hbs`,
-  details: `modules/${MODULE_ID}/templates/steps/details.hbs`
+  details: `modules/${MODULE_ID}/templates/steps/details.hbs`,
+  portrait: `modules/${MODULE_ID}/templates/steps/portrait.hbs`
 };
 
 /** Shared pieces the step templates include. */
@@ -98,7 +101,10 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       "equip-roll": onEquipRoll,
       "spell-tab": onSpellTab,
       spell: onSpell,
-      "detail-roll": onDetailRoll
+      "detail-roll": onDetailRoll,
+      "portrait-clear": onPortraitClear,
+      "portrait-skip": onPortraitSkip,
+      "ring-reset": onRingReset
     }
   };
 
@@ -383,6 +389,29 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     return tables;
   }
 
+  /**
+   * Take the picture the player chose: it's checked and resized here, in their browser, and travels with the
+   * submission. The GM's browser is what saves it (D13, D22).
+   */
+  async choosePortrait(file) {
+    if ( !file ) return;
+    try {
+      const image = await preparePortrait(file);
+      await this.update(d => setImage(d, image), { wait: true });
+    } catch ( err ) {
+      const key = err?.error?.key ?? "CHARCREATOR.Error.BAD_IMAGE";
+      console.warn(`${MODULE_ID} | the portrait couldn't be used`, err);
+      ui.notifications?.warn(game.i18n.localize(key));
+    }
+    await this.render({ parts: ["banner", "body", "footer"] });
+  }
+
+  /** Remove the chosen picture, skip the step, or reset the ring colours. */
+  async setPortrait(change) {
+    await this.update(change, { wait: true });
+    await this.render({ parts: ["banner", "body", "footer"] });
+  }
+
   /** Filter the option list of the current step. */
   async search(text) {
     this.#search[this.#current] = text;
@@ -499,6 +528,12 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   /** Whatever the current step's pane needs (PLAN 3.2: the option steps). */
   async #stepContext() {
     if ( this.#current === "equipment" ) return { equipment: this.#equipmentModel() };
+    if ( this.#current === "portrait" ) {
+      const settings = readSettings();
+      return { portrait: portraitModel(this.draft, { enabled: settings.portraits.enabled,
+        maxSourceBytes: settings.portraits.maxSourceBytes, defaults: settings.ringColors,
+        userColor: game.user.color?.css ?? null }) };
+    }
     if ( this.#current === "details" ) {
       const tables = this.draft.rules === "legacy" ? await this.#personalityTables() : {};
       return { details: detailsModel(this.draft, { rules: this.draft.rules, tables }) };
@@ -552,6 +587,12 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     // Checkboxes answer on "change": a click inside a <label> would otherwise fire the action twice.
     for ( const box of this.element.querySelectorAll(".cc-toggle") ) {
       box.addEventListener("change", event => this.answer({ action: event.target.dataset.toggle, value: event.target.dataset.key }));
+    }
+    const file = this.element.querySelector(".cc-file__input");
+    if ( file ) file.addEventListener("change", event => this.choosePortrait(event.target.files?.[0]));
+    for ( const color of this.element.querySelectorAll(".cc-color") ) {
+      color.addEventListener("change", event =>
+        this.setPortrait(d => setRingColor(d, event.target.dataset.ring, event.target.value)));
     }
     for ( const field of this.element.querySelectorAll("[data-detail]") ) {
       if ( field.tagName === "BUTTON" ) continue;
@@ -729,6 +770,21 @@ function onSpell(event, target) {
 
 function onDetailRoll(event, target) {
   return this.rollDetail(target.dataset.detail);
+}
+
+function onPortraitClear() {
+  return this.setPortrait(clearImage);
+}
+
+function onPortraitSkip() {
+  return this.setPortrait(skipPortrait);
+}
+
+function onRingReset() {
+  return this.setPortrait(d => {
+    setRingColor(d, "ring", null);
+    setRingColor(d, "background", null);
+  });
 }
 
 function onStep(event, target) {

@@ -1,0 +1,62 @@
+{{!-- Portrait (PLAN 3.8): choose a picture, see it on the ring, or skip. --}}
+<div class="cc-columns cc-columns--wide">
+  <section class="cc-detail">
+    <header class="cc-pane__header">
+      <h1 class="cc-pane__title">{{stepTitle}}</h1>
+      <p class="cc-pane__hint">{{stepHint}}</p>
+    </header>
+
+    {{#unless portrait.enabled}}
+    <p class="cc-empty">{{localize "CHARCREATOR.Portrait.Disabled"}}</p>
+    {{else}}
+    <div class="cc-portrait-controls">
+      <label class="cc-button cc-button--primary cc-file">
+        {{localize "CHARCREATOR.Portrait.Choose"}}
+        <input type="file" class="cc-file__input" accept="image/png,image/jpeg,image/webp">
+      </label>
+      {{#if portrait.chosen}}
+      <button type="button" class="cc-button" data-action="portrait-clear">{{localize "CHARCREATOR.Portrait.Remove"}}</button>
+      {{/if}}
+      <button type="button" class="cc-button cc-button--quiet" data-action="portrait-skip">{{localize "CHARCREATOR.Portrait.Skip"}}</button>
+    </div>
+    <p class="cc-hint">
+      {{#if portrait.maxMB}}{{localize "CHARCREATOR.Portrait.Limits"}} {{portrait.maxMB}} MB.{{/if}}
+      {{localize "CHARCREATOR.Portrait.Resized"}}
+    </p>
+
+    {{#if portrait.skipped}}<p class="cc-chosen-for-you">{{localize "CHARCREATOR.Portrait.SkippedNote"}}</p>{{/if}}
+
+    {{#if portrait.chosen}}
+    <div class="cc-ring-colors">
+      <label class="cc-field">
+        <span class="cc-field__label">{{localize "CHARCREATOR.Portrait.RingColor"}}</span>
+        <input type="color" class="cc-color" data-ring="ring" value="{{portrait.ring.ringShown}}">
+      </label>
+      <label class="cc-field">
+        <span class="cc-field__label">{{localize "CHARCREATOR.Portrait.BackgroundColor"}}</span>
+        <input type="color" class="cc-color" data-ring="background" value="{{portrait.ring.backgroundShown}}">
+      </label>
+      <button type="button" class="cc-button cc-button--quiet" data-action="ring-reset">{{localize "CHARCREATOR.Portrait.ResetColors"}}</button>
+    </div>
+    {{/if}}
+    {{/unless}}
+  </section>
+
+  <aside class="cc-art cc-art--numbers">
+    {{#if portrait.preview}}
+    <figure class="cc-token" style="--cc-ring: {{portrait.ring.ringShown}}; --cc-ring-bg: {{portrait.ring.backgroundShown}};">
+      <img src="{{portrait.preview}}" alt="{{localize 'CHARCREATOR.Portrait.Preview'}}">
+    </figure>
+    <figcaption class="cc-art__caption">
+      {{localize "CHARCREATOR.Portrait.Preview"}} · {{portrait.dimensions}} · {{portrait.size}} KB
+    </figcaption>
+    {{else}}
+    <figure class="cc-token cc-token--empty" style="--cc-ring: {{portrait.ring.ringShown}}; --cc-ring-bg: {{portrait.ring.backgroundShown}};">
+      <span>{{localize "CHARCREATOR.Portrait.NoPicture"}}</span>
+    </figure>
+    {{/if}}
+    {{#if errors.length}}
+    <ul class="cc-problems">{{#each errors as |e|}}<li class="cc-problem">{{localize e.key}}</li>{{/each}}</ul>
+    {{/if}}
+  </aside>
+</div>

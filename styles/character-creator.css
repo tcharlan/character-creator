@@ -630,3 +630,36 @@
 }
 .cc-input--long { min-height: 84px; resize: vertical; line-height: 1.5; }
 .cc-input:focus { border-color: var(--cc-gold-deep); outline: none; }
+
+/* ---------------------------------------------- */
+/*  Portrait                                      */
+/* ---------------------------------------------- */
+
+.cc-portrait-controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.cc-file { position: relative; overflow: hidden; cursor: pointer; }
+.cc-file__input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.cc-ring-colors { display: flex; gap: 18px; align-items: flex-end; flex-wrap: wrap; }
+.cc-color {
+  width: 64px;
+  height: 44px;
+  padding: 2px;
+  background: var(--cc-panel);
+  border: 1px solid var(--cc-line);
+  border-radius: var(--cc-radius);
+  cursor: pointer;
+}
+
+.cc-token {
+  width: 220px;
+  height: 220px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--cc-ring-bg, var(--cc-panel));
+  box-shadow: 0 0 0 6px var(--cc-ring, var(--cc-gold)), 0 0 0 8px var(--cc-base);
+  overflow: hidden;
+}
+.cc-token img { width: 100%; height: 100%; object-fit: cover; border: 0; }
+.cc-token--empty { color: var(--cc-faint); font-size: 14px; text-align: center; }

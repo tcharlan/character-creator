@@ -1107,3 +1107,126 @@ export function registerDetailsStepBatch(quench) {
     });
   }, { displayName: "Character Creator: Wizard details" });
 }
+
+/*
+ * The Portrait step (PLAN 3.8): choosing a picture, the token preview, colours, and skipping.
+ */
+export function registerPortraitStepBatch(quench) {
+  quench.registerBatch(`${MODULE_ID}.wizard-portrait`, ({ describe, it, before, after, afterEach, assert }) => {
+    describe("Portrait step, as Player A", () => {
+      let CharacterWizard;
+      let S;
+      let saved;
+      let app = null;
+      const el = () => app.element;
+      const open = async () => {
+        app = await CharacterWizard.open();
+        assert.exists(app, "the wizard didn't open");
+        await app.settle();
+        await app.goTo("portrait");
+        await app.settle();
+        return app;
+      };
+      /** The file a player would choose. */
+      const file = async (width = 1200, height = 1500) => {
+        const blob = await S.makeTestImage(width, height);
+        return new File([blob], "portrait.png", { type: "image/png" });
+      };
+
+      before(async function() {
+        this.timeout(120_000);
+        ({ CharacterWizard } = await import("../scripts/wizard/app.mjs"));
+        S = await import("./support.mjs");
+        saved = flag();
+        await game.user.unsetFlag(MODULE_ID, DRAFT_FLAG);
+      });
+      afterEach(async function() {
+        this.timeout(30_000);
+        if ( app?.rendered ) await app.close();
+        app = null;
+        await game.user.unsetFlag(MODULE_ID, DRAFT_FLAG);
+      });
+      after(async function() {
+        this.timeout(30_000);
+        if ( saved === undefined ) await game.user.unsetFlag(MODULE_ID, DRAFT_FLAG);
+        else await raw(saved);
+      });
+
+      it("starts with no picture and shows an empty token", async function() {
+        this.timeout(60_000);
+        await open();
+        assert.equal(app.draft.portrait.status, "none");
+        assert.exists(el().querySelector(".cc-token--empty"));
+        assert.exists(el().querySelector(".cc-file__input"), "no way to choose a picture");
+      });
+
+      it("a chosen picture is resized in the browser and previewed on the ring", async function() {
+        this.timeout(180_000);
+        await open();
+        await app.choosePortrait(await file(1200, 1500));
+        await app.settle();
+        const image = app.draft.portrait.pendingImage;
+        assert.exists(image, "nothing was stored");
+        assert.equal(app.draft.portrait.status, "ready");
+        assert.equal(image.mime, "image/webp");
+        assert.deepEqual([image.width, image.height], [819, 1024], "resized to 1024 on the long side");
+        const preview = el().querySelector(".cc-token img");
+        assert.exists(preview, "no preview");
+        assert.match(preview.getAttribute("src"), /^data:image\/webp;base64,/);
+        const { checkImage } = await import("../scripts/contracts.mjs");
+        assert.deepEqual(checkImage(image), [], "the picture is a valid payload");
+        console.log(`${MODULE_ID} | portrait: ${image.width}×${image.height}, ${Math.round(image.data.length * 3 / 4 / 1024)} KB`);
+      });
+
+      it("ring colours are kept, and can be reset to the defaults", async function() {
+        this.timeout(180_000);
+        await open();
+        await app.choosePortrait(await file(400, 400));
+        await app.settle();
+        const picker = el().querySelector('.cc-color[data-ring="ring"]');
+        assert.exists(picker, "no colour picker");
+        picker.value = "#c9a227";
+        picker.dispatchEvent(new Event("change"));
+        await app.settle();
+        assert.equal(app.draft.portrait.ring.ring, "#c9a227");
+        el().querySelector('[data-action="ring-reset"]').click();
+        await app.settle();
+        assert.deepEqual([app.draft.portrait.ring.ring, app.draft.portrait.ring.background], [null, null]);
+      });
+
+      it("the picture can be removed, or the step skipped", async function() {
+        this.timeout(180_000);
+        await open();
+        await app.choosePortrait(await file(400, 400));
+        await app.settle();
+        el().querySelector('[data-action="portrait-clear"]').click();
+        await app.settle();
+        assert.deepEqual([app.draft.portrait.status, app.draft.portrait.pendingImage], ["none", null]);
+        el().querySelector('[data-action="portrait-skip"]').click();
+        await app.settle();
+        assert.equal(app.draft.portrait.status, "skipped");
+        assert.include(el().querySelector(".cc-chosen-for-you").textContent, "without a portrait");
+        assert.include(el().querySelector('.cc-step[data-step="portrait"] .cc-step__label').textContent, "Skipped");
+      });
+
+      it("a file that isn't an image is refused, and the draft is left alone", async function() {
+        this.timeout(120_000);
+        await open();
+        const notAnImage = new File(["hello"], "notes.txt", { type: "text/plain" });
+        await app.choosePortrait(notAnImage);
+        await app.settle();
+        assert.equal(app.draft.portrait.status, "none");
+        assert.isNull(app.draft.portrait.pendingImage);
+      });
+
+      it("the draft with a picture is still within its size budget", async function() {
+        this.timeout(180_000);
+        await open();
+        await app.choosePortrait(await file(1600, 1600));
+        await app.settle();
+        const { checkDraftShape } = await import("../scripts/contracts.mjs");
+        assert.deepEqual(checkDraftShape(app.draft), [], "the picture doesn't push the draft over its limit");
+      });
+    });
+  }, { displayName: "Character Creator: Wizard portrait" });
+}
