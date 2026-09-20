@@ -1,0 +1,109 @@
+{{!-- Review (PLAN 3.9): the whole character, what's left to fix, and Create. --}}
+<div class="cc-columns cc-columns--wide">
+  <section class="cc-detail">
+    {{#if review.outcome}}
+    {{!-- Sent: waiting for a GM, created, or refused. --}}
+    <div class="cc-outcome cc-outcome--{{review.outcome.kind}}">
+      {{#if (eq review.outcome.kind "pending")}}
+      <h1 class="cc-pane__title">{{localize "CHARCREATOR.Review.PendingTitle"}}</h1>
+      <p class="cc-pane__hint">{{localize "CHARCREATOR.Review.PendingBody"}}</p>
+      <button type="button" class="cc-button cc-button--primary" data-action="close-wizard">{{localize "CHARCREATOR.Review.Close"}}</button>
+      {{/if}}
+
+      {{#if (eq review.outcome.kind "created")}}
+      <h1 class="cc-pane__title">{{localize "CHARCREATOR.Review.CreatedTitle"}}</h1>
+      <p class="cc-pane__hint">{{localize "CHARCREATOR.Review.CreatedBody"}}</p>
+      {{#if review.outcome.warnings.length}}
+      <ul class="cc-problems">{{#each review.outcome.warnings as |w|}}<li class="cc-problem">{{localize w}}</li>{{/each}}</ul>
+      {{/if}}
+      <div class="cc-portrait-controls">
+        <button type="button" class="cc-button cc-button--primary" data-action="open-sheet">{{localize "CHARCREATOR.Review.OpenSheet"}}</button>
+        <button type="button" class="cc-button" data-action="finish">{{localize "CHARCREATOR.Review.Done"}}</button>
+      </div>
+      {{/if}}
+
+      {{#if (eq review.outcome.kind "failed")}}
+      <h1 class="cc-pane__title">{{localize "CHARCREATOR.Review.FailedTitle"}}</h1>
+      <p class="cc-pane__hint">{{localize "CHARCREATOR.Review.FailedBody"}}</p>
+      <ul class="cc-problems">
+        {{#each review.outcome.errors as |e|}}
+        <li class="cc-problem">
+          {{localize e.key}}
+          {{#if e.step}}<button type="button" class="cc-link" data-action="step" data-step="{{e.step}}">{{localize "CHARCREATOR.Nav.GoToStep"}}</button>{{/if}}
+        </li>
+        {{/each}}
+      </ul>
+      <button type="button" class="cc-button cc-button--primary" data-action="fix">{{localize "CHARCREATOR.Review.Fix"}}</button>
+      {{/if}}
+    </div>
+    {{else}}
+
+    <header class="cc-pane__header">
+      <h1 class="cc-pane__title">{{#if review.summary.name}}{{review.summary.name}}{{else}}{{stepTitle}}{{/if}}</h1>
+      <p class="cc-pane__hint">
+        {{#if review.summary}}
+        {{review.summary.species}} {{review.summary.class}}{{#if review.summary.subclass}} ({{review.summary.subclass}}){{/if}}
+        · {{localize "CHARCREATOR.Review.Level"}} {{review.summary.level}} · {{review.summary.background}}
+        {{/if}}
+      </p>
+    </header>
+
+    {{#if review.summary}}
+    <div class="cc-stats">
+      {{#each review.summary.abilities as |a|}}
+      <div class="cc-stat">
+        <span class="cc-stat__label">{{a.label}}</span>
+        <span class="cc-stat__value">{{a.value}}</span>
+        <span class="cc-stat__note">{{a.modifier}}{{#if a.saveProficient}} ◆{{/if}}</span>
+      </div>
+      {{/each}}
+    </div>
+
+    <dl class="cc-facts">
+      <div><dt>{{localize "CHARCREATOR.Summary.HitPoints"}}</dt><dd>{{review.summary.hitPoints}}</dd></div>
+      <div><dt>{{localize "CHARCREATOR.Review.ArmorClass"}}</dt><dd>{{review.summary.armorClass}}</dd></div>
+      <div><dt>{{localize "CHARCREATOR.Review.Speed"}}</dt><dd>{{review.summary.speed}} ft</dd></div>
+      <div><dt>{{localize "CHARCREATOR.Review.Proficiency"}}</dt><dd>+{{review.summary.proficiency}}</dd></div>
+    </dl>
+
+    <div class="cc-review-lists">
+      <div><h3 class="cc-section-title">{{localize "CHARCREATOR.Review.Skills"}}</h3><p>{{review.skillsText}}</p></div>
+      <div><h3 class="cc-section-title">{{localize "CHARCREATOR.Review.Features"}}</h3><p>{{review.featuresText}}</p></div>
+      <div><h3 class="cc-section-title">{{localize "CHARCREATOR.Equipment.YouCarry"}}</h3><p>{{review.equipmentText}}</p></div>
+      {{#if review.spellsText}}
+      <div><h3 class="cc-section-title">{{localize "CHARCREATOR.Step.spells.Title"}}</h3><p>{{review.spellsText}}</p></div>
+      {{/if}}
+    </div>
+    {{/if}}
+    {{/if}}
+  </section>
+
+  <aside class="cc-art cc-art--numbers">
+    {{#if review.summary.portrait}}
+    <figure class="cc-token"><img src="{{review.summary.portrait}}" alt=""></figure>
+    {{/if}}
+
+    {{#unless review.outcome}}
+    {{#if review.ready}}
+    <p class="cc-ready">{{localize "CHARCREATOR.Summary.Ready"}}</p>
+    {{else}}
+    <h3 class="cc-section-title">{{localize "CHARCREATOR.Review.ToFix"}} ({{review.problems}})</h3>
+    <div class="cc-problems-by-step">
+      {{#each review.groups as |g|}}
+      <div class="cc-problems-group">
+        <h2>{{localize (concat "CHARCREATOR.Step." g.step ".Title")}}</h2>
+        <ul>{{#each g.errors as |e|}}<li>{{localize e.key}}</li>{{/each}}</ul>
+        <button type="button" class="cc-link" data-action="step" data-step="{{g.step}}">{{localize "CHARCREATOR.Nav.GoToStep"}}</button>
+      </div>
+      {{/each}}
+    </div>
+    {{/if}}
+
+    <button type="button" class="cc-button cc-button--primary cc-create" data-action="create"
+            {{#unless review.ready}}disabled{{/unless}} {{#if review.busy}}disabled{{/if}}>
+      {{#if review.busy}}{{localize "CHARCREATOR.Review.Creating"}}{{else}}{{localize "CHARCREATOR.Review.Create"}}{{/if}}
+    </button>
+    <p class="cc-hint">{{localize "CHARCREATOR.Review.CreateHint"}}</p>
+    {{/unless}}
+  </aside>
+</div>

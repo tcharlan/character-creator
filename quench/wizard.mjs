@@ -1230,3 +1230,256 @@ export function registerPortraitStepBatch(quench) {
     });
   }, { displayName: "Character Creator: Wizard portrait" });
 }
+
+/*
+ * The Review step and Create character (PLAN 3.9): a whole character built through the wizard and created by the
+ * GM, plus the offline path. `walkWizard` is the shared walkthrough — it uses the same methods the screens' own
+ * buttons call.
+ */
+
+/** Fill in a whole character through the wizard, leaving it on the review step with nothing to fix. */
+export async function walkWizard(app, { name = "Wizard Walkthrough" } = {}) {
+  const rules = game.settings.get("dnd5e", "rulesVersion");
+  const spec = rules === "legacy" ? { species: "Hill Dwarf", background: "Acolyte", class: "Cleric" }
+    : { species: "Human", background: "Sage", class: "Cleric" };
+  const catalog = await (await import("../scripts/catalog/catalog.mjs")).getCatalog();
+  const norm = u => u.replace(/^(Compendium\.[^.]+\.[^.]+\.)(?!Item\.)/, "$1Item.");
+  const uuid = (category, wanted) => norm(catalog.byCategory[category].find(e => e.name === wanted).uuid);
+
+  // Species, class, background.
+  for ( const [role, step] of [["species", "species"], ["class", "class"], ["background", "background"]] ) {
+    await app.goTo(step);
+    await app.pick(uuid(role, spec[role]));
+  }
+  await app.settle();
+
+  // Ability scores: the standard array, in order.
+  await app.goTo("abilities");
+  await app.chooseMethod("standardArray");
+  const values = [15, 14, 13, 12, 10, 8];
+  for ( const [i, key] of ["str", "dex", "con", "int", "wis", "cha"].entries() ) await app.assign(key, values[i]);
+  await app.settle();
+
+  // Every choice, taking the first legal option each time.
+  await app.goTo("choices");
+  await app.settle();
+  for ( let guard = 0; guard < 40; guard++ ) {
+    const next = app.build.results.find(r => r.status === "needsInput");
+    if ( !next ) break;
+    await app.openChoice(next.key);
+    const w = next.options;
+    if ( next.type === "Trait" ) {
+      const need = w.max - (next.data?.chosen?.length ?? 0);
+      for ( let i = 0; i < need; i++ ) {
+        const box = [...app.element.querySelectorAll(".cc-keys input")].filter(b => !b.disabled && !b.checked)[0];
+        if ( !box ) break;
+        box.click();
+        await app.settle();
+      }
+    } else if ( next.type === "ItemChoice" ) {
+      const need = w.count - (next.data?.selected?.length ?? 0);
+      for ( let i = 0; i < need; i++ ) {
+        const card = [...app.element.querySelectorAll(".cc-cards button")].filter(c => c.getAttribute("aria-pressed") !== "true")[0];
+        if ( !card ) break;
+        card.click();
+        await app.settle();
+      }
+      if ( w.abilityOptions?.length > 1 ) {
+        app.element.querySelector(".cc-ability-picker button").click();
+        await app.settle();
+      }
+    } else if ( next.type === "ItemGrant" ) {
+      if ( w.abilityOptions?.length > 1 ) app.element.querySelector(".cc-ability-picker button").click();
+      else app.element.querySelectorAll(".cc-key input").forEach(b => b.click());
+      await app.settle();
+    } else if ( next.type === "AbilityScoreImprovement" ) {
+      for ( let i = 0; i < (w.points ?? 0); i++ ) {
+        const plus = [...app.element.querySelectorAll(".cc-score__step")].filter(b => !b.disabled && b.textContent.includes("+"))[0];
+        if ( !plus ) break;
+        plus.click();
+        await app.settle();
+      }
+    } else {
+      app.element.querySelector(".cc-cards button")?.click();
+      await app.settle();
+    }
+  }
+
+  // Equipment: the first option of each choice, for both sources.
+  await app.goTo("equipment");
+  await app.settle();
+  for ( let guard = 0; guard < 40; guard++ ) {
+    const groups = [...app.element.querySelectorAll(".cc-decision [role=radiogroup]")];
+    const undecided = groups.find(g => ![...g.querySelectorAll("button")].some(b => b.getAttribute("aria-pressed") === "true"));
+    if ( undecided ) {
+      undecided.querySelector("button").click();
+      await app.settle();
+      continue;
+    }
+    const empty = [...app.element.querySelectorAll(".cc-equip-pick")].find(s => !s.value);
+    if ( !empty ) break;
+    empty.value = [...empty.options].map(o => o.value).filter(Boolean)[0];
+    empty.dispatchEvent(new Event("change"));
+    await app.settle();
+  }
+
+  // Spells, where the class has them.
+  await app.goTo("spells");
+  await app.settle();
+  for ( let guard = 0; guard < 40; guard++ ) {
+    const tab = [...app.element.querySelectorAll('[data-action="spell-tab"]')].find(t => {
+      const numbers = t.textContent.trim().split(/\s+/).filter(x => /^\d+$/.test(x)).map(Number);
+      return numbers.length >= 2 && (numbers[0] < numbers[1]);
+    });
+    if ( !tab ) break;
+    if ( tab.getAttribute("aria-selected") !== "true" ) {
+      tab.click();
+      await app.settle();
+      continue;
+    }
+    const card = [...app.element.querySelectorAll(".cc-cards--spells .cc-card")]
+      .find(c => !c.disabled && (c.getAttribute("aria-pressed") !== "true"));
+    if ( !card ) break;
+    card.click();
+    await app.settle();
+  }
+
+  // A name, no portrait, then the review.
+  await app.goTo("details");
+  await app.setDetail("name", name);
+  await app.goTo("portrait");
+  await app.setPortrait((await import("../scripts/wizard/portrait-step.mjs")).skipPortrait);
+  await app.goTo("review");
+  await app.settle();
+  return app;
+}
+
+export function registerCreateBatches(quench) {
+  const rules = () => game.settings.get("dnd5e", "rulesVersion");
+
+  quench.registerBatch(`${MODULE_ID}.wizard-create@gm`, ({ describe, it, before, after, assert }) => {
+    describe("Review and Create, with a GM online", () => {
+      let CharacterWizard;
+      let saved;
+      let app = null;
+      let actor = null;
+      const gm = () => game.users.activeGM;
+      const el = () => app.element;
+
+      before(async function() {
+        this.timeout(600_000);
+        assert.isFalse(game.user.isGM, "run as a player");
+        assert.exists(gm(), "no active GM — run with npm run test:foundry");
+        ({ CharacterWizard } = await import("../scripts/wizard/app.mjs"));
+        saved = flag();
+        // Clear the draft first: a pending build from the offline batch would otherwise be created by the GM
+        // while this one runs and take up the character limit.
+        await game.user.unsetFlag(MODULE_ID, DRAFT_FLAG);
+        await gm().query(`${MODULE_ID}.test.setSetting`, { key: "characterLimit", value: 0 }, { timeout: 30_000 });
+        await gm().query(`${MODULE_ID}.test.submitCleanup`, {}, { timeout: 60_000 });
+        app = await CharacterWizard.open();
+        await app.settle();
+        await walkWizard(app, { name: `Walkthrough ${rules()}` });
+      });
+      after(async function() {
+        this.timeout(120_000);
+        if ( app?.rendered ) await app.close();
+        if ( gm() ) {
+          await gm().query(`${MODULE_ID}.test.submitCleanup`, {}, { timeout: 60_000 });
+          await gm().query(`${MODULE_ID}.test.setSetting`, { key: "characterLimit", reset: true }, { timeout: 30_000 });
+        }
+        if ( saved === undefined ) await game.user.unsetFlag(MODULE_ID, DRAFT_FLAG);
+        else await raw(saved);
+      });
+
+      it("the review shows the character the GM will create, with nothing left to fix", async function() {
+        this.timeout(120_000);
+        assert.equal(app.step, "review");
+        assert.deepEqual(app.validation.errors, [], JSON.stringify(app.validation.errors).slice(0, 400));
+        const title = el().querySelector(".cc-pane__title").textContent.trim();
+        assert.include(title, "Walkthrough");
+        assert.lengthOf([...el().querySelectorAll(".cc-stat")], 6, "the six ability scores");
+        const create = el().querySelector('[data-action="create"]');
+        assert.exists(create);
+        assert.isFalse(create.disabled, "Create should be available");
+      });
+
+      it("Create sends it to the GM, who creates the character", async function() {
+        this.timeout(300_000);
+        const before = game.actors.size;
+        // A character created earlier (the offline batch's pending build) keeps the assignment: Foundry only
+        // assigns a player's character when they don't have one.
+        const hadCharacter = !!game.user.character;
+        el().querySelector('[data-action="create"]').click();
+        for ( let i = 0; i < 300 && (app.draft?.status !== "created"); i++ ) await new Promise(r => setTimeout(r, 200));
+        assert.equal(app.draft.status, "created", JSON.stringify(app.draft.result?.errors ?? []).slice(0, 400));
+        actor = await fromUuid(app.draft.result.actorUuid);
+        assert.exists(actor, "the character never arrived");
+        assert.equal(game.actors.size, before + 1);
+        assert.equal(actor.name, `Walkthrough ${rules()}`);
+        assert.equal(actor.system.details.level, 1);
+        assert.isTrue(actor.isOwner);
+        if ( !hadCharacter ) assert.equal(game.user.character?.id, actor.id, "assigned to the player");
+        console.log(`${MODULE_ID} | wizard create (${rules()}): ${actor.items.size} items, ${actor.system.attributes.hp.max} hp`);
+      });
+
+      it("the character matches what the review showed", async function() {
+        this.timeout(120_000);
+        const summary = app.build.actor;
+        assert.equal(actor.system.attributes.hp.max, summary.system.attributes.hp.max);
+        for ( const key of ["str", "dex", "con", "int", "wis", "cha"] ) {
+          assert.equal(actor.system.abilities[key].value, summary.system.abilities[key].value, key);
+        }
+        const names = list => list.map(i => `${i.type}:${i.name}`).sort();
+        // The created actor also carries the equipment and spells, so the build's items are a subset.
+        assert.includeMembers(names(actor.items.contents), names(summary.items.contents));
+      });
+
+      it("the outcome offers the sheet, and finishing clears the draft", async function() {
+        this.timeout(120_000);
+        await app.settle();
+        assert.exists(el().querySelector(".cc-outcome--created"), "no 'your character is ready' message");
+        assert.exists(el().querySelector('[data-action="open-sheet"]'));
+        el().querySelector('[data-action="finish"]').click();
+        for ( let i = 0; i < 100 && app.rendered; i++ ) await new Promise(r => setTimeout(r, 100));
+        assert.isUndefined(flag(), "the draft is cleared once the player has seen the result");
+      });
+    });
+  }, { displayName: "Character Creator: Wizard create (GM online)" });
+
+  quench.registerBatch(`${MODULE_ID}.wizard-create@nogm`, ({ describe, it, before, after, assert }) => {
+    describe("Create with no GM online (D17)", () => {
+      let CharacterWizard;
+      let saved;
+      let app = null;
+
+      before(async function() {
+        this.timeout(600_000);
+        assert.notExists(game.users.activeGM, "this batch needs no GM online");
+        ({ CharacterWizard } = await import("../scripts/wizard/app.mjs"));
+        saved = flag();
+        await game.user.unsetFlag(MODULE_ID, DRAFT_FLAG);
+        app = await CharacterWizard.open();
+        await app.settle();
+        await walkWizard(app, { name: "Offline Walkthrough" });
+      });
+      after(async function() {
+        this.timeout(60_000);
+        if ( app?.rendered ) await app.close();
+        // The draft is left for pending@gm to pick up; the flag is restored by that batch's clean-up.
+        if ( saved !== undefined ) await raw(saved);
+      });
+
+      it("the character waits as a pending build, with the player told so", async function() {
+        this.timeout(300_000);
+        assert.deepEqual(app.validation.errors, [], JSON.stringify(app.validation.errors).slice(0, 300));
+        app.element.querySelector('[data-action="create"]').click();
+        for ( let i = 0; i < 300 && (app.draft?.status !== "submitted"); i++ ) await new Promise(r => setTimeout(r, 200));
+        assert.equal(app.draft.status, "submitted");
+        assert.equal(flag().status, "submitted", "it's stored for the GM");
+        await app.settle();
+        assert.exists(app.element.querySelector(".cc-outcome--pending"), "the player isn't told it's waiting");
+      });
+    });
+  }, { displayName: "Character Creator: Wizard create (no GM)" });
+}

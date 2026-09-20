@@ -663,3 +663,31 @@
 }
 .cc-token img { width: 100%; height: 100%; object-fit: cover; border: 0; }
 .cc-token--empty { color: var(--cc-faint); font-size: 14px; text-align: center; }
+
+/* ---------------------------------------------- */
+/*  Review                                        */
+/* ---------------------------------------------- */
+
+.cc-stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+.cc-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px;
+  background: var(--cc-panel);
+  border: 1px solid var(--cc-line-soft);
+  border-radius: var(--cc-radius);
+}
+.cc-stat__label { font-size: 11px; letter-spacing: 0.12em; color: var(--cc-faint); }
+.cc-stat__value { font-family: var(--cc-display); font-size: 24px; font-weight: 700; }
+.cc-stat__note { font-size: 13px; color: var(--cc-muted); }
+
+.cc-review-lists { display: flex; flex-direction: column; gap: 14px; }
+.cc-review-lists p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--cc-muted); }
+.cc-create { width: 100%; justify-content: center; }
+
+.cc-outcome { display: flex; flex-direction: column; gap: 14px; align-items: flex-start; max-width: 620px; }
+.cc-outcome--created .cc-pane__title { color: var(--cc-ok); }
+.cc-outcome--failed .cc-pane__title { color: var(--cc-bad); }
+.cc-outcome--pending .cc-pane__title { color: var(--cc-gold); }

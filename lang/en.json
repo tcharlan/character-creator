@@ -325,6 +325,28 @@
       "Required": "needed",
       "Roll": "Roll one",
       "PersonalityHint": "Personality traits, ideals, bonds and flaws are yours to write — or roll from your background's tables."
+    },
+    "Review": {
+      "Level": "level",
+      "ArmorClass": "Armor class",
+      "Speed": "Speed",
+      "Proficiency": "Proficiency bonus",
+      "Skills": "Skills",
+      "Features": "Features",
+      "ToFix": "To fix",
+      "Create": "Create character",
+      "Creating": "Sending…",
+      "CreateHint": "Your GM's copy of the module checks everything again and creates the character.",
+      "PendingTitle": "Waiting for a GM",
+      "PendingBody": "No GM is online, so your character will be created as soon as one joins. You can close this window.",
+      "CreatedTitle": "Your character is ready",
+      "CreatedBody": "It's been created and assigned to you.",
+      "FailedTitle": "Your GM's copy refused this character",
+      "FailedBody": "Fix what's listed and send it again.",
+      "OpenSheet": "Open character sheet",
+      "Done": "Done",
+      "Fix": "Back to fixing",
+      "Close": "Close"
     }
   }
 }

@@ -54,7 +54,7 @@ export class DraftStore {
   load() {
     const res = draftState(this.#user.getFlag(MODULE_ID, DRAFT_FLAG), this.#world());
     this.#draft = res.state === "editable" ? res.draft : null;
-    return res;
+    return res;   // `draft` is the stored one even when it isn't editable (submitted, created)
   }
 
   /** Start a new draft (replacing any stored one) and save it now. */
@@ -85,6 +85,16 @@ export class DraftStore {
     if ( problems.length ) return Promise.reject(new DraftError("BAD_REQUEST", { problems: problems.slice(0, 20) }));
     this.#draft = next;
     return this.#debouncer.schedule(next);
+  }
+
+  /**
+   * Take over a draft that was written somewhere else (the offline submit writes the flag itself), so this
+   * store's copy matches what is stored.
+   */
+  adopt(draft) {
+    this.#debouncer.cancel();
+    this.#draft = foundry.utils.deepClone(draft);
+    return this.#draft;
   }
 
   /** Write a waiting autosave now (e.g. when the wizard closes). */

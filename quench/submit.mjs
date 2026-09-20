@@ -31,7 +31,10 @@ export function registerSubmitTestQueries() {
     gmOnly();
     const flags = a => a.flags?.[MODULE_ID] ?? {};
     const ids = game.actors.filter(a => flags(a).created?.userId === user.id || flags(a).submitTest).map(a => a.id);
-    if ( user.character && ids.includes(user.character.id) ) await user.update({ character: null });
+    // Also let go of a character this module created in an earlier run, so the next test starts unassigned.
+    if ( user.character && (ids.includes(user.character.id) || flags(user.character).created) ) {
+      await user.update({ character: null });
+    }
     await Actor.implementation.deleteDocuments(ids);
     return ids.length;
   };

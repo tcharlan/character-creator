@@ -7,6 +7,7 @@
 
 import { MODULE_ID, STATUS } from "../contracts.mjs";
 import { DraftStore } from "../draft/store.mjs";
+import { isEditable } from "../draft/state.mjs";
 import { getCatalog } from "../catalog/catalog.mjs";
 import { checkBuilt } from "../rules/validate.mjs";
 import { buildCharacter } from "../rules/build.mjs";
@@ -23,6 +24,8 @@ import { spellContext } from "../rules/spell-facts.mjs";
 import { detailsModel, setDetail, PERSONALITY } from "./details-step.mjs";
 import { portraitModel, setImage, clearImage, skipPortrait, setRingColor } from "./portrait-step.mjs";
 import { preparePortrait } from "../portrait/prepare.mjs";
+import { reviewModel } from "./review-step.mjs";
+import { submitDraft } from "../gm/pending.mjs";
 import { rollAbilityScores } from "../rules/ability-roll.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
@@ -38,7 +41,8 @@ const STEP_PARTIALS = {
   equipment: `modules/${MODULE_ID}/templates/steps/equipment.hbs`,
   spells: `modules/${MODULE_ID}/templates/steps/spells.hbs`,
   details: `modules/${MODULE_ID}/templates/steps/details.hbs`,
-  portrait: `modules/${MODULE_ID}/templates/steps/portrait.hbs`
+  portrait: `modules/${MODULE_ID}/templates/steps/portrait.hbs`,
+  review: `modules/${MODULE_ID}/templates/steps/review.hbs`
 };
 
 /** Shared pieces the step templates include. */
@@ -70,6 +74,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   #equipment = null;
   #spellTab = null;
   #tables = null;
+  #submitting = false;
 
   static DEFAULT_OPTIONS = {
     id: "character-creator-wizard",
@@ -104,7 +109,12 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       "detail-roll": onDetailRoll,
       "portrait-clear": onPortraitClear,
       "portrait-skip": onPortraitSkip,
-      "ring-reset": onRingReset
+      "ring-reset": onRingReset,
+      create: onCreate,
+      "open-sheet": onOpenSheet,
+      finish: onFinish,
+      fix: onFix,
+      "close-wizard": onCloseWizard
     }
   };
 
@@ -412,6 +422,55 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     await this.render({ parts: ["banner", "body", "footer"] });
   }
 
+  /**
+   * Send the character to the GM (PLAN 3.9). With a GM online it's created straight away; otherwise the draft
+   * waits as a pending build and the GM's browser picks it up when one joins (D17).
+   */
+  async createCharacter() {
+    if ( this.#submitting || !this.#validation?.ok ) return;
+    this.#submitting = true;
+    await this.render({ parts: ["body", "footer"] });
+    try {
+      const image = this.draft.portrait?.pendingImage ?? null;
+      const result = await submitDraft(this.draft, { image });
+      if ( result.pending ) {
+        // Stored for a GM to pick up (D17): take over what submitDraft wrote.
+        this.#store.adopt(this.#store.load().draft ?? { ...this.draft, status: STATUS.SUBMITTED });
+      } else if ( result.ok ) {
+        // Created while we waited: record it on the draft, the same shape the offline path writes.
+        await this.update(d => {
+          d.status = STATUS.CREATED;
+          d.portrait = { ...d.portrait, pendingImage: null };
+          d.result = { actorUuid: result.actorUuid, errors: result.warnings ?? [] };
+        }, { wait: true });
+      } else if ( !result.ok ) {
+        await this.update(d => {
+          d.status = STATUS.FAILED;
+          d.result = { actorUuid: null, errors: (result.errors ?? []).slice(0, 100) };
+        }, { wait: true });
+      }
+    } catch ( err ) {
+      console.error(`${MODULE_ID} | the character couldn't be sent`, err);
+      ui.notifications?.error(game.i18n.localize("CHARCREATOR.Error.BAD_REQUEST"));
+    } finally {
+      this.#submitting = false;
+    }
+    await this.settle();
+  }
+
+  /** Open the created character's sheet. */
+  async openCharacter() {
+    const actor = await fromUuid(this.draft?.result?.actorUuid ?? "");
+    actor?.sheet?.render(true);
+  }
+
+  /** The player has seen the result: clear a created draft, or return a refused one to editing. */
+  async acknowledge({ close = false } = {}) {
+    const draft = await this.#store.acknowledge();
+    if ( !draft || close ) return this.close();
+    await this.settle();
+  }
+
   /** Filter the option list of the current step. */
   async search(text) {
     this.#search[this.#current] = text;
@@ -452,9 +511,12 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       // stopped allowing — A6).
       this.#build = await buildCharacter({ picks: this.draft.picks, base: this.draft.abilities.base,
         steps: this.draft.recipe.steps }, { catalog: this.#catalog, fill: true, withOptions: true });
-      const next = syncRecipe(this.draft.recipe.steps, this.#build);
-      if ( JSON.stringify(next) !== JSON.stringify(this.draft.recipe.steps) ) {
-        await this.#store.update(d => d.recipe.steps = foundry.utils.deepClone(next));
+      // Once the draft is submitted or created it belongs to the GM's side: read it, never write it.
+      if ( isEditable(this.draft) ) {
+        const next = syncRecipe(this.draft.recipe.steps, this.#build);
+        if ( JSON.stringify(next) !== JSON.stringify(this.draft.recipe.steps) ) {
+          await this.#store.update(d => d.recipe.steps = foundry.utils.deepClone(next));
+        }
       }
       const { errors, equipment } = await checkBuilt(this.draft, this.#build, { catalog: this.#catalog,
         userId: game.user.id, allowedMethods: readSettings().abilityMethods });
@@ -528,6 +590,18 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   /** Whatever the current step's pane needs (PLAN 3.2: the option steps). */
   async #stepContext() {
     if ( this.#current === "equipment" ) return { equipment: this.#equipmentModel() };
+    if ( this.#current === "review" ) {
+      const equipment = { items: (this.#validation?.equipment?.items ?? []).map(i => ({
+        ...i, name: this.#catalog?.get(i.uuid)?.name ?? i.uuid })), currency: this.#validation?.equipment?.currency ?? {} };
+      const model = reviewModel({ built: this.#build, validation: this.#validation, draft: this.draft, equipment,
+        busy: this.#submitting });
+      return { review: { ...model,
+        skillsText: model.summary?.skills.join(", ") || "—",
+        featuresText: model.summary?.features.join(", ") || "—",
+        equipmentText: [model.summary?.equipment.map(i => i.count ? `${i.name} ×${i.count}` : i.name).join(", "),
+          model.summary?.currency].filter(Boolean).join(" · ") || "—",
+        spellsText: model.summary?.spells.join(", ") ?? "" } };
+    }
     if ( this.#current === "portrait" ) {
       const settings = readSettings();
       return { portrait: portraitModel(this.draft, { enabled: settings.portraits.enabled,
@@ -785,6 +859,26 @@ function onRingReset() {
     setRingColor(d, "ring", null);
     setRingColor(d, "background", null);
   });
+}
+
+function onCreate() {
+  return this.createCharacter();
+}
+
+function onOpenSheet() {
+  return this.openCharacter();
+}
+
+function onFinish() {
+  return this.acknowledge({ close: true });
+}
+
+function onFix() {
+  return this.acknowledge();
+}
+
+function onCloseWizard() {
+  return this.close();
 }
 
 function onStep(event, target) {
