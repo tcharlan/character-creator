@@ -12,9 +12,10 @@ import { checkBuilt } from "../rules/validate.mjs";
 import { buildCharacter } from "../rules/build.mjs";
 import { readSettings } from "../settings/settings.mjs";
 import { bannerSteps, canOpen, moveStep, groupErrors, attention, BANNER_STEPS } from "./steps-model.mjs";
-import { applyPick, answerStep } from "./picks.mjs";
+import { applyPick, answerStep, syncRecipe } from "./picks.mjs";
 import { optionList, optionDetail, optionDescription, subclassOptions, subclassStep, STEP_CATEGORY } from "./options-step.mjs";
 import { abilitiesModel, setMethod, spendPoint, assignValue } from "./abilities-step.mjs";
+import { choicesModel, answerData } from "./choices-step.mjs";
 import { rollAbilityScores } from "../rules/ability-roll.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
@@ -25,8 +26,12 @@ const STEP_PARTIALS = {
   species: `modules/${MODULE_ID}/templates/steps/options.hbs`,
   class: `modules/${MODULE_ID}/templates/steps/options.hbs`,
   background: `modules/${MODULE_ID}/templates/steps/options.hbs`,
-  abilities: `modules/${MODULE_ID}/templates/steps/abilities.hbs`
+  abilities: `modules/${MODULE_ID}/templates/steps/abilities.hbs`,
+  choices: `modules/${MODULE_ID}/templates/steps/choices.hbs`
 };
+
+/** Shared pieces the step templates include. */
+const PART_TEMPLATES = { ccAbility: `modules/${MODULE_ID}/templates/parts/ability-picker.hbs` };
 const T = (key, data) => (data ? game.i18n.format(`CHARCREATOR.${key}`, data) : game.i18n.localize(`CHARCREATOR.${key}`));
 
 /**
@@ -50,6 +55,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   #timer = null;
   #search = {};
   #auto = new Set();
+  #openChoice = null;
 
   static DEFAULT_OPTIONS = {
     id: "character-creator-wizard",
@@ -68,7 +74,14 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       method: onMethod,
       raise: onRaise,
       lower: onLower,
-      roll: onRoll
+      roll: onRoll,
+      choice: onChoice,
+      item: onItemChoice,
+      size: onSize,
+      "subclass-choice": onSubclassChoice,
+      "choice-ability": onChoiceAbility,
+      "asi-raise": onAsiRaise,
+      "asi-lower": onAsiLower
     }
   };
 
@@ -234,6 +247,29 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     await this.render({ parts: ["banner", "body", "footer"] });
   }
 
+  /** Open one of the choices in the list. */
+  async openChoice(key) {
+    this.#openChoice = key;
+    await this.render({ parts: ["body"] });
+  }
+
+  /**
+   * Answer the open choice. The click is turned into the data the advancement wants (choices-step.mjs); a
+   * click that would break a rule (one pick too many, a granted trait, no points left) changes nothing.
+   * @param {{ action?: string, value?: string }} click
+   */
+  async answer(click) {
+    const model = choicesModel(this.#build, this.#catalog, this.#openChoice);
+    const open = model.open;
+    if ( !open ) return;
+    const result = this.#build.results.find(r => r.key === open.key);
+    const data = answerData(result, click);
+    if ( !data ) return;
+    this.#openChoice = open.key;
+    await this.update(d => answerStep(d, result, data));
+    await this.settle();
+  }
+
   /** Filter the option list of the current step. */
   async search(text) {
     this.#search[this.#current] = text;
@@ -274,7 +310,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       // stopped allowing — A6).
       this.#build = await buildCharacter({ picks: this.draft.picks, base: this.draft.abilities.base,
         steps: this.draft.recipe.steps }, { catalog: this.#catalog, fill: true, withOptions: true });
-      const next = this.#build.recipe.steps;
+      const next = syncRecipe(this.draft.recipe.steps, this.#build);
       if ( JSON.stringify(next) !== JSON.stringify(this.draft.recipe.steps) ) {
         await this.#store.update(d => d.recipe.steps = foundry.utils.deepClone(next));
       }
@@ -337,6 +373,11 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** Whatever the current step's pane needs (PLAN 3.2: the option steps). */
   async #stepContext() {
+    if ( this.#current === "choices" ) {
+      const choices = choicesModel(this.#build, this.#catalog, this.#openChoice);
+      this.#openChoice = choices.open?.key ?? null;
+      return { choices };
+    }
     if ( this.#current === "abilities" ) {
       const actor = this.#build?.actor;
       const finals = actor ? Object.fromEntries(Object.entries(actor.system.abilities ?? {})
@@ -371,6 +412,10 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   /** @inheritDoc */
   _onRender(context, options) {
     super._onRender(context, options);
+    // Checkboxes answer on "change": a click inside a <label> would otherwise fire the action twice.
+    for ( const box of this.element.querySelectorAll(".cc-toggle") ) {
+      box.addEventListener("change", event => this.answer({ action: event.target.dataset.toggle, value: event.target.dataset.key }));
+    }
     for ( const select of this.element.querySelectorAll(".cc-assign") ) {
       select.addEventListener("change", event => {
         const value = event.target.value === "" ? null : Number(event.target.value);
@@ -469,6 +514,34 @@ function onRoll() {
   return this.rollScores();
 }
 
+function onChoice(event, target) {
+  return this.openChoice(target.dataset.key);
+}
+
+function onItemChoice(event, target) {
+  return this.answer({ action: "item", value: target.dataset.uuid });
+}
+
+function onSize(event, target) {
+  return this.answer({ action: "size", value: target.dataset.key });
+}
+
+function onSubclassChoice(event, target) {
+  return this.answer({ action: "subclass", value: target.dataset.uuid });
+}
+
+function onChoiceAbility(event, target) {
+  return this.answer({ action: "ability", value: target.dataset.key });
+}
+
+function onAsiRaise(event, target) {
+  return this.answer({ action: "raise", value: target.dataset.key });
+}
+
+function onAsiLower(event, target) {
+  return this.answer({ action: "lower", value: target.dataset.key });
+}
+
 function onStep(event, target) {
   return this.goTo(target.dataset.step);
 }
@@ -514,7 +587,8 @@ function confirmDialog(title, content, yes) {
 
 /** Load the step templates as partials (body.hbs picks one by name). */
 export function preloadWizardTemplates() {
-  return foundry.applications.handlebars.loadTemplates([...new Set(Object.values(STEP_PARTIALS))]);
+  return foundry.applications.handlebars.loadTemplates({ ...PART_TEMPLATES,
+    ...Object.fromEntries([...new Set(Object.values(STEP_PARTIALS))].map(path => [path, path])) });
 }
 
 /** The module's public entry point (used by the sidebar button and the tests; PLAN 3.10 adds the UI entries). */

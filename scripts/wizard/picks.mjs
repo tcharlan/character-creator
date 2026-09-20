@@ -5,7 +5,7 @@
  */
 
 import { ROLES } from "../contracts.mjs";
-import { parseSegment } from "../rules/paths.mjs";
+import { parseSegment, stepKey } from "../rules/paths.mjs";
 
 /** What else depends on a role: changing the class also drops its equipment and the class's spells. */
 const DEPENDENTS = Object.freeze({
@@ -39,6 +39,25 @@ export function answerStep(draft, { path, advancementId, level }, data) {
   const same = s => s.advancementId === advancementId && s.level === level && s.path.join(">") === path.join(">");
   draft.recipe.steps = [...draft.recipe.steps.filter(s => !same(s)), { path: [...path], advancementId, level, data }];
   return draft;
+}
+
+/**
+ * The recipe to keep after a rebuild.
+ *
+ * The rebuild's own recipe holds every step it could apply, which is how automatic answers get recorded. It
+ * leaves out answers it rejected, so on its own it would throw away a choice the player is halfway through
+ * (one language of two). This keeps every answer that still belongs to a step of this build — right or wrong,
+ * since the screen shows what's wrong — and drops only the ones that match no step at all (a changed pick, or
+ * content the GM stopped allowing, A6).
+ * @param {object[]} steps    The draft's steps.
+ * @param {object} build      From buildCharacter().
+ * @returns {object[]}
+ */
+export function syncRecipe(steps, build) {
+  const known = new Set((build?.results ?? []).map(r => r.key));
+  const kept = (steps ?? []).filter(s => known.has(stepKey(s)));
+  const have = new Set(kept.map(s => stepKey(s)));
+  return [...kept, ...(build?.recipe?.steps ?? []).filter(s => !have.has(stepKey(s)))];
 }
 
 /** The UUID picked for an item, from a recipe step's path segment (for showing what's chosen). */

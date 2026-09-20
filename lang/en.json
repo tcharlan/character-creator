@@ -246,6 +246,26 @@
       "Spellcasting": "Spellcasting",
       "Wealth": "Starting wealth",
       "Equipment": "Equipment entries"
+    },
+    "Choices": {
+      "All": "Choices",
+      "None": "Nothing to choose here yet — pick your species, class and background first.",
+      "Open": "To choose",
+      "Done": "Chosen",
+      "Automatic": "Chosen for you",
+      "Invalid": "Needs attention",
+      "AutomaticHint": "There was only one option, so this was chosen for you.",
+      "Chosen": "Chosen:",
+      "Granted": "included",
+      "GrantHint": "These come with your choice. Anything optional is yours to take or leave.",
+      "Included": "Included",
+      "TakeIt": "Take it",
+      "PointsLeft": "Points left:",
+      "Fixed": "fixed",
+      "SpellcastingAbility": "Cast these with:",
+      "StillOpen": "Still to choose",
+      "NoWidget": "This choice isn't something the wizard can show yet.",
+      "RebuildNote": "Every change rebuilds your character, so these numbers are always what your GM will create."
     }
   }
 }

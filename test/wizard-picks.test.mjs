@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createDraft, checkDraftShape } from "../scripts/contracts.mjs";
-import { applyPick, answerStep, stepsForRole } from "../scripts/wizard/picks.mjs";
+import { applyPick, answerStep, stepsForRole, syncRecipe } from "../scripts/wizard/picks.mjs";
 
 const ID = n => String(n).padEnd(16, "0");
 const U = n => `Compendium.test.x.Item.${ID(n)}`;
@@ -63,4 +63,18 @@ test("answering a step replaces the earlier answer for it", () => {
   answerStep(d, { path: ["class", `${ID("sub")}:${U("life")}`], advancementId: ID("e"), level: 1 }, { uuid: U("x") });
   assert.equal(d.recipe.steps.length, 5, "a different path is a different step");
   assert.deepEqual(checkDraftShape(d), []);
+});
+
+test("syncRecipe keeps in-progress answers, records automatic ones and drops the rest", () => {
+  const stepA = { path: ["species"], advancementId: ID("a"), level: 0, data: { chosen: ["languages:common"] } };
+  const stale = { path: ["class"], advancementId: ID("gone"), level: 1, data: { chosen: [] } };
+  const build = {
+    results: [{ key: `species#${ID("a")}@0` }, { key: `class#${ID("auto")}@1` }],
+    recipe: { steps: [{ path: ["class"], advancementId: ID("auto"), level: 1, data: { 1: "max" } }] }
+  };
+  const next = syncRecipe([stepA, stale], build);
+  assert.deepEqual(next.map(s => s.advancementId), [ID("a"), ID("auto")]);
+  assert.deepEqual(next[0].data, { chosen: ["languages:common"] }, "a half-finished answer is kept as the player left it");
+  assert.deepEqual(syncRecipe([], build), build.recipe.steps);
+  assert.deepEqual(syncRecipe([stale], { results: [], recipe: { steps: [] } }), []);
 });

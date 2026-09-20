@@ -1,0 +1,10 @@
+{{!-- The spellcasting ability an item grant or choice asks for (2024 lineage spells). --}}
+{{#if ability}}
+<div class="cc-ability-picker" role="group" aria-label="{{localize 'CHARCREATOR.Choices.SpellcastingAbility'}}">
+  <span class="cc-hint">{{localize "CHARCREATOR.Choices.SpellcastingAbility"}}</span>
+  {{#each ability.list as |a|}}
+  <button type="button" class="cc-method{{#if a.selected}} cc-method--selected{{/if}}" data-action="choice-ability" data-key="{{a.key}}"
+          aria-pressed="{{a.selected}}">{{a.label}}</button>
+  {{/each}}
+</div>
+{{/if}}

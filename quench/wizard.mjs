@@ -503,3 +503,188 @@ export function registerAbilityStepBatch(quench) {
     });
   }, { displayName: "Character Creator: Wizard ability scores" });
 }
+
+/*
+ * The Choices step (PLAN 3.4): answering every level-1 choice through the widgets.
+ */
+export function registerChoicesStepBatch(quench) {
+  const rules = () => game.settings.get("dnd5e", "rulesVersion");
+  const SPEC = {
+    legacy: { species: "High Elf", background: "Acolyte", class: "Cleric" },
+    modern: { species: "Human", background: "Sage", class: "Cleric" }
+  };
+
+  quench.registerBatch(`${MODULE_ID}.wizard-choices`, ({ describe, it, before, after, afterEach, assert }) => {
+    describe("Choices step, as Player A", () => {
+      let CharacterWizard;
+      let catalog;
+      let saved;
+      let app = null;
+      const el = () => app.element;
+      const norm = u => u.replace(/^(Compendium\.[^.]+\.[^.]+\.)(?!Item\.)/, "$1Item.");
+      const pick = (category, name) => norm(catalog.byCategory[category].find(e => e.name === name).uuid);
+      const query = selector => [...el().querySelectorAll(selector)];
+      /** Open the wizard with the picks made, on the choices step. */
+      const open = async (spec = SPEC[rules()]) => {
+        app = await CharacterWizard.open();
+        assert.exists(app, "the wizard didn't open");
+        await app.settle();
+        await app.update(d => {
+          d.picks.species = pick("species", spec.species);
+          d.picks.background = pick("background", spec.background);
+          d.picks.class = pick("class", spec.class);
+        }, { wait: true });
+        await app.settle();
+        await app.goTo("choices");
+        await app.settle();
+        return app;
+      };
+      const list = () => query(".cc-choice");
+      const stillOpen = () => app.build.results.filter(r => r.status === "needsInput").length;
+      const traitBoxes = () => query(".cc-keys input");
+
+      before(async function() {
+        this.timeout(120_000);
+        ({ CharacterWizard } = await import("../scripts/wizard/app.mjs"));
+        catalog = await (await import("../scripts/catalog/catalog.mjs")).getCatalog();
+        saved = flag();
+        await game.user.unsetFlag(MODULE_ID, DRAFT_FLAG);
+      });
+      afterEach(async function() {
+        this.timeout(30_000);
+        if ( app?.rendered ) await app.close();
+        app = null;
+        await game.user.unsetFlag(MODULE_ID, DRAFT_FLAG);
+      });
+      after(async function() {
+        this.timeout(30_000);
+        if ( saved === undefined ) await game.user.unsetFlag(MODULE_ID, DRAFT_FLAG);
+        else await raw(saved);
+      });
+
+      it("lists every choice, grouped by the item that offers it, and opens the first one to make", async function() {
+        this.timeout(180_000);
+        await open();
+        const groups = query(".cc-choice-group").map(g => g.textContent.trim());
+        assert.includeMembers(groups, [SPEC[rules()].species, SPEC[rules()].class]);
+        assert.isAbove(list().length, 2);
+        assert.isAbove(stillOpen(), 0, "a fresh build has choices to make");
+        const first = list().find(b => b.querySelector(".cc-choice__state--needsInput"));
+        assert.exists(first, "nothing is marked as still to choose");
+        assert.equal(first.getAttribute("aria-pressed"), "true", "it's the one open");
+        assert.exists(el().querySelector(".cc-detail .cc-pane__title"));
+      });
+
+      it("a trait choice checks off skills up to its count, and refuses more", async function() {
+        this.timeout(180_000);
+        await open();
+        const trait = app.build.results.find(r => (r.type === "Trait") && (r.status === "needsInput") && r.options.max);
+        assert.exists(trait, "no trait choice to make");
+        await app.openChoice(trait.key);
+        assert.isAbove(traitBoxes().length, 1);
+        const need = trait.options.max - (trait.data?.chosen?.length ?? 0);
+        for ( let i = 0; i < need; i++ ) {
+          const box = traitBoxes().filter(b => !b.disabled && !b.checked)[0];
+          assert.exists(box, "nothing left to check");
+          box.click();
+          await app.settle();
+        }
+        const answered = app.draft.recipe.steps.find(s => s.advancementId === trait.advancementId);
+        assert.exists(answered, "the choice wasn't recorded");
+        assert.equal(answered.data.chosen.length, trait.options.max);
+        assert.equal(app.build.results.find(r => r.key === trait.key).status, "done");
+        const spare = traitBoxes().filter(b => !b.disabled && !b.checked)[0];
+        if ( spare ) {
+          spare.click();
+          await app.settle();
+          assert.equal(app.draft.recipe.steps.find(s => s.advancementId === trait.advancementId).data.chosen.length,
+            trait.options.max, "the extra pick was refused");
+        }
+      });
+
+      it("every choice can be answered through the widgets, and nothing is left open", async function() {
+        this.timeout(600_000);
+        await open();
+        const answerOne = async () => {
+          const next = app.build.results.find(r => r.status === "needsInput");
+          if ( !next ) return false;
+          await app.openChoice(next.key);
+          const w = next.options;
+          const where = `${next.item} / ${next.title}`;
+          switch ( next.type ) {
+            case "Trait": {
+              const need = w.max - (next.data?.chosen?.length ?? 0);
+              for ( let i = 0; i < need; i++ ) {
+                const box = traitBoxes().filter(b => !b.disabled && !b.checked)[0];
+                assert.exists(box, `${where}: nothing left to check`);
+                box.click();
+                await app.settle();
+              }
+              break;
+            }
+            case "ItemChoice": {
+              const need = w.count - (next.data?.selected?.length ?? 0);
+              for ( let i = 0; i < need; i++ ) {
+                const card = query(".cc-cards button").filter(c => c.getAttribute("aria-pressed") !== "true")[0];
+                assert.exists(card, `${where}: no option to pick`);
+                card.click();
+                await app.settle();
+              }
+              if ( w.abilityOptions?.length > 1 ) {
+                el().querySelector(".cc-ability-picker button").click();
+                await app.settle();
+              }
+              break;
+            }
+            case "ItemGrant": {
+              if ( w.abilityOptions?.length > 1 ) el().querySelector(".cc-ability-picker button").click();
+              else query(".cc-key input").forEach(b => b.click());
+              await app.settle();
+              break;
+            }
+            case "AbilityScoreImprovement": {
+              for ( let i = 0; i < (w.points ?? 0); i++ ) {
+                const plus = query(".cc-score__step").filter(b => !b.disabled && b.textContent.includes("+"))[0];
+                assert.exists(plus, `${where}: no ability can be raised`);
+                plus.click();
+                await app.settle();
+              }
+              break;
+            }
+            case "Size":
+            case "Subclass":
+              el().querySelector(".cc-cards button").click();
+              await app.settle();
+              break;
+            default:
+              assert.fail(`no widget for ${next.type} (${where})`);
+          }
+          return true;
+        };
+        let guard = 0;
+        let more = true;
+        while ( more && (guard++ < 30) ) more = await answerOne();
+        assert.isBelow(guard, 30, "the choices never ran out");
+        assert.equal(stillOpen(), 0, "every choice was answered");
+        const invalid = app.build.results.filter(r => r.status === "invalid");
+        assert.deepEqual(invalid.map(r => `${r.item}/${r.title}: ${JSON.stringify(r.errors)}`), [], "no answer was rejected");
+        assert.deepEqual(app.validation.errors.filter(e => e.step === "choices"), [], "the validator is happy");
+        console.log(`${MODULE_ID} | wizard choices (${rules()}): ${app.build.results.length} steps, ${app.build.actor.items.size} items`);
+      });
+
+      it("an answer that breaks a rule is shown as needing attention", async function() {
+        this.timeout(180_000);
+        await open();
+        const trait = app.build.results.find(r => (r.type === "Trait") && (r.options.max > 0));
+        assert.exists(trait);
+        const { answerStep } = await import("../scripts/wizard/picks.mjs");
+        await app.update(d => answerStep(d, trait, { chosen: ["skills:nonsense"] }), { wait: true });
+        await app.settle();
+        assert.equal(app.build.results.find(r => r.key === trait.key).status, "invalid");
+        await app.openChoice(trait.key);
+        assert.exists(el().querySelector(".cc-problems"), "the problem isn't shown");
+        assert.exists(el().querySelector(".cc-choice__state--invalid"), "the list doesn't mark it");
+      });
+    });
+  }, { displayName: "Character Creator: Wizard choices" });
+}

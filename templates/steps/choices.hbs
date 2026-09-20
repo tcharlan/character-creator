@@ -1,0 +1,142 @@
+{{!-- Choices (PLAN 3.4, D14): every level-1 choice, grouped by the item that offers it. --}}
+<div class="cc-columns">
+  <section class="cc-options cc-choice-list" aria-label="{{localize 'CHARCREATOR.Choices.All'}}">
+    <div class="cc-options__head">
+      <h2>{{localize "CHARCREATOR.Choices.All"}}</h2>
+      <span class="cc-options__count">{{choices.counts.done}} / {{choices.counts.total}}</span>
+    </div>
+    <div class="cc-options__list">
+      {{#each choices.groups as |g|}}
+      <h3 class="cc-choice-group">{{g.item}}</h3>
+      {{#each g.choices as |c|}}
+      <button type="button" class="cc-choice{{#if c.open}} cc-option--selected{{/if}}" data-action="choice" data-key="{{c.key}}"
+              aria-pressed="{{c.open}}">
+        <span class="cc-choice__state cc-choice__state--{{c.status}}" aria-hidden="true"></span>
+        <span class="cc-choice__text">
+          <span class="cc-choice__title">{{c.title}}</span>
+          <span class="cc-choice__status">
+            {{~#if c.invalid}}{{localize "CHARCREATOR.Choices.Invalid"}}
+            {{~else if c.needsInput}}{{localize "CHARCREATOR.Choices.Open"}}
+            {{~else if c.automatic}}{{localize "CHARCREATOR.Choices.Automatic"}}
+            {{~else}}{{localize "CHARCREATOR.Choices.Done"}}{{/if~}}
+          </span>
+        </span>
+      </button>
+      {{/each}}
+      {{/each}}
+      {{#unless choices.groups.length}}<p class="cc-empty">{{localize "CHARCREATOR.Choices.None"}}</p>{{/unless}}
+    </div>
+  </section>
+
+  <section class="cc-detail">
+    {{#with choices.open as |c|}}
+    <header class="cc-pane__header">
+      <h1 class="cc-pane__title">{{c.title}}</h1>
+      <p class="cc-pane__hint">{{c.item}}</p>
+    </header>
+
+    {{#if c.errors.length}}
+    <ul class="cc-problems">{{#each c.errors as |e|}}<li class="cc-problem">{{localize e}}</li>{{/each}}</ul>
+    {{/if}}
+    {{#if c.automatic}}<p class="cc-chosen-for-you">{{localize "CHARCREATOR.Choices.AutomaticHint"}}</p>{{/if}}
+
+    {{#with c.widget as |w|}}
+      {{#if (eq w.type "Trait")}}
+      <p class="cc-hint">{{localize "CHARCREATOR.Choices.Chosen"}} {{w.chosen}} / {{w.needed}}</p>
+      <div class="cc-keys">
+        {{#each w.list as |o|}}
+        <label class="cc-key{{#if o.checked}} cc-key--checked{{/if}}">
+          <input type="checkbox" class="cc-toggle" data-toggle="trait" data-key="{{o.key}}" {{#if o.checked}}checked{{/if}} {{#if o.disabled}}disabled{{/if}}>
+          <span>{{o.label}}</span>
+          {{#if o.granted}}<span class="cc-key__note">{{localize "CHARCREATOR.Choices.Granted"}}</span>{{/if}}
+        </label>
+        {{/each}}
+      </div>
+      {{/if}}
+
+      {{#if (eq w.type "ItemChoice")}}
+      <p class="cc-hint">{{localize "CHARCREATOR.Choices.Chosen"}} {{w.chosen}} / {{w.needed}}</p>
+      {{> ccAbility ability=w.ability}}
+      <div class="cc-cards">
+        {{#each w.list as |o|}}
+        <button type="button" class="cc-card{{#if o.selected}} cc-card--selected{{/if}}" data-action="item" data-uuid="{{o.uuid}}"
+                aria-pressed="{{o.selected}}">
+          {{#if o.img}}<img src="{{o.img}}" alt="">{{/if}}<span>{{o.name}}</span>
+        </button>
+        {{/each}}
+      </div>
+      {{/if}}
+
+      {{#if (eq w.type "ItemGrant")}}
+      <p class="cc-hint">{{localize "CHARCREATOR.Choices.GrantHint"}}</p>
+      {{> ccAbility ability=w.ability}}
+      <ul class="cc-features">
+        {{#each w.list as |o|}}
+        <li>
+          <span class="cc-feature__name">{{o.name}}</span>
+          {{#if o.optional}}
+          <label class="cc-key{{#if o.selected}} cc-key--checked{{/if}}">
+            <input type="checkbox" class="cc-toggle" data-toggle="grant" data-key="{{o.uuid}}" {{#if o.selected}}checked{{/if}}>
+            <span>{{localize "CHARCREATOR.Choices.TakeIt"}}</span>
+          </label>
+          {{else}}
+          <span class="cc-feature__note">{{localize "CHARCREATOR.Choices.Included"}}</span>
+          {{/if}}
+        </li>
+        {{/each}}
+      </ul>
+      {{/if}}
+
+      {{#if (eq w.type "AbilityScoreImprovement")}}
+      <p class="cc-hint">{{localize "CHARCREATOR.Choices.PointsLeft"}} {{w.left}} / {{w.points}}</p>
+      <div class="cc-scores">
+        {{#each w.rows as |r|}}
+        <div class="cc-score">
+          <span class="cc-score__name"><span class="cc-score__label">{{r.label}}</span></span>
+          <button type="button" class="cc-score__step" data-action="asi-lower" data-key="{{r.key}}" {{#unless r.canLower}}disabled{{/unless}}
+                  aria-label="{{localize 'CHARCREATOR.Abilities.Lower'}} {{r.label}}">&minus;</button>
+          <span class="cc-score__value">+{{r.value}}</span>
+          <button type="button" class="cc-score__step" data-action="asi-raise" data-key="{{r.key}}" {{#unless r.canRaise}}disabled{{/unless}}
+                  aria-label="{{localize 'CHARCREATOR.Abilities.Raise'}} {{r.label}}">+</button>
+          <span class="cc-score__cost">{{#if r.fixed}}{{localize "CHARCREATOR.Choices.Fixed"}}{{/if}}</span>
+        </div>
+        {{/each}}
+      </div>
+      {{/if}}
+
+      {{#if (eq w.type "Size")}}
+      <div class="cc-cards">
+        {{#each w.list as |o|}}
+        <button type="button" class="cc-card{{#if o.selected}} cc-card--selected{{/if}}" data-action="size" data-key="{{o.key}}"
+                aria-pressed="{{o.selected}}"><span>{{o.label}}</span></button>
+        {{/each}}
+      </div>
+      {{/if}}
+
+      {{#if (eq w.type "Subclass")}}
+      <div class="cc-cards">
+        {{#each w.list as |o|}}
+        <button type="button" class="cc-card{{#if o.selected}} cc-card--selected{{/if}}" data-action="subclass-choice" data-uuid="{{o.uuid}}"
+                aria-pressed="{{o.selected}}">
+          {{#if o.img}}<img src="{{o.img}}" alt="">{{/if}}<span>{{o.name}}</span>
+        </button>
+        {{/each}}
+      </div>
+      {{/if}}
+    {{else}}
+    <p class="cc-empty">{{localize "CHARCREATOR.Choices.NoWidget"}}</p>
+    {{/with}}
+    {{else}}
+    <p class="cc-empty">{{localize "CHARCREATOR.Choices.None"}}</p>
+    {{/with}}
+  </section>
+
+  <aside class="cc-art cc-art--numbers">
+    <dl class="cc-facts">
+      <div><dt>{{localize "CHARCREATOR.Choices.StillOpen"}}</dt><dd>{{choices.counts.open}}</dd></div>
+      <div><dt>{{localize "CHARCREATOR.Summary.Items"}}</dt><dd>{{summary.items}}</dd></div>
+      <div><dt>{{localize "CHARCREATOR.Summary.HitPoints"}}</dt><dd>{{#if summary.hp}}{{summary.hp}}{{else}}—{{/if}}</dd></div>
+    </dl>
+    <p class="cc-hint">{{localize "CHARCREATOR.Choices.RebuildNote"}}</p>
+  </aside>
+</div>
