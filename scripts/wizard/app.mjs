@@ -178,9 +178,16 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       case "submitted":
         ui.notifications?.warn(T("Notify.WaitingForGM"));
         return false;
-      case "created":
-        ui.notifications?.info(T("Notify.AlreadyCreated"));
+      case "created": {
+        // The GM finished the build while the wizard was closed (D17): show the character, then clear the
+        // draft so the sidebar offers a new one.
+        const uuid = draft?.result?.actorUuid ?? null;
+        const actor = uuid ? await fromUuid(uuid).catch(() => null) : null;
+        actor?.sheet?.render(true);
+        await this.#store.acknowledge();
+        ui.notifications?.info(T(actor ? "Notify.AlreadyCreated" : "Notify.CreatedGone"));
         return false;
+      }
       default: {
         // otherWorld, otherRules, tooNew, broken: can't be resumed here.
         const discard = await confirmDialog(T("Discard.Title"), T(`Discard.${state}`), T("Discard.Confirm"));

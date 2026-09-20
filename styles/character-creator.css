@@ -691,3 +691,35 @@
 .cc-outcome--created .cc-pane__title { color: var(--cc-ok); }
 .cc-outcome--failed .cc-pane__title { color: var(--cc-bad); }
 .cc-outcome--pending .cc-pane__title { color: var(--cc-gold); }
+
+/* -------------------------------------------- */
+/* Entry points (PLAN 3.10): the Actors sidebar button and the prompt's button. These live outside the wizard,
+   in Foundry's own UI, so they carry their own colours rather than the wizard's tokens. */
+
+#sidebar button.cc-entry,
+li.notification button.cc-entry-prompt {
+  --cc-entry-gold: #d4ad57;
+  font-family: "CC Cinzel", "Bookman Old Style", Georgia, serif;
+  letter-spacing: 0.02em;
+  border: 1px solid var(--cc-entry-gold);
+  color: var(--cc-entry-gold);
+  background: rgba(212, 173, 87, 0.08);
+}
+
+#sidebar button.cc-entry:hover,
+li.notification button.cc-entry-prompt:hover {
+  background: rgba(212, 173, 87, 0.2);
+  color: #f0cd7a;
+  box-shadow: 0 0 6px rgba(212, 173, 87, 0.35);
+}
+
+#sidebar button.cc-entry--waiting { opacity: 0.8; }
+
+li.notification button.cc-entry-prompt {
+  display: inline-flex;
+  width: auto;
+  margin-inline-start: 0.5em;
+  padding: 0 0.6em;
+  line-height: 1.6;
+  vertical-align: baseline;
+}

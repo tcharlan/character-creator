@@ -174,7 +174,30 @@
     "Notify": {
       "Resumed": "Your draft was resumed.",
       "WaitingForGM": "Your character is waiting for a GM to come online.",
-      "AlreadyCreated": "Your character has already been created."
+      "AlreadyCreated": "Your character has already been created.",
+      "CreatedGone": "Your character was created, but it isn't in this world any more. You can start a new one."
+    },
+    "Entry": {
+      "create": {
+        "Button": "Create a character",
+        "Tooltip": "Build a level 1 character with your GM's content.",
+        "Prompt": "You don't have a character yet."
+      },
+      "continue": {
+        "Button": "Continue your character",
+        "Tooltip": "Pick up where you left off.",
+        "Prompt": "Your character isn't finished."
+      },
+      "waiting": {
+        "Button": "Waiting for your GM",
+        "Tooltip": "Your character will be created as soon as a GM is online.",
+        "Prompt": "Your character is waiting for a GM to come online."
+      },
+      "ready": {
+        "Button": "Your character is ready",
+        "Tooltip": "Open the character your GM created.",
+        "Prompt": "Your GM created your character."
+      }
     },
     "Discard": {
       "Title": "Discard this draft?",
