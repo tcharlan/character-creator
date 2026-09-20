@@ -1,4 +1,4 @@
-{{!-- Details (PLAN 3.7): name and the rest. Only the name is needed. --}}
+{{!-- Details (PLAN 3.7, 3.11): name and the rest, each asked for in the way it's answered. --}}
 <div class="cc-columns cc-columns--wide">
   <section class="cc-detail">
     <header class="cc-pane__header">
@@ -13,13 +13,48 @@
           {{localize (concat "CHARCREATOR.Details." f.key)}}
           {{#if f.required}}<span class="cc-field__required">{{localize "CHARCREATOR.Details.Required"}}</span>{{/if}}
         </label>
-        {{#if f.long}}
+
+        {{#if (eq f.kind "long")}}
         <textarea id="cc-detail-{{f.key}}" class="cc-input cc-input--long" data-detail="{{f.key}}" rows="3"
                   maxlength="{{f.max}}">{{f.value}}</textarea>
+
+        {{else if (eq f.kind "choice")}}
+        <select id="cc-detail-{{f.key}}" class="cc-input cc-select" data-detail="{{f.key}}">
+          <option value="">{{localize "CHARCREATOR.Details.NotSaid"}}</option>
+          {{#each f.options as |o|}}
+          <option value="{{o.value}}" {{#if o.selected}}selected{{/if}}>{{o.value}}</option>
+          {{/each}}
+        </select>
+
+        {{else if (eq f.kind "number")}}
+        <input id="cc-detail-{{f.key}}" class="cc-input cc-input--number" type="number" min="0" step="1"
+               data-detail="{{f.key}}" value="{{f.value}}">
+
+        {{else if (eq f.kind "height")}}
+        <div class="cc-measures">
+          {{#each f.parts as |p|}}
+          <span class="cc-measure">
+            <input class="cc-input cc-input--number" type="number" min="0" step="1" data-detail="{{f.key}}"
+                   data-part="{{p.part}}" value="{{p.value}}"
+                   aria-label="{{localize (concat "CHARCREATOR.Details.Unit." p.part)}}"
+                   {{#if @first}}id="cc-detail-{{f.key}}"{{/if}}>
+            <span class="cc-measure__unit">{{p.unit}}</span>
+          </span>
+          {{/each}}
+        </div>
+
+        {{else if (eq f.kind "amount")}}
+        <span class="cc-measure">
+          <input id="cc-detail-{{f.key}}" class="cc-input cc-input--number" type="number" min="0" step="1"
+                 data-detail="{{f.key}}" data-unit="{{f.unit}}" value="{{f.amount}}">
+          <span class="cc-measure__unit">{{f.unit}}</span>
+        </span>
+
         {{else}}
         <input id="cc-detail-{{f.key}}" class="cc-input" type="text" data-detail="{{f.key}}" value="{{f.value}}"
                maxlength="{{f.max}}" {{#if f.required}}required{{/if}}>
         {{/if}}
+
         {{#if f.table}}
         <button type="button" class="cc-button cc-field__roll" data-action="detail-roll" data-detail="{{f.key}}">
           {{localize "CHARCREATOR.Details.Roll"}}

@@ -157,6 +157,42 @@ export function choicesModel(built, catalog, openKey = null) {
 }
 
 /**
+ * Whether a choice is answered, worked out from the answer itself rather than from a replay (PLAN 3.11). The
+ * replay is still what decides in the end; this only keeps the screen honest while the player is clicking.
+ * @returns {"done"|"needsInput"}
+ */
+export function localStatus(result, data) {
+  const o = result?.options ?? {};
+  const ability = !(o.abilityOptions?.length > 1) || !!data?.ability;
+  switch ( result?.type ) {
+    case "Trait": return ((data?.chosen?.length ?? 0) >= (o.max ?? 0)) ? "done" : "needsInput";
+    case "ItemChoice": return (((data?.selected?.length ?? 0) >= (o.count ?? 0)) && ability) ? "done" : "needsInput";
+    case "ItemGrant": return ability ? "done" : "needsInput";
+    case "AbilityScoreImprovement": {
+      const assignments = data?.assignments ?? {};
+      const fixed = o.fixed ?? {};
+      const spent = Object.keys({ ...fixed, ...assignments })
+        .reduce((n, key) => n + Math.max(0, (assignments[key] ?? 0) - (fixed[key] ?? 0)), 0);
+      return spent >= (o.points ?? 0) ? "done" : "needsInput";
+    }
+    case "Size": return data?.size ? "done" : "needsInput";
+    case "Subclass": return data?.uuid ? "done" : "needsInput";
+    default: return result?.status ?? "needsInput";
+  }
+}
+
+/**
+ * The last build with one answer written into it, for the screen only: replaying the character takes a
+ * noticeable moment, so a click shows its result straight away and the replay happens when the player moves
+ * on to another choice or leaves the step.
+ */
+export function withAnswer(built, key, data) {
+  if ( !built ) return built;
+  return { ...built, results: built.results.map(r => (r.key === key
+    ? { ...r, data, status: localStatus(r, data), errors: [] } : r)) };
+}
+
+/**
  * The choice to walk to next: the first one after `currentKey` that still needs an answer, wrapping round to
  * the ones before it. Null when nothing is left open.
  * @param {ReturnType<choicesModel>} model

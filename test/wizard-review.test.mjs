@@ -73,3 +73,11 @@ test("once sent, the outcome says what happened", () => {
   assert.equal(failed.kind, "failed");
   assert.deepEqual(failed.errors[0].step, "choices", "a refused build points at the step to revisit");
 });
+
+test("once the character is made, another can be started while the GM's limit allows", () => {
+  const created = draft({ status: STATUS.CREATED, result: { actorUuid: `Actor.${ID("a")}`, errors: [] } });
+  const model = over => reviewModel({ built, draft: created, equipment, validation: { errors: [] }, ...over });
+  assert.equal(model({ another: true }).another, true);
+  assert.equal(model({ another: false }).another, false);
+  assert.equal(model({}).another, false, "nothing is assumed");
+});

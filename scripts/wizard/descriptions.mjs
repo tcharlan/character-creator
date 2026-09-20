@@ -53,8 +53,14 @@ export function summariesReady(uuids) {
  * sentences are passed over.
  */
 export function firstSentence(html, { max = MAX_LENGTH } = {}) {
+  // Foundry's own markup would otherwise be read out as text ("&Reference[Invisible apply=false]").
+  const source = String(html ?? "")
+    .replace(/@UUID\[[^\]]*\]\{([^}]*)\}/g, "$1")
+    .replace(/&Reference\[([^\s\]]+)[^\]]*\]/g, "$1")
+    .replace(/@[A-Za-z]+\[[^\]]*\](?:\{([^}]*)\})?/g, "$1")
+    .replace(/\[\[[^\]]*\]\]/g, " ");
   // Blocks run together without their tags ("…within range:Your voice booms…"), so they are separated first.
-  const spaced = String(html ?? "").replace(/<\/(p|div|li|ul|ol|h[1-6]|tr|td|th|blockquote)>|<br\s*\/?>/gi, " ");
+  const spaced = source.replace(/<\/(p|div|li|ul|ol|h[1-6]|tr|td|th|blockquote)>|<br\s*\/?>/gi, " ");
   let plain;
   if ( globalThis.document ) {
     const div = document.createElement("div");

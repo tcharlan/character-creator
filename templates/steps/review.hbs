@@ -18,8 +18,14 @@
       {{/if}}
       <div class="cc-portrait-controls">
         <button type="button" class="cc-button cc-button--primary" data-action="open-sheet">{{localize "CHARCREATOR.Review.OpenSheet"}}</button>
+        {{#if review.another}}
+        <button type="button" class="cc-button" data-action="another">{{localize "CHARCREATOR.Review.Another"}}</button>
+        {{/if}}
         <button type="button" class="cc-button" data-action="finish">{{localize "CHARCREATOR.Review.Done"}}</button>
       </div>
+      {{#unless review.another}}
+      <p class="cc-hint">{{localize "CHARCREATOR.Review.NoMore"}}</p>
+      {{/unless}}
       {{/if}}
 
       {{#if (eq review.outcome.kind "failed")}}

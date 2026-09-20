@@ -75,14 +75,19 @@ export function checkBuiltStructure(summary, { isAllowed }) {
  */
 export const NUMERIC_DETAILS = Object.freeze({ age: { needsNumber: true }, height: {}, weight: {} });
 
+/** Detail fields that are described in words: a colour isn't a number. */
+export const WORD_DETAILS = Object.freeze(["eyes", "hair", "skin"]);
+
 /**
  * What's wrong with one detail field, if anything.
  * @returns {"negative"|"notANumber"|null}
  */
 export function detailProblem(field, value) {
-  const rule = NUMERIC_DETAILS[field];
   const text = String(value ?? "").trim();
-  if ( !rule || !text ) return null;
+  if ( !text ) return null;
+  if ( WORD_DETAILS.includes(field) ) return /\d/.test(text) ? "notWords" : null;
+  const rule = NUMERIC_DETAILS[field];
+  if ( !rule ) return null;
   if ( /[-\u2212]\s*\d/.test(text) ) return "negative";
   if ( rule.needsNumber && !/\d/.test(text) ) return "notANumber";
   return null;
@@ -91,7 +96,7 @@ export function detailProblem(field, value) {
 export function checkDetails(draft) {
   const details = draft?.details ?? {};
   const errors = String(details.name ?? "").trim() ? [] : [makeError("NAME_REQUIRED")];
-  for ( const field of Object.keys(NUMERIC_DETAILS) ) {
+  for ( const field of [...Object.keys(NUMERIC_DETAILS), ...WORD_DETAILS] ) {
     const problem = detailProblem(field, details[field]);
     if ( problem ) errors.push(makeError("DETAIL_INVALID", { field, problem }));
   }

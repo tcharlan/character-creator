@@ -753,13 +753,17 @@ li.notification button.cc-entry-prompt {
 /* Spell cards: name, what it is, and a couple of lines of what it does — all the same height. */
 .cc-cards--spells { align-items: stretch; }
 .cc-card--spell { align-items: flex-start; height: 100%; }
-.cc-card--spell .cc-card__hint {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
 .cc-card__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .cc-card__name { font-weight: 500; }
 .cc-card__meta { font-size: 12px; letter-spacing: 0.04em; color: var(--cc-gold); }
 .cc-card__hint { font-size: 12px; line-height: 1.4; color: var(--cc-muted); }
+
+/* Detail fields that aren't free text (PLAN 3.11): a list, a number, a measure with its unit. */
+.cc-select { appearance: none; background-image: none; }
+.cc-input--number { width: 9ch; }
+.cc-measures { display: flex; gap: 12px; }
+.cc-measure { display: inline-flex; align-items: center; gap: 6px; }
+.cc-measure__unit { font-size: 13px; color: var(--cc-faint); }
+
+/* The choices aside keeps the problems, so the options do not move under the cursor (PLAN 3.11). */
+.cc-art .cc-problems { width: 100%; }

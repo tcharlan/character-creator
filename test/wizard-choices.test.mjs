@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { choicesModel, answerData, nextOpenChoice, CHOICE_TYPES } from "../scripts/wizard/choices-step.mjs";
+import { choicesModel, answerData, nextOpenChoice, localStatus, withAnswer, CHOICE_TYPES }
+  from "../scripts/wizard/choices-step.mjs";
 
 const ID = n => String(n).padEnd(16, "0");
 const U = n => `Compendium.test.x.Item.${ID(n)}`;
@@ -164,4 +165,25 @@ test("Next walks through the choices that still need an answer, then stops", () 
   assert.equal(nextOpenChoice(model(null), null), "b", "with nothing open yet, the first");
   const done = { results: built.results.filter(r => r.status === "done") };
   assert.equal(nextOpenChoice(choicesModel(done, catalog, "a"), "a"), null, "nothing left: Next moves on");
+});
+
+test("an answer is shown before the replay, and counted as done without one", () => {
+  const options = { type: "Trait", allowed: ["skills:his", "skills:ins"], grants: [], max: 1 };
+  const built = { results: [result({ key: "a", options }), result({ key: "b", options })] };
+  assert.equal(localStatus(built.results[0], { chosen: ["skills:his"] }), "done");
+  assert.equal(localStatus(built.results[0], { chosen: [] }), "needsInput");
+  assert.equal(localStatus({ type: "Size", options: { sizes: ["sm"] } }, { size: "sm" }), "done");
+  assert.equal(localStatus({ type: "ItemChoice", options: { count: 2, abilityOptions: ["int", "wis"] } },
+    { selected: ["a", "b"] }), "needsInput", "the spellcasting ability is part of the answer");
+  assert.equal(localStatus({ type: "AbilityScoreImprovement", options: { points: 2, fixed: { con: 1 } } },
+    { assignments: { con: 2, dex: 1 } }), "done");
+
+  const next = withAnswer(built, "a", { chosen: ["skills:his"] });
+  assert.deepEqual(next.results.map(r => r.status), ["done", "needsInput"]);
+  assert.deepEqual(next.results[0].data, { chosen: ["skills:his"] });
+  assert.equal(built.results[0].status, "needsInput", "the last replay is left alone");
+  const model = choicesModel(next, catalog, "a");
+  assert.deepEqual(model.open.widget.list.map(o => o.checked), [true, false], "the screen shows the pick at once");
+  assert.equal(model.counts.done, 1);
+  assert.equal(withAnswer(null, "a", {}), null);
 });

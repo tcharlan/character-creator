@@ -35,9 +35,6 @@
       <p class="cc-pane__hint">{{c.item}}</p>
     </header>
 
-    {{#if c.errors.length}}
-    <ul class="cc-problems">{{#each c.errors as |e|}}<li class="cc-problem">{{localize e}}</li>{{/each}}</ul>
-    {{/if}}
     {{#if c.automatic}}<p class="cc-chosen-for-you">{{localize "CHARCREATOR.Choices.AutomaticHint"}}</p>{{/if}}
 
     {{#with c.widget as |w|}}
@@ -140,6 +137,11 @@
       <div><dt>{{localize "CHARCREATOR.Summary.Items"}}</dt><dd>{{summary.items}}</dd></div>
       <div><dt>{{localize "CHARCREATOR.Summary.HitPoints"}}</dt><dd>{{#if summary.hp}}{{summary.hp}}{{else}}—{{/if}}</dd></div>
     </dl>
+    {{#with choices.open as |c|}}
+    {{#if c.errors.length}}
+    <ul class="cc-problems">{{#each c.errors as |e|}}<li class="cc-problem">{{localize e}}</li>{{/each}}</ul>
+    {{/if}}
+    {{/with}}
     <p class="cc-hint">{{localize "CHARCREATOR.Choices.RebuildNote"}}</p>
   </aside>
 </div>

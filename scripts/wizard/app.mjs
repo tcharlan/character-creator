@@ -16,17 +16,18 @@ import { bannerSteps, canOpen, moveStep, groupErrors, attention, BANNER_STEPS } 
 import { applyPick, answerStep, syncRecipe } from "./picks.mjs";
 import { optionList, optionDetail, optionDescription, subclassOptions, subclassStep, STEP_CATEGORY } from "./options-step.mjs";
 import { abilitiesModel, setMethod, spendPoint, assignValue } from "./abilities-step.mjs";
-import { choicesModel, answerData, nextOpenChoice } from "./choices-step.mjs";
+import { choicesModel, answerData, nextOpenChoice, withAnswer } from "./choices-step.mjs";
 import { sourceModel, setMode, chooseBranch, setPick, setWealth, EQUIPMENT_SOURCES } from "./equipment-step.mjs";
 import { equipmentContext, rollStartingWealth } from "../rules/equipment-items.mjs";
 import { spellsModel, toggleSpell } from "./spells-step.mjs";
 import { spellContext } from "../rules/spell-facts.mjs";
 import { traitReference, summaryCached, summariesReady, loadSummaries, spellMeta } from "./descriptions.mjs";
-import { detailsModel, setDetail, PERSONALITY } from "./details-step.mjs";
+import { detailsModel, setDetail, setHeightPart, setAmount, PERSONALITY } from "./details-step.mjs";
 import { portraitModel, setImage, clearImage, skipPortrait, setRingColor } from "./portrait-step.mjs";
 import { preparePortrait } from "../portrait/prepare.mjs";
 import { reviewModel } from "./review-step.mjs";
 import { submitDraft } from "../gm/pending.mjs";
+import { createdFor } from "../gm/create.mjs";
 import { rollAbilityScores } from "../rules/ability-roll.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
@@ -114,6 +115,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       "portrait-clear": onPortraitClear,
       "portrait-skip": onPortraitSkip,
       "ring-reset": onRingReset,
+      another: onAnother,
       create: onCreate,
       "open-sheet": onOpenSheet,
       finish: onFinish,
@@ -318,9 +320,10 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     await this.render({ parts: ["banner", "body", "footer"] });
   }
 
-  /** Open one of the choices in the list. */
+  /** Open one of the choices in the list, replaying first whatever the last one held back. */
   async openChoice(key) {
     this.#openChoice = key;
+    if ( this.#deferred ) return this.settle();
     await this.render({ parts: ["body"] });
   }
 
@@ -342,8 +345,11 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       return;
     }
     this.#openChoice = open.key;
-    await this.update(d => answerStep(d, result, data));
-    await this.settle();
+    // The answer is held back like the ability scores are: the screen shows it now, the character is
+    // replayed when the player opens another choice or leaves the step.
+    await this.update(d => answerStep(d, result, data), { rebuild: false });
+    this.#build = withAnswer(this.#build, open.key, data);
+    await this.render({ parts: ["banner", "body", "footer"] });
   }
 
   /** Take a source's items or its starting wealth (D23: the two sources are separate). */
@@ -396,9 +402,16 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     if ( changed ) await this.settle();
   }
 
-  /** Type in one of the detail fields. */
-  async setDetail(field, value) {
-    await this.update(d => setDetail(d, field, value));
+  /**
+   * Fill in one of the detail fields. `part` is one half of the height (feet, inches) and `unit` is the unit
+   * an amount is stored with (the weight), so what the draft keeps is the sentence a character sheet shows.
+   */
+  async setDetail(field, value, { part = null, unit = null } = {}) {
+    await this.update(d => {
+      if ( part ) return setHeightPart(d, part, value);
+      if ( unit ) return setAmount(d, field, value, unit);
+      return setDetail(d, field, value);
+    });
     if ( field === "name" ) await this.render({ parts: ["banner", "footer"] });
   }
 
@@ -505,6 +518,24 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   async openCharacter() {
     const actor = await fromUuid(this.draft?.result?.actorUuid ?? "");
     actor?.sheet?.render(true);
+  }
+
+  /**
+   * Start again on a new character, once this one is made and the GM's limit leaves room (A4). The finished
+   * draft is let go first — the character itself is the record.
+   */
+  async makeAnother() {
+    await this.#store.acknowledge();
+    await this.#store.create();
+    this.#current = "start";
+    this.#visited = [];
+    this.#openChoice = null;
+    this.#spellTab = null;
+    this.#search = {};
+    this.#auto.clear();
+    this.#build = null;
+    this.#validation = null;
+    await this.settle();
   }
 
   /** The player has seen the result: clear a created draft, or return a refused one to editing. */
@@ -665,8 +696,10 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     if ( this.#current === "review" ) {
       const equipment = { items: (this.#validation?.equipment?.items ?? []).map(i => ({
         ...i, name: this.#catalog?.get(i.uuid)?.name ?? i.uuid })), currency: this.#validation?.equipment?.currency ?? {} };
+      const limit = readSettings().characterLimit;
+      const made = createdFor(game.user.id).length;
       const model = reviewModel({ built: this.#build, validation: this.#validation, draft: this.draft, equipment,
-        busy: this.#submitting });
+        busy: this.#submitting, another: (limit === null) || (made < limit) });
       return { review: { ...model,
         skillsText: model.summary?.skills.join(", ") || "—",
         featuresText: model.summary?.features.join(", ") || "—",
@@ -755,8 +788,11 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     }
     for ( const field of this.element.querySelectorAll("[data-detail]") ) {
       if ( field.tagName === "BUTTON" ) continue;
-      field.addEventListener("input", foundry.utils.debounce(event =>
-        this.setDetail(event.target.dataset.detail, event.target.value), 300));
+      const set = event => this.setDetail(event.target.dataset.detail, event.target.value,
+        { part: event.target.dataset.part ?? null, unit: event.target.dataset.unit ?? null });
+      // A list answers as soon as it's chosen; typed fields wait for a pause.
+      if ( field.tagName === "SELECT" ) field.addEventListener("change", set);
+      else field.addEventListener("input", foundry.utils.debounce(set, 300));
     }
     for ( const select of this.element.querySelectorAll(".cc-equip-pick") ) {
       select.addEventListener("change", event => {
@@ -948,6 +984,10 @@ function onRingReset() {
 
 function onCreate() {
   return this.createCharacter();
+}
+
+function onAnother() {
+  return this.makeAnother();
 }
 
 function onOpenSheet() {

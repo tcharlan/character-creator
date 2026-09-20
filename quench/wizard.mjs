@@ -715,6 +715,29 @@ export function registerChoicesStepBatch(quench) {
         }
       });
 
+      it("a pick shows at once, and the character is replayed when the player moves on", async function() {
+        this.timeout(300_000);
+        await open();
+        const first = app.build.results.find(r => (r.type === "Trait") && (r.status === "needsInput") && r.options.max);
+        const second = app.build.results.find(r => (r.key !== first?.key) && (r.status === "needsInput"));
+        assert.exists(first, "no trait choice to make");
+        assert.exists(second, "this test needs a second choice to move on to");
+        await app.openChoice(first.key);
+        // The replay makes a new scratch character; answering only rewrites the screen's copy of the last one.
+        const built = app.build.actor;
+        const box = traitBoxes().filter(b => !b.disabled && !b.checked)[0];
+        assert.exists(box, "nothing left to check");
+        box.click();
+        // Longer than the wizard's rebuild delay: a replay would have happened by now.
+        await new Promise(r => setTimeout(r, 1600));
+        assert.equal(app.build.actor, built, "the character is not replayed while the player is still choosing");
+        assert.isTrue(traitBoxes().some(b => b.checked), "the pick is on screen straight away");
+        const answered = app.draft.recipe.steps.find(x => x.advancementId === first.advancementId);
+        assert.exists(answered, "the answer is on the draft");
+        await app.openChoice(second.key);
+        assert.notEqual(app.build.actor, built, "opening another choice replays the character once");
+      });
+
       it("a skill choice says what each skill is for, from the rules compendium", async function() {
         this.timeout(180_000);
         await open();
@@ -1184,6 +1207,41 @@ export function registerDetailsStepBatch(quench) {
         assert.equal(pane().scrollTop, was, "the pane scrolled back to the top");
       });
 
+      it("alignment is a list, height is feet and inches, weight carries its unit", async function() {
+        this.timeout(180_000);
+        await open();
+        const alignment = el().querySelector('select[data-detail="alignment"]');
+        assert.exists(alignment, "the alignment should be a list");
+        const option = [...alignment.options].find(o => o.value)?.value;
+        alignment.value = option;
+        alignment.dispatchEvent(new Event("change"));
+        for ( let i = 0; i < 100 && (app.draft.details.alignment !== option); i++ ) await new Promise(r => setTimeout(r, 50));
+        assert.equal(app.draft.details.alignment, option);
+
+        const type = async (selector, value) => {
+          const field = el().querySelector(selector);
+          assert.exists(field, selector);
+          field.value = value;
+          field.dispatchEvent(new Event("input"));
+          await new Promise(r => setTimeout(r, 500));
+        };
+        await type('[data-detail="height"][data-part="feet"]', "5");
+        await type('[data-detail="height"][data-part="inches"]', "7");
+        await type('[data-detail="weight"]', "150");
+        await app.settle();
+        assert.equal(app.draft.details.height, "5 ft 7 in");
+        assert.equal(app.draft.details.weight, "150 lb");
+
+        await type('[data-detail="eyes"]', "green");
+        await app.settle();
+        assert.notExists(el().querySelector(".cc-field__problem"), "a colour in words is fine");
+        await type('[data-detail="eyes"]', "#00ff00");
+        await app.settle();
+        assert.exists(el().querySelector(".cc-field__problem"), "a colour given as a number is flagged");
+        await type('[data-detail="eyes"]', "green");
+        await app.settle();
+      });
+
       it("2014: the personality fields can be rolled from the background's tables", async function() {
         if ( rules() !== "legacy" ) this.skip();
         this.timeout(180_000);
@@ -1536,14 +1594,40 @@ export function registerCreateBatches(quench) {
         assert.includeMembers(names(actor.items.contents), names(summary.items.contents));
       });
 
-      it("the outcome offers the sheet, and finishing clears the draft", async function() {
-        this.timeout(120_000);
+      it("the outcome offers the sheet and another character, and lets the finished draft go", async function() {
+        this.timeout(300_000);
         await app.settle();
+        const { SETTINGS_TEST_QUERIES } = await import("./settings.mjs");
+        const { readSettings } = await import("../scripts/settings/settings.mjs");
+        const set = async value => {
+          await gm().query(SETTINGS_TEST_QUERIES.SET,
+            { key: "characterLimit", ...(value === null ? { reset: true } : { value }) }, { timeout: 60_000 });
+          const wanted = value === 0 ? null : value;
+          for ( let i = 0; i < 100 && (readSettings().characterLimit !== wanted); i++ ) {
+            await new Promise(r => setTimeout(r, 100));
+          }
+          await app.settle();
+        };
         assert.exists(el().querySelector(".cc-outcome--created"), "no 'your character is ready' message");
-        assert.exists(el().querySelector('[data-action="open-sheet"]'));
-        el().querySelector('[data-action="finish"]').click();
-        for ( let i = 0; i < 100 && app.rendered; i++ ) await new Promise(r => setTimeout(r, 100));
-        assert.isUndefined(flag(), "the draft is cleared once the player has seen the result");
+        assert.exists(el().querySelector('[data-action="open-sheet"]'), "the sheet is not offered");
+        assert.exists(el().querySelector('[data-action="finish"]'), "there is no way to say you are done");
+        try {
+          // This batch runs with no limit; with one allowed, the character just made is the last one.
+          await set(1);
+          assert.notExists(el().querySelector('[data-action="another"]'), "at the limit, another is not offered");
+          assert.include(el().querySelector(".cc-outcome--created").textContent, "your GM allows");
+          await set(3);
+          const another = el().querySelector('[data-action="another"]');
+          assert.exists(another, "with room to spare, another character should be offered");
+          another.click();
+          for ( let i = 0; i < 200 && (app.draft?.status !== "draft"); i++ ) await new Promise(r => setTimeout(r, 100));
+          assert.equal(app.draft.status, "draft", "a fresh draft was not started");
+          assert.notExists(app.draft.picks.species, "the new draft starts empty");
+          assert.equal(app.step, "start");
+          assert.equal(flag().status, "draft", "the finished draft was let go; the character is the record");
+        } finally {
+          await set(0);   // back to how this batch found it
+        }
       });
     });
   }, { displayName: "Character Creator: Wizard create (GM online)" });

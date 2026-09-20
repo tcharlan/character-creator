@@ -55,7 +55,7 @@ export function summaryOf(built, equipment, draft) {
  * @param {object} [options.equipment]    Resolved equipment, with names filled in.
  * @param {boolean} [options.busy]        A submission is on its way.
  */
-export function reviewModel({ built, validation, draft, equipment, busy = false }) {
+export function reviewModel({ built, validation, draft, equipment, busy = false, another = false }) {
   const errors = validation?.errors ?? [];
   const groups = errorsByStep(errors).map(g => ({
     step: g.step,
@@ -69,6 +69,8 @@ export function reviewModel({ built, validation, draft, equipment, busy = false 
     ready: !errors.length,
     busy,
     status,
+    // Room for another character under the GM's limit (A4), once this one is made.
+    another: !!another,
     outcome: outcomeOf(draft)
   };
 }
