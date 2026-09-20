@@ -188,7 +188,22 @@
     "Abilities": {
       "pointBuy": "Point buy",
       "standardArray": "Standard array",
-      "rolled": "Rolled"
+      "rolled": "Rolled",
+      "Method": "How to set your scores",
+      "OnlyOne": "Your GM allows only this way of setting ability scores.",
+      "ChooseMethod": "Choose how you want to set your scores.",
+      "PointBuyHint": "Spend 27 points. Each score starts at 8 and can go up to 15; the higher ones cost more.",
+      "RollHint": "Rolling posts the dice to chat for everyone to see. You can only roll once — to roll again you'd have to start over.",
+      "RolledHint": "You rolled:",
+      "Roll": "Roll for scores",
+      "Costs": "costs",
+      "Lower": "Lower",
+      "Raise": "Raise",
+      "PointsLeft": "Points left",
+      "OfBudget": "of",
+      "StillToAssign": "Still to assign",
+      "Increases": "Increases",
+      "IncreasesNote": "Your species or background adds to these; the totals are on the right of each row."
     },
     "Portrait": {
       "Ready": "Uploaded",

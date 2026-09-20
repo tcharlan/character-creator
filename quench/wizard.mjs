@@ -362,3 +362,144 @@ export function registerOptionStepBatches(quench) {
     });
   }, { displayName: "Character Creator: Wizard option steps" });
 }
+
+/*
+ * The ability-scores step (PLAN 3.3).
+ */
+export function registerAbilityStepBatch(quench) {
+  quench.registerBatch(`${MODULE_ID}.wizard-abilities`, ({ describe, it, before, after, afterEach, assert }) => {
+    describe("Ability scores step, as Player A", () => {
+      let CharacterWizard;
+      let saved;
+      let app = null;
+      const messageIds = [];
+      const el = () => app.element;
+      const open = async () => {
+        app = await CharacterWizard.open();
+        assert.exists(app, "the wizard didn't open");
+        await app.settle();
+        await app.goTo("abilities");
+        await app.settle();
+        return app;
+      };
+      const method = key => el().querySelector(`[data-action="method"][data-method="${key}"]`);
+      const scores = () => [...el().querySelectorAll(".cc-score")];
+
+      before(async function() {
+        this.timeout(120_000);
+        ({ CharacterWizard } = await import("../scripts/wizard/app.mjs"));
+        saved = flag();
+        await game.user.unsetFlag(MODULE_ID, DRAFT_FLAG);
+      });
+      afterEach(async function() {
+        this.timeout(30_000);
+        if ( app?.rendered ) await app.close();
+        app = null;
+        await game.user.unsetFlag(MODULE_ID, DRAFT_FLAG);
+      });
+      after(async function() {
+        this.timeout(60_000);
+        if ( messageIds.length ) await ChatMessage.implementation.deleteDocuments(messageIds.filter(id => game.messages.has(id)));
+        if ( saved === undefined ) await game.user.unsetFlag(MODULE_ID, DRAFT_FLAG);
+        else await raw(saved);
+      });
+
+      it("offers the three methods; point buy spends 27 points and stops at the limits", async function() {
+        this.timeout(120_000);
+        await open();
+        assert.lengthOf([...el().querySelectorAll(".cc-method")], 3);
+        method("pointBuy").click();
+        await app.settle();
+        assert.equal(app.draft.abilities.method, "pointBuy");
+        assert.lengthOf(scores(), 6);
+        const row = scores()[0];
+        assert.equal(row.querySelector(".cc-score__value").textContent.trim(), "8");
+        assert.isTrue(row.querySelector('[data-action="lower"]').disabled, "8 is the minimum");
+        for ( let i = 0; i < 7; i++ ) {
+          scores()[0].querySelector('[data-action="raise"]').click();
+          await app.settle();
+        }
+        assert.equal(app.draft.abilities.base.str, 15);
+        assert.isTrue(scores()[0].querySelector('[data-action="raise"]').disabled, "15 is the maximum");
+        assert.include(el().querySelector(".cc-points__value").textContent, "18", "27 − 9 spent");
+      });
+
+      it("the standard array assigns each value once, and the banner shows the method", async function() {
+        this.timeout(120_000);
+        await open();
+        method("standardArray").click();
+        await app.settle();
+        const values = [15, 14, 13, 12, 10, 8];
+        const keys = ["str", "dex", "con", "int", "wis", "cha"];
+        for ( const [i, key] of keys.entries() ) {
+          const select = el().querySelector(`.cc-assign[data-ability="${key}"]`);
+          select.value = String(values[i]);
+          select.dispatchEvent(new Event("change"));
+          await app.settle();
+        }
+        assert.deepEqual(app.draft.abilities.base, { str: 15, dex: 14, con: 13, int: 12, wis: 10, cha: 8 });
+        const { checkAbilities } = await import("../scripts/rules/abilities.mjs");
+        assert.deepEqual(checkAbilities(app.draft.abilities), []);
+        assert.include(el().querySelector('.cc-step[data-step="abilities"] .cc-step__label').textContent, "Standard array");
+      });
+
+      it("rolling posts the dice to chat and locks the results in (D15, A10)", async function() {
+        this.timeout(120_000);
+        await open();
+        method("rolled").click();
+        await app.settle();
+        const before = game.messages.size;
+        el().querySelector('[data-action="roll"]').click();
+        for ( let i = 0; i < 100 && !app.draft.abilities.roll; i++ ) await new Promise(r => setTimeout(r, 100));
+        await app.settle();
+        const roll = app.draft.abilities.roll;
+        assert.exists(roll, "nothing was rolled");
+        messageIds.push(roll.messageId);
+        assert.equal(game.messages.size, before + 1);
+        const message = game.messages.get(roll.messageId);
+        assert.equal(message.author.id, game.user.id);
+        assert.lengthOf(message.rolls, 6);
+        assert.deepEqual(message.rolls.map(r => r.total), roll.results);
+        assert.notExists(el().querySelector('[data-action="roll"]'), "you can only roll once");
+        // The rolled values are what you may assign.
+        const select = el().querySelector('.cc-assign[data-ability="str"]');
+        const offered = [...select.options].map(o => o.value).filter(Boolean).map(Number).sort((a, b) => b - a);
+        assert.deepEqual(offered, [...roll.results].sort((a, b) => b - a));
+      });
+
+      it("only the methods the GM allows are offered", async function() {
+        this.timeout(120_000);
+        const { readSettings } = await import("../scripts/settings/settings.mjs");
+        const before = readSettings().abilityMethods;
+        assert.deepEqual(before, ["pointBuy", "standardArray", "rolled"], "this world uses the default");
+        await open();
+        // The step reads the setting through readSettings(); with one method the chooser is replaced by a note.
+        const model = (await import("../scripts/wizard/abilities-step.mjs")).abilitiesModel(app.draft,
+          { allowedMethods: ["standardArray"] });
+        assert.deepEqual(model.methods.map(m => m.key), ["standardArray"]);
+        assert.isTrue(model.onlyOne);
+      });
+
+      it("the final scores include the species and background increases", async function() {
+        this.timeout(180_000);
+        await open();
+        const catalog = await (await import("../scripts/catalog/catalog.mjs")).getCatalog();
+        const norm = u => u.replace(/^(Compendium\.[^.]+\.[^.]+\.)(?!Item\.)/, "$1Item.");
+        await app.update(d => {
+          d.picks.species = norm(catalog.byCategory.species[0].uuid);
+          d.picks.background = norm(catalog.byCategory.background[0].uuid);
+          d.picks.class = norm(catalog.byCategory.class[0].uuid);
+        }, { wait: true });
+        method("pointBuy").click();
+        await app.settle();
+        const finals = [...el().querySelectorAll(".cc-score__total")].map(n => Number(n.textContent));
+        assert.lengthOf(finals, 6);
+        // The column shows the built character's scores: base plus whatever the build already applies. (2014
+        // species increases are automatic; 2024 background increases wait for the player's choice in step V.)
+        const built = ["str", "dex", "con", "int", "wis", "cha"].map(k => app.build.actor.system.abilities[k].value);
+        assert.deepEqual(finals, built);
+        assert.isTrue(finals.every((v, i) => v >= Object.values(app.draft.abilities.base)[i]), "never lower than the base score");
+      });
+    });
+  }, { displayName: "Character Creator: Wizard ability scores" });
+}

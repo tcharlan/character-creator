@@ -246,7 +246,8 @@ export function checkDraftShape(draft) {
     const a = d.abilities;
     c.oneOf("draft.abilities.method", a.method, ABILITY_METHODS, { nullable: true });
     if ( a.base !== null && c.object("draft.abilities.base", a.base, ABILITIES) ) {
-      for ( const k of ABILITIES ) c.int(`draft.abilities.base.${k}`, a.base[k], 3, 18);
+      // null while the player is still assigning values (the validator asks for all six before submitting).
+      for ( const k of ABILITIES ) c.int(`draft.abilities.base.${k}`, a.base[k], 3, 18, { nullable: true });
     }
     if ( a.roll !== null && c.object("draft.abilities.roll", a.roll, ["messageId", "results"]) ) {
       c.test("draft.abilities.roll.messageId", a.roll.messageId, isId, "a message id");

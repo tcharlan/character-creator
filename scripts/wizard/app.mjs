@@ -14,6 +14,8 @@ import { readSettings } from "../settings/settings.mjs";
 import { bannerSteps, canOpen, moveStep, groupErrors, attention, BANNER_STEPS } from "./steps-model.mjs";
 import { applyPick, answerStep } from "./picks.mjs";
 import { optionList, optionDetail, optionDescription, subclassOptions, subclassStep, STEP_CATEGORY } from "./options-step.mjs";
+import { abilitiesModel, setMethod, spendPoint, assignValue } from "./abilities-step.mjs";
+import { rollAbilityScores } from "../rules/ability-roll.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -22,7 +24,8 @@ const STEP_PARTIALS = {
   start: `modules/${MODULE_ID}/templates/steps/start.hbs`,
   species: `modules/${MODULE_ID}/templates/steps/options.hbs`,
   class: `modules/${MODULE_ID}/templates/steps/options.hbs`,
-  background: `modules/${MODULE_ID}/templates/steps/options.hbs`
+  background: `modules/${MODULE_ID}/templates/steps/options.hbs`,
+  abilities: `modules/${MODULE_ID}/templates/steps/abilities.hbs`
 };
 const T = (key, data) => (data ? game.i18n.format(`CHARCREATOR.${key}`, data) : game.i18n.localize(`CHARCREATOR.${key}`));
 
@@ -61,7 +64,11 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       discard: onDiscard,
       begin: onBegin,
       pick: onPick,
-      subclass: onSubclass
+      subclass: onSubclass,
+      method: onMethod,
+      raise: onRaise,
+      lower: onLower,
+      roll: onRoll
     }
   };
 
@@ -196,6 +203,37 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     await this.settle();
   }
 
+  /** Choose how ability scores are set (only the methods the GM allows are offered). */
+  async chooseMethod(method) {
+    await this.update(d => setMethod(d, method));
+    await this.render({ parts: ["banner", "body", "footer"] });
+  }
+
+  /** Point buy: raise or lower one score. */
+  async spend(ability, delta) {
+    await this.update(d => spendPoint(d, ability, delta));
+    await this.render({ parts: ["banner", "body", "footer"] });
+  }
+
+  /** Standard array and rolled: put a value on an ability (they swap if it was taken). */
+  async assign(ability, value) {
+    await this.update(d => assignValue(d, ability, value));
+    await this.render({ parts: ["banner", "body", "footer"] });
+  }
+
+  /** Roll the six scores in this browser and post them to chat (D15). Only possible once (A10). */
+  async rollScores() {
+    if ( this.draft?.abilities?.roll ) return;
+    try {
+      const roll = await rollAbilityScores(this.draft);
+      await this.update(d => d.abilities.roll = roll, { wait: true });
+    } catch ( err ) {
+      console.error(`${MODULE_ID} | the roll failed`, err);
+      ui.notifications?.error(game.i18n.localize(err?.key ?? "CHARCREATOR.Error.ROLL_INVALID"));
+    }
+    await this.render({ parts: ["banner", "body", "footer"] });
+  }
+
   /** Filter the option list of the current step. */
   async search(text) {
     this.#search[this.#current] = text;
@@ -299,6 +337,12 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** Whatever the current step's pane needs (PLAN 3.2: the option steps). */
   async #stepContext() {
+    if ( this.#current === "abilities" ) {
+      const actor = this.#build?.actor;
+      const finals = actor ? Object.fromEntries(Object.entries(actor.system.abilities ?? {})
+        .map(([key, a]) => [key, { value: a.value, mod: a.mod }])) : {};
+      return { abilities: abilitiesModel(this.draft, { allowedMethods: readSettings().abilityMethods, finals }) };
+    }
     const role = STEP_CATEGORY[this.#current];
     if ( !role ) return {};
     const selected = this.draft?.picks?.[role] ?? null;
@@ -327,6 +371,12 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   /** @inheritDoc */
   _onRender(context, options) {
     super._onRender(context, options);
+    for ( const select of this.element.querySelectorAll(".cc-assign") ) {
+      select.addEventListener("change", event => {
+        const value = event.target.value === "" ? null : Number(event.target.value);
+        this.assign(event.target.dataset.ability, value);
+      });
+    }
     const search = this.element.querySelector(".cc-search");
     if ( search ) {
       search.addEventListener("input", foundry.utils.debounce(event => this.search(event.target.value), 200));
@@ -401,6 +451,22 @@ function onPick(event, target) {
 
 function onSubclass(event, target) {
   return this.chooseSubclass(target.dataset.uuid);
+}
+
+function onMethod(event, target) {
+  return this.chooseMethod(target.dataset.method);
+}
+
+function onRaise(event, target) {
+  return this.spend(target.dataset.ability, 1);
+}
+
+function onLower(event, target) {
+  return this.spend(target.dataset.ability, -1);
+}
+
+function onRoll() {
+  return this.rollScores();
 }
 
 function onStep(event, target) {

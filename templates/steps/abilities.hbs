@@ -1,0 +1,97 @@
+{{!-- Ability scores (PLAN 3.3): method, the six scores, and what they become on the character. --}}
+<div class="cc-columns cc-columns--wide">
+  <section class="cc-detail">
+    <header class="cc-pane__header">
+      <h1 class="cc-pane__title">{{stepTitle}}</h1>
+      <p class="cc-pane__hint">{{stepHint}}</p>
+    </header>
+
+    {{#if abilities.onlyOne}}
+    <p class="cc-chosen-for-you">{{localize "CHARCREATOR.Abilities.OnlyOne"}}</p>
+    {{else}}
+    <div class="cc-methods" role="group" aria-label="{{localize 'CHARCREATOR.Abilities.Method'}}">
+      {{#each abilities.methods as |m|}}
+      <button type="button" class="cc-method{{#if m.selected}} cc-method--selected{{/if}}" data-action="method" data-method="{{m.key}}"
+              aria-pressed="{{m.selected}}">{{localize (concat "CHARCREATOR.Abilities." m.key)}}</button>
+      {{/each}}
+    </div>
+    {{/if}}
+
+    {{#if abilities.method}}
+      {{#if abilities.pointBuy}}
+      <p class="cc-hint">{{localize "CHARCREATOR.Abilities.PointBuyHint"}}</p>
+      {{/if}}
+
+      {{#if abilities.rolled}}
+      <div class="cc-roll">
+        {{#if abilities.rolled.rolled}}
+        <p class="cc-hint">{{localize "CHARCREATOR.Abilities.RolledHint"}} {{abilities.rolled.resultsText}}</p>
+        {{else}}
+        <button type="button" class="cc-button cc-button--primary" data-action="roll">
+          {{localize "CHARCREATOR.Abilities.Roll"}} ({{abilities.rolled.count}} × {{abilities.rolled.formula}})
+        </button>
+        <p class="cc-hint">{{localize "CHARCREATOR.Abilities.RollHint"}}</p>
+        {{/if}}
+      </div>
+      {{/if}}
+
+      <div class="cc-scores">
+        {{#each abilities.rows as |r|}}
+        <div class="cc-score">
+          <span class="cc-score__name">
+            <span class="cc-score__label">{{r.label}}</span>
+            <span class="cc-score__abbr">{{r.abbreviation}}</span>
+          </span>
+
+          {{#if ../abilities.pointBuy}}
+          <button type="button" class="cc-score__step" data-action="lower" data-ability="{{r.key}}" {{#unless r.canLower}}disabled{{/unless}}
+                  aria-label="{{localize 'CHARCREATOR.Abilities.Lower'}} {{r.label}}">&minus;</button>
+          <span class="cc-score__value">{{#if r.score}}{{r.score}}{{else}}—{{/if}}</span>
+          <button type="button" class="cc-score__step" data-action="raise" data-ability="{{r.key}}" {{#unless r.canRaise}}disabled{{/unless}}
+                  aria-label="{{localize 'CHARCREATOR.Abilities.Raise'}} {{r.label}}">+</button>
+          <span class="cc-score__cost">{{#if r.cost}}{{localize "CHARCREATOR.Abilities.Costs"}} {{r.cost}}{{/if}}</span>
+          {{else}}
+          <label class="cc-score__assign">
+            <span class="cc-visually-hidden">{{r.label}}</span>
+            <select class="cc-assign" data-ability="{{r.key}}" {{#unless r.choices.length}}disabled{{/unless}}>
+              <option value="">—</option>
+              {{#each r.choices as |c|}}<option value="{{c}}" {{#if (eq c ../r.score)}}selected{{/if}}>{{c}}</option>{{/each}}
+            </select>
+          </label>
+          {{/if}}
+
+          <span class="cc-score__final">
+            {{#if r.final}}
+            <span class="cc-score__total">{{r.final}}</span>
+            {{#if r.bonus}}<span class="cc-score__bonus">+{{r.bonus}}</span>{{/if}}
+            <span class="cc-score__mod">{{numberFormat r.modifier sign=true}}</span>
+            {{/if}}
+          </span>
+        </div>
+        {{/each}}
+      </div>
+    {{else}}
+    <p class="cc-empty">{{localize "CHARCREATOR.Abilities.ChooseMethod"}}</p>
+    {{/if}}
+  </section>
+
+  <aside class="cc-art cc-art--numbers">
+    {{#if abilities.pointBuy}}
+    <div class="cc-points">
+      <span class="cc-points__label">{{localize "CHARCREATOR.Abilities.PointsLeft"}}</span>
+      <span class="cc-points__value">{{abilities.pointBuy.remaining}}</span>
+      <span class="cc-points__of">{{localize "CHARCREATOR.Abilities.OfBudget"}} {{abilities.pointBuy.budget}}</span>
+    </div>
+    {{/if}}
+    {{#if abilities.spare.length}}
+    <div class="cc-spare">
+      <span class="cc-points__label">{{localize "CHARCREATOR.Abilities.StillToAssign"}}</span>
+      <span class="cc-spare__values">{{abilities.spareText}}</span>
+    </div>
+    {{/if}}
+    <dl class="cc-facts">
+      <div><dt>{{localize "CHARCREATOR.Summary.HitPoints"}}</dt><dd>{{#if summary.hp}}{{summary.hp}}{{else}}—{{/if}}</dd></div>
+      <div><dt>{{localize "CHARCREATOR.Abilities.Increases"}}</dt><dd>{{localize "CHARCREATOR.Abilities.IncreasesNote"}}</dd></div>
+    </dl>
+  </aside>
+</div>
