@@ -52,25 +52,38 @@ export async function validateDraft(draft, { catalog, userId, worldId = game.wor
   const envelope = checkEnvelope(draft, { worldId, rules });
   if ( envelope.errors.length ) return done(envelope.errors);
   const d = envelope.draft;
-  const errors = [];
 
   // Choices: strict replay — every step must be in the recipe (fill: false).
   const built = await buildCharacter({ picks: d.picks, base: d.abilities.base, steps: d.recipe.steps }, { catalog, fill: false });
-  errors.push(...built.errors);
+  const { errors, equipment } = await checkBuilt(d, built, { catalog, userId, allowedMethods, image, characters });
+  return done(errors, { draft: d, built, equipment });
+}
+
+/**
+ * Every check that works on an already-built character. `validateDraft` calls it after its strict replay; the
+ * wizard calls it with the build it already made for the screen, so it doesn't replay the character twice
+ * (PLAN 3.2). With a filled build there are no MISSING_STEP errors: unanswered steps are `needsInput` results
+ * for the wizard to show, not mistakes.
+ * @param {object} draft                    A migrated, well-formed draft.
+ * @param {object} built                    From buildCharacter().
+ * @returns {Promise<{ errors: object[], equipment: object|null }>}
+ */
+export async function checkBuilt(draft, built, { catalog, userId, allowedMethods, image = null, characters = {} } = {}) {
+  const errors = [...built.errors];
   const blocked = built.summary.blocked.length || !built.roots.class;
   if ( !blocked ) errors.push(...checkBuiltStructure(actorSummary(built.actor), catalog));
 
-  errors.push(...checkDraftAbilities(d, { userId, allowedMethods }));
+  errors.push(...checkDraftAbilities(draft, { userId, allowedMethods }));
 
   let equipment = null;
   if ( built.roots.class || built.roots.background ) {
-    equipment = await resolveDraftEquipment(built, d, { catalog, userId });
+    equipment = await resolveDraftEquipment(built, draft, { catalog, userId });
     errors.push(...equipment.errors);
   }
-  if ( built.roots.class ) errors.push(...checkDraftSpells(built, d, { catalog }));
+  if ( built.roots.class ) errors.push(...checkDraftSpells(built, draft, { catalog }));
 
-  errors.push(...checkDetails(d), ...checkPortraitImage(image), ...checkCharacterLimit(characters));
-  return done(dedupe(errors), { draft: d, built, equipment });
+  errors.push(...checkDetails(draft), ...checkPortraitImage(image), ...checkCharacterLimit(characters));
+  return { errors: dedupe(errors), equipment };
 }
 
 /** The same error (code + detail) reported twice (e.g. by the rebuild and the structure check) once. */

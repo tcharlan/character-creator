@@ -8,12 +8,12 @@
 import { MODULE_ID, STATUS } from "../contracts.mjs";
 import { DraftStore } from "../draft/store.mjs";
 import { getCatalog } from "../catalog/catalog.mjs";
-import { validateDraft } from "../rules/validate.mjs";
+import { checkBuilt } from "../rules/validate.mjs";
 import { buildCharacter } from "../rules/build.mjs";
 import { readSettings } from "../settings/settings.mjs";
 import { bannerSteps, canOpen, moveStep, groupErrors, attention, BANNER_STEPS } from "./steps-model.mjs";
 import { applyPick, answerStep } from "./picks.mjs";
-import { optionList, optionDetail, subclassOptions, subclassStep, STEP_CATEGORY } from "./options-step.mjs";
+import { optionList, optionDetail, optionDescription, subclassOptions, subclassStep, STEP_CATEGORY } from "./options-step.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -26,8 +26,12 @@ const STEP_PARTIALS = {
 };
 const T = (key, data) => (data ? game.i18n.format(`CHARCREATOR.${key}`, data) : game.i18n.localize(`CHARCREATOR.${key}`));
 
-/** How long to wait after a change before rebuilding and revalidating. */
-const REBUILD_DELAY = 200;
+/**
+ * How long to wait after a change before rebuilding and revalidating. Replaying a character takes a noticeable
+ * moment and blocks the browser while it runs, so while the player is still clicking we don't start one: only a
+ * pause triggers the rebuild that updates the banner counts and the footer.
+ */
+const REBUILD_DELAY = 800;
 
 export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   /** The open wizard, if any (one per client). */
@@ -135,6 +139,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     }
     this.#catalog = await getCatalog();
     await this.#rebuild();
+    warmTraitLists();
     return true;
   }
 
@@ -142,13 +147,21 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /**
    * Change the draft and rebuild. Step panes call this.
+   *
+   * The change takes effect at once; saving it is debounced by the store, so we don't wait for the write —
+   * waiting would make every click feel a second slow. Closing the wizard flushes whatever is still waiting.
    * @param {(draft: object) => void} change
+   * @param {{ wait?: boolean }} [options]   `wait: true` waits for the save.
    */
-  async update(change) {
-    await this.#store.update(d => {
+  async update(change, { wait = false } = {}) {
+    const saved = this.#store.update(d => {
       change(d);
       d.step = this.#current;
+    }).catch(err => {
+      console.error(`${MODULE_ID} | the draft couldn't be saved`, err);
+      ui.notifications?.error(game.i18n.localize(err?.error?.key ?? "CHARCREATOR.Error.BAD_REQUEST"));
     });
+    if ( wait ) await saved;
     this.#schedule();
   }
 
@@ -169,8 +182,10 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     const role = STEP_CATEGORY[this.#current];
     if ( !role ) return;
     this.#auto.delete(role);
+    // Show the choice at once (the details come from the compendium, not the rebuild), then rebuild in the
+    // background: replaying a class's advancements takes a moment the first time dnd5e loads its lists.
     await this.update(d => applyPick(d, role, uuid));
-    await this.settle();
+    await this.render({ parts: ["banner", "body", "footer"] });
   }
 
   /** Choose a subclass the class grants at level 1. */
@@ -192,6 +207,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
    * (The tests use it; so does anything that must show the result at once.)
    */
   async settle() {
+    await this.#store.flush();
     if ( this.#timer ) {
       clearTimeout(this.#timer);
       this.#timer = null;
@@ -224,8 +240,9 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       if ( JSON.stringify(next) !== JSON.stringify(this.draft.recipe.steps) ) {
         await this.#store.update(d => d.recipe.steps = foundry.utils.deepClone(next));
       }
-      this.#validation = await validateDraft(this.draft, { catalog: this.#catalog, userId: game.user.id,
-        allowedMethods: readSettings().abilityMethods });
+      const { errors, equipment } = await checkBuilt(this.draft, this.#build, { catalog: this.#catalog,
+        userId: game.user.id, allowedMethods: readSettings().abilityMethods });
+      this.#validation = { ok: !errors.length, errors, built: this.#build, equipment };
     } catch ( err ) {
       console.error(`${MODULE_ID} | rebuild failed`, err);
       this.#validation = null;
@@ -287,7 +304,15 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     const selected = this.draft?.picks?.[role] ?? null;
     const options = optionList(this.#catalog, this.#current, { search: this.#search[this.#current] ?? "", selected });
     const detail = selected ? await optionDetail(selected, this.#current) : null;
-    if ( detail ) detail.auto = this.#auto.has(role);
+    if ( detail ) {
+      detail.auto = this.#auto.has(role);
+      // The description is enriched in the background; render again when it's ready.
+      if ( detail.description === null ) {
+        optionDescription(selected, this.#current)
+          .then(() => (this.rendered && (this.draft?.picks?.[role] === selected)) ? this.render({ parts: ["body"] }) : null)
+          .catch(err => console.warn(`${MODULE_ID} | couldn't read the description`, err));
+      }
+    }
     let subclass = null;
     if ( (this.#current === "class") && detail?.identifier ) {
       const step = subclassStep(this.#build);
@@ -396,6 +421,18 @@ function onNext() {
 async function onDiscard() {
   const yes = await confirmDialog(T("Discard.Title"), T("Discard.editable"), T("Discard.Confirm"));
   if ( yes ) await this.discardAndClose();
+}
+
+/**
+ * dnd5e loads each proficiency list (weapons, armor, tools…) the first time an advancement asks for it, which is
+ * what makes the first rebuild of a class slow. Warm them in the background when the wizard opens.
+ */
+function warmTraitLists() {
+  const choices = dnd5e.documents?.Trait?.choices;
+  if ( !choices ) return;
+  const keys = Object.keys(CONFIG.DND5E.traits ?? {});
+  Promise.allSettled(keys.map(key => choices(key)))
+    .then(() => console.debug(`${MODULE_ID} | proficiency lists ready (${keys.length})`));
 }
 
 /** A yes/no dialog. */

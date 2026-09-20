@@ -16,6 +16,8 @@ const SEARCHABLE_FROM = 10;
 const LARGE_ART = /systems\/dnd5e\/icons\/classes\//;
 
 const detailCache = new Map();
+const descriptionCache = new Map();
+const descriptionJobs = new Map();
 let journalByItem = null;
 
 /** The option list for a step. */
@@ -109,30 +111,50 @@ function chips(doc, step) {
 }
 
 /**
- * The details pane for one option. Cached per UUID.
+ * The details pane for one option, without its description: name, art, chips, features and facts. Cached per
+ * UUID, and quick enough to render the moment the player clicks.
  * @param {string} uuid
  * @param {"species"|"class"|"background"} step
  */
 export async function optionDetail(uuid, step) {
   const key = `${step}:${uuid}`;
-  if ( detailCache.has(key) ) return detailCache.get(key);
+  if ( detailCache.has(key) ) return { ...detailCache.get(key), description: descriptionCache.get(key) ?? null };
   const doc = await fromUuid(uuid);
   if ( !doc ) return null;
-  let html = doc.system?.description?.value ?? "";
-  let artNote = game.i18n.localize("CHARCREATOR.Options.ArtIcon");
-  if ( step === "class" ) {
-    const page = (await journalDescriptions()).get(normalizeUuid(uuid));
-    if ( page?.html ) html = page.html;
-  }
-  if ( LARGE_ART.test(doc.img ?? "") ) artNote = game.i18n.localize("CHARCREATOR.Options.ArtSystem");
-  const enriched = await CONFIG.ux.TextEditor.implementation.enrichHTML(html, { relativeTo: doc, secrets: false });
   const detail = {
-    uuid, name: doc.name, img: doc.img, description: enriched, chips: chips(doc, step), features: features(doc),
-    facts: facts(doc, step), largeArt: LARGE_ART.test(doc.img ?? ""), artNote,
+    uuid, name: doc.name, img: doc.img, chips: chips(doc, step), features: features(doc), facts: facts(doc, step),
+    largeArt: LARGE_ART.test(doc.img ?? ""),
+    artNote: game.i18n.localize(LARGE_ART.test(doc.img ?? "") ? "CHARCREATOR.Options.ArtSystem" : "CHARCREATOR.Options.ArtIcon"),
     identifier: doc.system?.identifier ?? null
   };
   detailCache.set(key, detail);
-  return detail;
+  return { ...detail, description: descriptionCache.get(key) ?? null };
+}
+
+/**
+ * The option's description, enriched (its links resolved). Slow the first time — a class description can link to
+ * a dozen features — so the pane renders without it and calls this, then renders again.
+ * @returns {Promise<string>}
+ */
+export function optionDescription(uuid, step) {
+  const key = `${step}:${uuid}`;
+  if ( descriptionCache.has(key) ) return Promise.resolve(descriptionCache.get(key));
+  if ( descriptionJobs.has(key) ) return descriptionJobs.get(key);
+  const job = (async () => {
+    const doc = await fromUuid(uuid);
+    if ( !doc ) return "";
+    let html = doc.system?.description?.value ?? "";
+    if ( step === "class" ) {
+      const page = (await journalDescriptions()).get(normalizeUuid(uuid));
+      if ( page?.html ) html = page.html;
+    }
+    const enriched = await CONFIG.ux.TextEditor.implementation.enrichHTML(html, { relativeTo: doc, secrets: false });
+    descriptionCache.set(key, enriched);
+    descriptionJobs.delete(key);
+    return enriched;
+  })();
+  descriptionJobs.set(key, job);
+  return job;
 }
 
 /** Subclasses for a class, from the catalog (the class's own identifier links them). */
@@ -151,5 +173,7 @@ export function subclassStep(built) {
 /** Forget the cached details (the catalog changed). */
 export function clearOptionCache() {
   detailCache.clear();
+  descriptionCache.clear();
+  descriptionJobs.clear();
   journalByItem = null;
 }

@@ -30,7 +30,8 @@
     {{#if detail.chips.length}}
     <div class="cc-chips">{{#each detail.chips as |c|}}<span class="cc-chip">{{c}}</span>{{/each}}</div>
     {{/if}}
-    <div class="cc-description">{{{detail.description}}}</div>
+    {{#if detail.description}}<div class="cc-description">{{{detail.description}}}</div>
+    {{else}}<p class="cc-description cc-description--loading">{{localize "CHARCREATOR.Options.LoadingText"}}</p>{{/if}}
     {{#if detail.features.length}}
     <h3 class="cc-section-title">{{localize "CHARCREATOR.Options.Features"}}</h3>
     <ul class="cc-features">

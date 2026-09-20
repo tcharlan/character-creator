@@ -307,6 +307,40 @@ export function registerOptionStepBatches(quench) {
           "every remaining class answer belongs to the new class");
       });
 
+      it("picking an option is quick enough to click through the list", async function() {
+        this.timeout(300_000);
+        await open();
+        await app.goTo("species");
+        await app.settle();
+        /** Click an option and wait only for the pane to show it — what the player feels. */
+        const clickAndShow = async name => {
+          const t0 = performance.now();
+          named(name).click();
+          for ( let i = 0; i < 200; i++ ) {
+            const title = el().querySelector(".cc-detail .cc-pane__title");
+            if ( title?.textContent.trim() === name ) break;
+            await new Promise(r => setTimeout(r, 10));
+          }
+          return Math.round(performance.now() - t0);
+        };
+        const shown = [];
+        for ( const name of catalog.byCategory.species.slice(0, 4).map(e => e.name) ) shown.push(await clickAndShow(name));
+        await app.settle();
+        await app.goTo("class");
+        await app.settle();
+        const classShown = [];
+        const settleTimes = [];
+        for ( const name of catalog.byCategory.class.slice(0, 3).map(e => e.name) ) {
+          classShown.push(await clickAndShow(name));
+          const t0 = performance.now();
+          await app.settle();
+          settleTimes.push(Math.round(performance.now() - t0));
+        }
+        console.log(`${MODULE_ID} | wizard pick ms (${rules()}): shown species ${JSON.stringify(shown)} class ${JSON.stringify(classShown)}, rebuild ${JSON.stringify(settleTimes)}`);
+        assert.isBelow(Math.max(...shown, ...classShown), 500, "the chosen option should appear at once");
+        assert.isBelow(Math.max(...settleTimes), 3000, "the background rebuild shouldn't drag");
+      });
+
       it("auto-select (D4): a category the GM narrows to one option is chosen automatically", async function() {
         this.timeout(120_000);
         const only = catalog.byCategory.background[0];

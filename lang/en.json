@@ -218,7 +218,8 @@
       "Subclass": "Subclass",
       "SubclassHint": "This class chooses its subclass at level 1.",
       "ArtIcon": "The compendium's icon for this option",
-      "ArtSystem": "Artwork from the dnd5e system"
+      "ArtSystem": "Artwork from the dnd5e system",
+      "LoadingText": "Reading the description…"
     },
     "Facts": {
       "Size": "Size",
