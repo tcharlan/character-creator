@@ -266,6 +266,20 @@
       "StillOpen": "Still to choose",
       "NoWidget": "This choice isn't something the wizard can show yet.",
       "RebuildNote": "Every change rebuilds your character, so these numbers are always what your GM will create."
+    },
+    "Equipment": {
+      "Mode": "Items or gold",
+      "TakeItems": "Take the items",
+      "TakeGold": "Take gold instead",
+      "Choose": "Choose one",
+      "NotProficient": "you're not proficient",
+      "Pick": "Choose…",
+      "AlsoIncluded": "Also included:",
+      "YouCarry": "You'll carry",
+      "NothingYet": "Nothing chosen yet.",
+      "Roll": "Roll for gold",
+      "RollHint": "The roll is posted to chat. You can only roll once.",
+      "Rolled": "Rolled with"
     }
   }
 }

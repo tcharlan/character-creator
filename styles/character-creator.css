@@ -570,3 +570,34 @@
 
 .cc-ability-picker { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .cc-ability-picker .cc-method { border: 1px solid var(--cc-line); border-radius: var(--cc-radius); }
+
+/* ---------------------------------------------- */
+/*  Equipment                                     */
+/* ---------------------------------------------- */
+
+.cc-sources { display: flex; flex-direction: column; gap: 22px; }
+.cc-source { display: flex; flex-direction: column; gap: 12px; }
+.cc-source__head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.cc-decision { display: flex; flex-direction: column; gap: 8px; }
+.cc-card__warn { margin-left: auto; font-size: 12px; color: var(--cc-warn); }
+
+.cc-picker { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cc-picker__label { font-size: 14px; color: var(--cc-muted); min-width: 160px; }
+.cc-equip-pick {
+  min-width: 200px;
+  height: 44px;
+  padding: 0 10px;
+  background: var(--cc-raised);
+  border: 1px solid var(--cc-line);
+  border-radius: var(--cc-radius);
+  color: var(--cc-text);
+  font-family: var(--cc-body);
+  font-size: 15px;
+}
+
+.cc-wealth { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.cc-wealth__total { margin: 0; font-family: var(--cc-display); font-size: 28px; font-weight: 700; color: var(--cc-gold); }
+
+.cc-carry { width: 100%; margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.cc-carry li { display: flex; gap: 8px; font-size: 14px; color: var(--cc-muted); }
+.cc-carry__count { margin-left: auto; color: var(--cc-faint); }

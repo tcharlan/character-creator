@@ -55,7 +55,7 @@
             <span class="cc-visually-hidden">{{r.label}}</span>
             <select class="cc-assign" data-ability="{{r.key}}" {{#unless r.choices.length}}disabled{{/unless}}>
               <option value="">—</option>
-              {{#each r.choices as |c|}}<option value="{{c}}" {{#if (eq c ../r.score)}}selected{{/if}}>{{c}}</option>{{/each}}
+              {{#each r.choices as |c|}}<option value="{{c}}" {{#if (eq c r.score)}}selected{{/if}}>{{c}}</option>{{/each}}
             </select>
           </label>
           {{/if}}

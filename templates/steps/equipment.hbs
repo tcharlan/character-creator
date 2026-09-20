@@ -1,0 +1,97 @@
+{{!-- Equipment (PLAN 3.5, D23): the class and the background choose separately. --}}
+<div class="cc-columns cc-columns--wide">
+  <section class="cc-detail">
+    <header class="cc-pane__header">
+      <h1 class="cc-pane__title">{{stepTitle}}</h1>
+      <p class="cc-pane__hint">{{stepHint}}</p>
+    </header>
+
+    <div class="cc-sources">
+      {{#each equipment.sources as |s|}}
+      <section class="cc-source">
+        <div class="cc-source__head">
+          <h2 class="cc-section-title">{{s.name}}</h2>
+          {{#if s.wealth}}
+          <div class="cc-methods" role="group" aria-label="{{localize 'CHARCREATOR.Equipment.Mode'}}">
+            <button type="button" class="cc-method{{#if (eq s.mode 'items')}} cc-method--selected{{/if}}" data-action="equip-mode"
+                    data-role="{{s.role}}" data-mode="items" aria-pressed="{{eq s.mode 'items'}}">
+              {{localize "CHARCREATOR.Equipment.TakeItems"}}
+            </button>
+            <button type="button" class="cc-method{{#if (eq s.mode 'wealth')}} cc-method--selected{{/if}}" data-action="equip-mode"
+                    data-role="{{s.role}}" data-mode="wealth" aria-pressed="{{eq s.mode 'wealth'}}">
+              {{#if s.wealth.fixed}}{{localize "CHARCREATOR.Equipment.TakeGold"}} ({{s.wealth.fixed}} GP)
+              {{else}}{{localize "CHARCREATOR.Equipment.TakeGold"}}{{/if}}
+            </button>
+          </div>
+          {{/if}}
+        </div>
+
+        {{#if (eq s.mode "wealth")}}
+        <div class="cc-wealth">
+          {{#if s.wealth.fixed}}
+          <p class="cc-wealth__total">{{s.wealth.fixed}} GP</p>
+          {{else if s.wealth.rolled}}
+          <p class="cc-wealth__total">{{s.wealth.total}} GP</p>
+          <p class="cc-hint">{{localize "CHARCREATOR.Equipment.Rolled"}} {{s.wealth.formula}}</p>
+          {{else}}
+          <button type="button" class="cc-button cc-button--primary" data-action="equip-roll" data-role="{{s.role}}">
+            {{localize "CHARCREATOR.Equipment.Roll"}} ({{s.wealth.formula}})
+          </button>
+          <p class="cc-hint">{{localize "CHARCREATOR.Equipment.RollHint"}}</p>
+          {{/if}}
+        </div>
+        {{else}}
+        {{#each s.decisions as |d|}}
+        <div class="cc-decision">
+          {{#if (eq d.kind "or")}}
+          <div class="cc-cards" role="radiogroup" aria-label="{{localize 'CHARCREATOR.Equipment.Choose'}}">
+            {{#each d.options as |o|}}
+            <button type="button" class="cc-card{{#if o.selected}} cc-card--selected{{/if}}" data-action="equip-branch"
+                    data-role="{{s.role}}" data-entry="{{d.id}}" data-option="{{o.id}}" aria-pressed="{{o.selected}}">
+              <span>{{o.label}}</span>
+              {{#if o.warning}}<span class="cc-card__warn">{{localize "CHARCREATOR.Equipment.NotProficient"}}</span>{{/if}}
+            </button>
+            {{/each}}
+          </div>
+          {{else}}
+          <div class="cc-picker">
+            <span class="cc-picker__label">{{d.label}}</span>
+            {{#each d.slots as |slot|}}
+            <label class="cc-picker__slot">
+              <span class="cc-visually-hidden">{{d.label}}</span>
+              <select class="cc-equip-pick" data-role="{{s.role}}" data-entry="{{d.id}}" data-index="{{slot.index}}">
+                <option value="">{{localize "CHARCREATOR.Equipment.Pick"}}</option>
+                {{#each slot.options as |o|}}
+                <option value="{{o.uuid}}" {{#if (eq o.uuid slot.uuid)}}selected{{/if}}>{{o.name}}</option>
+                {{/each}}
+              </select>
+            </label>
+            {{/each}}
+          </div>
+          {{/if}}
+        </div>
+        {{/each}}
+
+        {{#if s.fixed.length}}
+        <p class="cc-hint">{{localize "CHARCREATOR.Equipment.AlsoIncluded"}} {{s.fixedText}}</p>
+        {{/if}}
+        {{/if}}
+      </section>
+      {{/each}}
+    </div>
+  </section>
+
+  <aside class="cc-art cc-art--numbers">
+    <h3 class="cc-section-title">{{localize "CHARCREATOR.Equipment.YouCarry"}}</h3>
+    <ul class="cc-carry">
+      {{#each equipment.items as |i|}}
+      <li><span>{{i.name}}</span>{{#if i.count}}<span class="cc-carry__count">×{{i.count}}</span>{{/if}}</li>
+      {{/each}}
+      {{#unless equipment.items.length}}<li class="cc-empty">{{localize "CHARCREATOR.Equipment.NothingYet"}}</li>{{/unless}}
+    </ul>
+    {{#if equipment.currencyText}}<p class="cc-wealth__total">{{equipment.currencyText}}</p>{{/if}}
+    {{#if equipment.errors.length}}
+    <ul class="cc-problems">{{#each equipment.errors as |e|}}<li class="cc-problem">{{localize e}}</li>{{/each}}</ul>
+    {{/if}}
+  </aside>
+</div>

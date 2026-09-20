@@ -688,3 +688,159 @@ export function registerChoicesStepBatch(quench) {
     });
   }, { displayName: "Character Creator: Wizard choices" });
 }
+
+/*
+ * The Equipment step (PLAN 3.5): choices per source, category pickers, the wealth alternative and the 2014 roll.
+ */
+export function registerEquipmentStepBatch(quench) {
+  const rules = () => game.settings.get("dnd5e", "rulesVersion");
+  const SPEC = {
+    legacy: { species: "Hill Dwarf", background: "Acolyte", class: "Cleric" },
+    modern: { species: "Human", background: "Sage", class: "Cleric" }
+  };
+
+  quench.registerBatch(`${MODULE_ID}.wizard-equipment`, ({ describe, it, before, after, afterEach, assert }) => {
+    describe("Equipment step, as Player A", () => {
+      let CharacterWizard;
+      let catalog;
+      let saved;
+      let app = null;
+      const draftIds = [];
+      const el = () => app.element;
+      const query = selector => [...el().querySelectorAll(selector)];
+      const norm = u => u.replace(/^(Compendium\.[^.]+\.[^.]+\.)(?!Item\.)/, "$1Item.");
+      const pick = (category, name) => norm(catalog.byCategory[category].find(e => e.name === name).uuid);
+      const open = async () => {
+        app = await CharacterWizard.open();
+        assert.exists(app, "the wizard didn't open");
+        await app.settle();
+        const spec = SPEC[rules()];
+        await app.update(d => {
+          d.picks.species = pick("species", spec.species);
+          d.picks.background = pick("background", spec.background);
+          d.picks.class = pick("class", spec.class);
+        }, { wait: true });
+        await app.settle();
+        draftIds.push(app.draft.id);
+        await app.goTo("equipment");
+        await app.settle();
+        return app;
+      };
+      /** Answer every open choice of both sources by taking the first option in each. */
+      const takeFirstOfEach = async () => {
+        for ( let guard = 0; guard < 40; guard++ ) {
+          // An "a or b" group with nothing chosen yet: take its first option.
+          const groups = query(".cc-decision [role=radiogroup]");
+          const undecided = groups.find(g => ![...g.querySelectorAll("button")].some(b => b.getAttribute("aria-pressed") === "true"));
+          const branch = undecided?.querySelector("button");
+          if ( branch ) {
+            branch.click();
+            await app.settle();
+            continue;
+          }
+          const empty = query(".cc-equip-pick").find(s => !s.value);
+          if ( empty ) {
+            empty.value = [...empty.options].map(o => o.value).filter(Boolean)[0];
+            empty.dispatchEvent(new Event("change"));
+            await app.settle();
+            continue;
+          }
+          return;
+        }
+      };
+
+      before(async function() {
+        this.timeout(120_000);
+        ({ CharacterWizard } = await import("../scripts/wizard/app.mjs"));
+        catalog = await (await import("../scripts/catalog/catalog.mjs")).getCatalog();
+        saved = flag();
+        await game.user.unsetFlag(MODULE_ID, DRAFT_FLAG);
+      });
+      afterEach(async function() {
+        this.timeout(30_000);
+        if ( app?.rendered ) await app.close();
+        app = null;
+        await game.user.unsetFlag(MODULE_ID, DRAFT_FLAG);
+      });
+      after(async function() {
+        this.timeout(60_000);
+        if ( game.users.activeGM && draftIds.length ) {
+          await game.users.activeGM.query(`${MODULE_ID}.test.abilityRollCleanup`, { draftIds }, { timeout: 30_000 }).catch(() => null);
+        }
+        if ( saved === undefined ) await game.user.unsetFlag(MODULE_ID, DRAFT_FLAG);
+        else await raw(saved);
+      });
+
+      it("shows a block per source, with its choices and the items that come anyway", async function() {
+        this.timeout(180_000);
+        await open();
+        const blocks = query(".cc-source");
+        assert.lengthOf(blocks, 2, "class and background");
+        const names = blocks.map(b => b.querySelector(".cc-section-title").textContent.trim());
+        assert.includeMembers(names, [SPEC[rules()].class, SPEC[rules()].background]);
+        // 2014 offers "a or b" groups; 2024 offers a package with category picks and the gold alternative.
+        const interactive = query('[data-action="equip-branch"]').length + query(".cc-equip-pick").length
+          + query('[data-action="equip-mode"]').length;
+        assert.isAbove(interactive, 0, "nothing to choose on either source");
+      });
+
+      it("choosing options fills the carry list, and the validator is happy", async function() {
+        this.timeout(300_000);
+        await open();
+        await takeFirstOfEach();
+        assert.lengthOf(query(".cc-equip-pick").filter(s => !s.value), 0, "every picker is filled");
+        const carried = query(".cc-carry li").filter(li => !li.classList.contains("cc-empty"));
+        assert.isAbove(carried.length, 2, "nothing was resolved");
+        assert.deepEqual(app.validation.errors.filter(e => e.step === "equipment"), [], "the validator is happy");
+        console.log(`${MODULE_ID} | wizard equipment (${rules()}): ${carried.length} lines, ${app.validation.equipment.items.length} items`);
+      });
+
+      it("switching to gold clears the item choices for that source only (D23)", async function() {
+        this.timeout(300_000);
+        await open();
+        await takeFirstOfEach();
+        const backgroundBefore = foundry.utils.deepClone(app.draft.equipment.background);
+        query('[data-action="equip-mode"][data-role="class"][data-mode="wealth"]')[0].click();
+        await app.settle();
+        assert.equal(app.draft.equipment.class.mode, "wealth");
+        assert.deepEqual(app.draft.equipment.class.choices, {});
+        assert.deepEqual(app.draft.equipment.background, backgroundBefore, "the background is untouched");
+      });
+
+      it("2024: taking gold gives the flat amount straight away", async function() {
+        if ( rules() !== "modern" ) this.skip();
+        this.timeout(300_000);
+        await open();
+        query('[data-action="equip-mode"][data-role="class"][data-mode="wealth"]')[0].click();
+        await app.settle();
+        assert.notExists(el().querySelector('[data-action="equip-roll"]'), "2024 wealth needs no roll");
+        assert.match(el().querySelector(".cc-wealth__total").textContent, /\d+ GP/);
+        assert.deepEqual(app.validation.errors.filter(e => e.step === "equipment"), []);
+      });
+
+      it("2014: rolling for gold posts the dice to chat and locks the total in", async function() {
+        if ( rules() !== "legacy" ) this.skip();
+        this.timeout(300_000);
+        await open();
+        query('[data-action="equip-mode"][data-role="class"][data-mode="wealth"]')[0].click();
+        await app.settle();
+        const button = el().querySelector('[data-action="equip-roll"]');
+        assert.exists(button, "no roll button");
+        const before = game.messages.size;
+        button.click();
+        for ( let i = 0; i < 100 && !app.draft.equipment.class.wealth; i++ ) await new Promise(r => setTimeout(r, 100));
+        await app.settle();
+        const wealth = app.draft.equipment.class.wealth;
+        assert.exists(wealth, "nothing was rolled");
+        assert.equal(game.messages.size, before + 1);
+        const message = game.messages.get(wealth.messageId);
+        assert.equal(message.author.id, game.user.id);
+        assert.equal(message.rolls[0].total, wealth.total);
+        assert.notExists(el().querySelector('[data-action="equip-roll"]'), "you can only roll once");
+        assert.include(el().querySelector(".cc-wealth__total").textContent, String(wealth.total));
+        // The background still has its own choices open, so only the class's errors are checked here.
+        assert.deepEqual(app.validation.errors.filter(e => (e.step === "equipment") && (e.detail?.source === "class")), []);
+      });
+    });
+  }, { displayName: "Character Creator: Wizard equipment" });
+}

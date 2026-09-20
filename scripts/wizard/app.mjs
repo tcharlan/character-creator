@@ -16,6 +16,8 @@ import { applyPick, answerStep, syncRecipe } from "./picks.mjs";
 import { optionList, optionDetail, optionDescription, subclassOptions, subclassStep, STEP_CATEGORY } from "./options-step.mjs";
 import { abilitiesModel, setMethod, spendPoint, assignValue } from "./abilities-step.mjs";
 import { choicesModel, answerData } from "./choices-step.mjs";
+import { sourceModel, setMode, chooseBranch, setPick, setWealth, EQUIPMENT_SOURCES } from "./equipment-step.mjs";
+import { equipmentContext, rollStartingWealth } from "../rules/equipment-items.mjs";
 import { rollAbilityScores } from "../rules/ability-roll.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
@@ -27,7 +29,8 @@ const STEP_PARTIALS = {
   class: `modules/${MODULE_ID}/templates/steps/options.hbs`,
   background: `modules/${MODULE_ID}/templates/steps/options.hbs`,
   abilities: `modules/${MODULE_ID}/templates/steps/abilities.hbs`,
-  choices: `modules/${MODULE_ID}/templates/steps/choices.hbs`
+  choices: `modules/${MODULE_ID}/templates/steps/choices.hbs`,
+  equipment: `modules/${MODULE_ID}/templates/steps/equipment.hbs`
 };
 
 /** Shared pieces the step templates include. */
@@ -56,6 +59,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   #search = {};
   #auto = new Set();
   #openChoice = null;
+  #equipment = null;
 
   static DEFAULT_OPTIONS = {
     id: "character-creator-wizard",
@@ -81,7 +85,10 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       "subclass-choice": onSubclassChoice,
       "choice-ability": onChoiceAbility,
       "asi-raise": onAsiRaise,
-      "asi-lower": onAsiLower
+      "asi-lower": onAsiLower,
+      "equip-mode": onEquipMode,
+      "equip-branch": onEquipBranch,
+      "equip-roll": onEquipRoll
     }
   };
 
@@ -270,6 +277,40 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     await this.settle();
   }
 
+  /** Take a source's items or its starting wealth (D23: the two sources are separate). */
+  async setEquipmentMode(role, mode) {
+    await this.update(d => setMode(d, role, mode));
+    await this.settle();
+  }
+
+  /** Choose one branch of an "a or b" group. */
+  async chooseEquipmentBranch(role, entryId, optionId) {
+    const tree = this.#equipment?.[role]?.tree;
+    if ( !tree ) return;
+    await this.update(d => chooseBranch(d, role, entryId, optionId, tree));
+    await this.settle();
+  }
+
+  /** Put an item in one slot of a category pick. */
+  async setEquipmentPick(role, entryId, index, uuid) {
+    await this.update(d => setPick(d, role, entryId, index, uuid));
+    await this.settle();
+  }
+
+  /** Roll 2014 starting wealth for a source; the dice go to chat (D15) and the total locks in (A10). */
+  async rollWealth(role) {
+    const wealth = this.#equipment?.[role]?.wealth;
+    if ( !wealth ) return;
+    try {
+      const rolled = await rollStartingWealth(this.draft, role, wealth);
+      await this.update(d => setWealth(d, role, rolled), { wait: true });
+    } catch ( err ) {
+      console.error(`${MODULE_ID} | the wealth roll failed`, err);
+      ui.notifications?.error(game.i18n.localize(err?.key ?? "CHARCREATOR.Error.WEALTH_ROLL_INVALID"));
+    }
+    await this.settle();
+  }
+
   /** Filter the option list of the current step. */
   async search(text) {
     this.#search[this.#current] = text;
@@ -317,12 +358,24 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       const { errors, equipment } = await checkBuilt(this.draft, this.#build, { catalog: this.#catalog,
         userId: game.user.id, allowedMethods: readSettings().abilityMethods });
       this.#validation = { ok: !errors.length, errors, built: this.#build, equipment };
+      await this.#equipmentContexts();
     } catch ( err ) {
       console.error(`${MODULE_ID} | rebuild failed`, err);
       this.#validation = null;
     } finally {
       this.#busy = false;
     }
+  }
+
+  /** Each source's starting-equipment tree, candidates and proficiency, for the equipment step. */
+  async #equipmentContexts() {
+    const contexts = {};
+    for ( const role of EQUIPMENT_SOURCES ) {
+      const item = this.#build?.actor?.items?.get(this.#build.roots?.[role]);
+      if ( !item ) continue;
+      contexts[role] = { name: item.name, ...await equipmentContext(this.#build.actor, item, this.#catalog) };
+    }
+    this.#equipment = contexts;
   }
 
   /** D4: a category the GM narrowed to a single option is chosen for the player. */
@@ -373,6 +426,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** Whatever the current step's pane needs (PLAN 3.2: the option steps). */
   async #stepContext() {
+    if ( this.#current === "equipment" ) return { equipment: this.#equipmentModel() };
     if ( this.#current === "choices" ) {
       const choices = choicesModel(this.#build, this.#catalog, this.#openChoice);
       this.#openChoice = choices.open?.key ?? null;
@@ -416,6 +470,12 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     for ( const box of this.element.querySelectorAll(".cc-toggle") ) {
       box.addEventListener("change", event => this.answer({ action: event.target.dataset.toggle, value: event.target.dataset.key }));
     }
+    for ( const select of this.element.querySelectorAll(".cc-equip-pick") ) {
+      select.addEventListener("change", event => {
+        const { role, entry, index } = event.target.dataset;
+        this.setEquipmentPick(role, entry, Number(index), event.target.value || null);
+      });
+    }
     for ( const select of this.element.querySelectorAll(".cc-assign") ) {
       select.addEventListener("change", event => {
         const value = event.target.value === "" ? null : Number(event.target.value);
@@ -426,6 +486,23 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     if ( search ) {
       search.addEventListener("input", foundry.utils.debounce(event => this.search(event.target.value), 200));
     }
+  }
+
+  /** What the equipment step shows: one block per source, plus what the character ends up carrying. */
+  #equipmentModel() {
+    const sources = [];
+    for ( const role of EQUIPMENT_SOURCES ) {
+      const ctx = this.#equipment?.[role];
+      if ( !ctx ) continue;
+      const model = sourceModel({ role, name: ctx.name, tree: ctx.tree, wealthOption: ctx.wealthOption,
+        candidates: ctx.candidates, isProficient: ctx.isProficient }, this.draft.equipment[role], this.#catalog);
+      sources.push({ ...model, fixedText: model.fixed.join(", ") });
+    }
+    const resolved = this.#validation?.equipment;
+    const items = (resolved?.items ?? []).map(i => ({ name: this.#catalog?.get(i.uuid)?.name ?? i.uuid, count: i.count > 1 ? i.count : null }));
+    const currency = Object.entries(resolved?.currency ?? {}).map(([k, v]) => `${v} ${k.toUpperCase()}`).join(", ");
+    return { sources, items, currencyText: currency,
+      errors: (this.#validation?.errors ?? []).filter(e => e.step === "equipment").map(e => e.key) };
   }
 
   /** The picks' names for the banner. */
@@ -540,6 +617,18 @@ function onAsiRaise(event, target) {
 
 function onAsiLower(event, target) {
   return this.answer({ action: "lower", value: target.dataset.key });
+}
+
+function onEquipMode(event, target) {
+  return this.setEquipmentMode(target.dataset.role, target.dataset.mode);
+}
+
+function onEquipBranch(event, target) {
+  return this.chooseEquipmentBranch(target.dataset.role, target.dataset.entry, target.dataset.option);
+}
+
+function onEquipRoll(event, target) {
+  return this.rollWealth(target.dataset.role);
 }
 
 function onStep(event, target) {
