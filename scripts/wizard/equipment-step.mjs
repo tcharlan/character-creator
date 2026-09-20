@@ -11,12 +11,19 @@ export { EQUIPMENT_SOURCES };
 
 const catalogName = (catalog, uuid) => catalog?.get?.(uuid)?.name ?? uuid?.split(".").pop() ?? "";
 
-/** A readable label for a category entry ("Any simple weapon", "Any artisan's tools"). */
+/**
+ * A readable label for a category entry. dnd5e names the category alone ("Simple", "Martial"), which on its
+ * own says nothing about what is being chosen, so the kind of thing is added unless the name already carries
+ * it ("Artisan's Tools", "Holy Focus").
+ */
 export function categoryLabel(type, key) {
   const C = globalThis.CONFIG?.DND5E ?? {};
-  const label = C.weaponProficiencies?.[key] ?? C.armorProficiencies?.[key] ?? C.toolProficiencies?.[key]
+  const found = C.weaponProficiencies?.[key] ?? C.armorProficiencies?.[key] ?? C.toolProficiencies?.[key]
     ?? C.focusTypes?.[key]?.label ?? C.weaponTypes?.[key] ?? C.armorTypes?.[key] ?? key;
-  return typeof label === "string" ? label : (label?.label ?? key);
+  const label = typeof found === "string" ? found : (found?.label ?? key);
+  const noun = globalThis.game?.i18n?.localize?.(`CHARCREATOR.Equipment.Category.${type}`) ?? "";
+  if ( !noun || noun.startsWith("CHARCREATOR.") || label.toLowerCase().includes(noun.toLowerCase()) ) return label;
+  return `${label} ${noun}`;
 }
 
 /** What one entry in the tree offers, as a sentence: "Mace", "Any martial weapon ×2", "15 gp", "A and B". */

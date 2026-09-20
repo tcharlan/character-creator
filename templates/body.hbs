@@ -7,11 +7,13 @@
   </header>
   {{/unless}}
 
+  {{#unless ownProblems}}
   {{#if errors.length}}
   <ul class="cc-problems cc-problems--pane" aria-label="{{localize 'CHARCREATOR.Nav.NeedsAttention'}}">
     {{#each errors as |e|}}<li class="cc-problem">{{localize e.key}}</li>{{/each}}
   </ul>
   {{/if}}
+  {{/unless}}
 
   {{#if stepPartial}}
   {{> (lookup . "stepPartial") }}

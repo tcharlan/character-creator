@@ -316,7 +316,13 @@
       "NothingYet": "Nothing chosen yet.",
       "Roll": "Roll for gold",
       "RollHint": "The roll is posted to chat. You can only roll once.",
-      "Rolled": "Rolled with"
+      "Rolled": "Rolled with",
+      "Category": {
+        "weapon": "weapon",
+        "armor": "armor",
+        "tool": "tool",
+        "focus": "focus"
+      }
     },
     "Spells": {
       "Lists": "Spell lists",

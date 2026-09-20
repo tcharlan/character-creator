@@ -11,7 +11,10 @@
 import { MODULE_ID } from "../contracts.mjs";
 
 /** The longest summary shown under an option. */
-const MAX_LENGTH = 220;
+const MAX_LENGTH = 180;
+
+/** Shorter than this, a sentence is a heading rather than an explanation ("Insight.", "Acrobatics."). */
+const MIN_SENTENCE = 25;
 
 const cache = new Map();   // uuid → summary ("" when the document has nothing to say)
 const jobs = new Map();
@@ -44,18 +47,24 @@ export function summariesReady(uuids) {
   return uuids.every(uuid => !uuid || cache.has(uuid));
 }
 
-/** The first sentence or so of some HTML, as plain text. */
+/**
+ * The first sentence that actually says something, as plain text. Rules pages and spell cards often open with
+ * the name on its own ("Insight."), which tells the player nothing they can't already see, so short leading
+ * sentences are passed over.
+ */
 export function firstSentence(html, { max = MAX_LENGTH } = {}) {
+  // Blocks run together without their tags ("…within range:Your voice booms…"), so they are separated first.
+  const spaced = String(html ?? "").replace(/<\/(p|div|li|ul|ol|h[1-6]|tr|td|th|blockquote)>|<br\s*\/?>/gi, " ");
   let plain;
   if ( globalThis.document ) {
     const div = document.createElement("div");
-    div.innerHTML = String(html ?? "");
+    div.innerHTML = spaced;
     plain = div.textContent ?? "";
-  } else plain = String(html ?? "").replace(/<[^>]*>/g, " ");   // outside a browser (unit tests)
+  } else plain = spaced.replace(/<[^>]*>/g, " ");   // outside a browser (unit tests)
   const text = plain.replace(/\s+/g, " ").trim();
   if ( !text ) return "";
-  const stop = text.search(/\.\s|\.$/);
-  const sentence = (stop > 0) && (stop < max) ? text.slice(0, stop + 1) : text;
+  const sentences = text.split(/(?<=[.!?])\s+/);
+  const sentence = sentences.find(s => s.trim().length >= MIN_SENTENCE)?.trim() ?? text;
   return sentence.length > max ? `${sentence.slice(0, max - 1).trimEnd()}…` : sentence;
 }
 

@@ -654,6 +654,13 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** Whatever the current step's pane needs (PLAN 3.2: the option steps). */
   async #stepContext() {
+    // These steps show what still needs doing where it belongs, so the pane-wide list would only repeat it.
+    const ownProblems = ["choices", "equipment", "spells", "details", "review"].includes(this.#current);
+    return Object.assign({ ownProblems }, await this.#stepPane());
+  }
+
+  /** The step pane's own context. */
+  async #stepPane() {
     if ( this.#current === "equipment" ) return { equipment: this.#equipmentModel() };
     if ( this.#current === "review" ) {
       const equipment = { items: (this.#validation?.equipment?.items ?? []).map(i => ({
@@ -783,7 +790,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     const items = (resolved?.items ?? []).map(i => ({ name: this.#catalog?.get(i.uuid)?.name ?? i.uuid, count: i.count > 1 ? i.count : null }));
     const currency = Object.entries(resolved?.currency ?? {}).map(([k, v]) => `${v} ${k.toUpperCase()}`).join(", ");
     return { sources, items, currencyText: currency,
-      errors: (this.#validation?.errors ?? []).filter(e => e.step === "equipment").map(e => e.key) };
+      errors: countedErrors(this.#validation?.errors, "equipment") };
   }
 
   /** The picks' names for the banner. */
@@ -967,6 +974,13 @@ function onBack() {
   const back = moveStep(this.step, -1, this.draft);
   if ( back ) return this.goTo(back);
   return this.step === BANNER_STEPS[0] ? this.goTo("start") : null;
+}
+
+/** The errors of one step, each message once, with how many times it came up. */
+function countedErrors(errors, step) {
+  const counts = new Map();
+  for ( const e of (errors ?? []).filter(x => x.step === step) ) counts.set(e.key, (counts.get(e.key) ?? 0) + 1);
+  return [...counts].map(([key, count]) => ({ key, count: count > 1 ? count : null }));
 }
 
 /**

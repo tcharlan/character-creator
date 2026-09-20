@@ -575,14 +575,33 @@
 /*  Equipment                                     */
 /* ---------------------------------------------- */
 
-.cc-sources { display: flex; flex-direction: column; gap: 22px; }
-.cc-source { display: flex; flex-direction: column; gap: 12px; }
-.cc-source__head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-.cc-decision { display: flex; flex-direction: column; gap: 8px; }
+/* The two sources sit side by side where there is room, each its own readable column (PLAN 3.11). */
+.cc-sources { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 28px 32px; align-items: start; }
+.cc-source {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 620px;
+  padding: 16px 18px;
+  background: var(--cc-panel);
+  border: 1px solid var(--cc-line-soft);
+  border-radius: var(--cc-radius);
+}
+.cc-source__head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.cc-source__head .cc-section-title { margin-right: auto; }
+.cc-decision { display: flex; flex-direction: column; gap: 6px; }
+.cc-decision__label { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--cc-faint); }
+/* A choice between two or three things: cards as wide as they need to be, not a grid of empty columns. */
+.cc-cards--options { display: flex; flex-wrap: wrap; gap: 8px; }
+.cc-cards--options .cc-card { flex: 0 1 auto; min-width: 140px; max-width: 320px; min-height: 48px; }
+.cc-problem__count { color: var(--cc-faint); }
 .cc-card__warn { margin-left: auto; font-size: 12px; color: var(--cc-warn); }
 
-.cc-picker { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.cc-picker__label { font-size: 14px; color: var(--cc-muted); min-width: 160px; }
+/* A category pick ("any simple weapon"): its label above, the slots below, like the "a or b" groups. */
+.cc-picker { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.cc-picker__slot { display: flex; width: 100%; }
+.cc-picker__slot .cc-equip-pick { flex: 1 1 auto; }
+.cc-picker__label { font-size: 14px; color: var(--cc-muted); }
 .cc-equip-pick {
   min-width: 200px;
   height: 44px;
@@ -731,7 +750,15 @@ li.notification button.cc-entry-prompt {
 .cc-key__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .cc-key__hint { font-size: 12px; line-height: 1.4; color: var(--cc-muted); }
 
-.cc-card--spell { align-items: flex-start; }
+/* Spell cards: name, what it is, and a couple of lines of what it does — all the same height. */
+.cc-cards--spells { align-items: stretch; }
+.cc-card--spell { align-items: flex-start; height: 100%; }
+.cc-card--spell .cc-card__hint {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 .cc-card__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .cc-card__name { font-weight: 500; }
 .cc-card__meta { font-size: 12px; letter-spacing: 0.04em; color: var(--cc-gold); }

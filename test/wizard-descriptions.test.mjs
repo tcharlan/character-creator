@@ -36,12 +36,16 @@ test("a trait key finds the rules page dnd5e links, where there is one", () => {
 test("the summary is the first sentence, as plain text", () => {
   assert.equal(firstSentence("<p>Your <b>Wisdom</b> check lets you spot things. It also helps you listen.</p>"),
     "Your Wisdom check lets you spot things.");
+  assert.equal(firstSentence("<p>Insight.</p><p>Your Wisdom (Insight) check decides what someone is up to.</p>"),
+    "Your Wisdom (Insight) check decides what someone is up to.", "the name on its own is not an explanation");
+  assert.equal(firstSentence("<p>You touch a creature within range:</p><p>It heals.</p>"),
+    "You touch a creature within range: It heals.", "blocks do not run together");
   assert.equal(firstSentence("<p>One line only</p>"), "One line only", "no full stop: take what there is");
   assert.equal(firstSentence(""), "");
   assert.equal(firstSentence(null), "");
   const long = `${"word ".repeat(100)}end.`;
   const cut = firstSentence(long);
-  assert.ok(cut.length <= 220, `${cut.length} characters`);
+  assert.ok(cut.length <= 180, `${cut.length} characters`);
   assert.ok(cut.endsWith("…"), "a long one is cut with an ellipsis");
 });
 

@@ -44,7 +44,8 @@
         {{#each s.decisions as |d|}}
         <div class="cc-decision">
           {{#if (eq d.kind "or")}}
-          <div class="cc-cards" role="radiogroup" aria-label="{{localize 'CHARCREATOR.Equipment.Choose'}}">
+          <span class="cc-decision__label">{{localize "CHARCREATOR.Equipment.Choose"}}</span>
+          <div class="cc-cards cc-cards--options" role="radiogroup" aria-label="{{localize 'CHARCREATOR.Equipment.Choose'}}">
             {{#each d.options as |o|}}
             <button type="button" class="cc-card{{#if o.selected}} cc-card--selected{{/if}}" data-action="equip-branch"
                     data-role="{{s.role}}" data-entry="{{d.id}}" data-option="{{o.id}}" aria-pressed="{{o.selected}}">
@@ -55,7 +56,7 @@
           </div>
           {{else}}
           <div class="cc-picker">
-            <span class="cc-picker__label">{{d.label}}</span>
+            <span class="cc-decision__label">{{d.label}}</span>
             {{#each d.slots as |slot|}}
             <label class="cc-picker__slot">
               <span class="cc-visually-hidden">{{d.label}}</span>
@@ -91,7 +92,11 @@
     </ul>
     {{#if equipment.currencyText}}<p class="cc-wealth__total">{{equipment.currencyText}}</p>{{/if}}
     {{#if equipment.errors.length}}
-    <ul class="cc-problems">{{#each equipment.errors as |e|}}<li class="cc-problem">{{localize e}}</li>{{/each}}</ul>
+    <ul class="cc-problems">
+      {{#each equipment.errors as |e|}}
+      <li class="cc-problem">{{localize e.key}}{{#if e.count}} <span class="cc-problem__count">×{{e.count}}</span>{{/if}}</li>
+      {{/each}}
+    </ul>
     {{/if}}
   </aside>
 </div>
