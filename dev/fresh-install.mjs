@@ -9,9 +9,11 @@
  * The manifest is served from this PC (127.0.0.1) rather than GitHub, because the repository is private until the
  * owner publishes it; the only difference from the release's module.json is the manifest and download URLs.
  *
- * The dev instance's Data/modules/character-creator is a link to this repository. It is parked outside Data while
- * the test runs and always put back afterwards (if a run is killed, the next run puts it back first). Everything
- * else the test makes — the world, the installed copy — is removed at the end. Localhost only.
+ * Whatever is in the dev instance's Data/modules/character-creator — the link to this repository, or a copy the
+ * owner installed — is parked outside Data while the test runs and always put back afterwards (if a run is killed,
+ * the next run puts it back first). Everything else the test makes — the world, the installed copy — is removed at
+ * the end, and the world that was running before is launched again. It refuses to run while anyone is connected.
+ * Localhost only.
  */
 
 /* global game, foundry, CONST, User, fromUuid, document, location, ui -- used inside page.evaluate() */
@@ -68,8 +70,7 @@ function restoreLink() {
     log("removed the installed copy");
   }
   renameSync(PARKED, LINK);
-  if ( !isLink(LINK) ) throw new Error(`${LINK} was restored but isn't a link`);
-  log("the dev link is back");
+  log(isLink(LINK) ? "the dev link is back" : "the copy of the module that was installed before is back");
 }
 
 /** Every file under a directory. */
@@ -93,10 +94,12 @@ async function installFinished(ms = 120_000) {
   throw new Error(`the install didn't finish in ${ms / 1000}s`);
 }
 
+/** Move whatever is there aside — the dev link, or a copy of the module the owner installed — to put back later. */
 function parkLink() {
-  if ( !isLink(LINK) ) throw new Error(`${LINK} isn't the dev link — stopping rather than touch it`);
+  if ( !existsSync(LINK) && !isLink(LINK) ) throw new Error(`${LINK} doesn't exist — stopping`);
+  const what = isLink(LINK) ? "the dev link" : "the installed copy";
   renameSync(LINK, PARKED);
-  log(`parked the dev link at ${PARKED}`);
+  log(`parked ${what} at ${PARKED}`);
 }
 
 /* -------------------------------------------- */
@@ -140,12 +143,15 @@ async function waitFor(test, what, ms) {
 async function shutdownWorld(browser) {
   const s = await status();
   if ( !s ) throw new Error(`The dev server isn't running at ${BASE.href}`);
-  if ( !s.active ) return;
+  if ( !s.active ) return null;
+  // Someone is in that world (the owner trying things by hand): never pull it out from under them.
+  if ( (s.users ?? 0) > 0 ) throw new Error(`${s.world} has ${s.users} user(s) connected — not shutting it down`);
   log(`returning ${s.world} to setup`);
   const gm = await joinAs(browser, GM);
   await gm.context.request.post(url("/setup"), { data: { shutdown: true } });
   await gm.context.close();
   await waitFor(x => x && !x.active, "the world to shut down", 60_000);
+  return s.world;
 }
 
 /* -------------------------------------------- */
@@ -219,8 +225,10 @@ const browser = await chromium.launch({ channel: "msedge", headless: true,
 const { server, manifest } = await serveRelease();
 const errors = [];
 let worldMade = false;
+/** The world that was running before, launched again at the end. */
+let previousWorld = null;
 try {
-  await shutdownWorld(browser);
+  previousWorld = await shutdownWorld(browser);
   parkLink();
   await post("/setup", { action: "resetPackages" });
 
@@ -321,6 +329,13 @@ try {
   } finally {
     if ( existsSync(PARKED) || isLink(PARKED) ) await installFinished(60_000).catch(() => null);
     restoreLink();
+    if ( previousWorld && (previousWorld !== WORLD) ) {
+      await post("/setup", { action: "resetPackages" }).catch(() => null);
+      await post("/setup", { action: "launchWorld", world: previousWorld })
+        .then(() => waitFor(x => x?.active && (x.world === previousWorld), previousWorld, 300_000))
+        .then(() => log(`${previousWorld} is running again`))
+        .catch(e => log(`${previousWorld} not relaunched: ${e.message}`));
+    }
     await post("/setup", { action: "resetPackages" }).catch(() => null);
     server.close();
     await browser.close();

@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.1
 
 - Fixed: the tabs down the side of the Allowed content screen did nothing when clicked.
 - The Allowed content tab for pictures behind each step is now called **Step backdrops**, so it isn't confused with
