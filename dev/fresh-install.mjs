@@ -16,7 +16,7 @@
  * Localhost only.
  */
 
-/* global game, foundry, CONST, User, fromUuid, document, location, ui -- used inside page.evaluate() */
+/* global game, foundry, CONST, User, fromUuid, document, location, ui, MouseEvent -- used inside page.evaluate() */
 
 import { createServer } from "node:http";
 import { existsSync, lstatSync, readFileSync, readdirSync, renameSync, rmSync } from "node:fs";
@@ -259,6 +259,26 @@ try {
   await gm.page.reload();
   await gm.page.waitForFunction(() => globalThis.game?.ready === true, null, { timeout: 180_000 });
   check(await gm.page.evaluate(id => game.modules.get(id)?.active, MODULE_ID), `module enabled (${rules} rules)`);
+
+  // The GM's Allowed content screen: every tab opens when its name is clicked.
+  const tabs = await gm.page.evaluate(async id => {
+    const app = await game.modules.get(id).api.openRestrictions();
+    const opened = [];
+    for ( const button of [...app.element.querySelectorAll("[role=tab]")].reverse() ) {
+      const key = button.dataset.tab;
+      app.element.querySelector(`#cc-restrict-tab-${key} .cc-restrict__name`)
+        .dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }));
+      for ( let i = 0; i < 50 && app.element.querySelector(`#cc-restrict-tab-${key}`)?.getAttribute("aria-selected") !== "true"; i++ ) {
+        await new Promise(r => setTimeout(r, 50));
+      }
+      if ( app.element.querySelector(`#cc-restrict-tab-${key}`)?.getAttribute("aria-selected") === "true" ) opened.push(key);
+    }
+    const total = app.element.querySelectorAll("[role=tab]").length;
+    await app.close();
+    return { opened, total };
+  }, MODULE_ID);
+  check(tabs.total > 0 && tabs.opened.length === tabs.total,
+    `the GM's Allowed content tabs open when clicked (${tabs.opened.length} of ${tabs.total})`);
 
   // 4. The player creates a character with the GM online.
   const player = await joinAs(browser, PLAYER, errors);
