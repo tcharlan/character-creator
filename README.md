@@ -51,7 +51,7 @@ ability scores are allowed (point buy, standard array, rolled).
   screen warns you when a choice would leave players unable to make a character.
 - **Use a picture of your own** sets your own image for a species, class, background or subclass, shown in
   the creator instead of the compendium's. The image must already be in your world's files.
-- **Backgrounds** sets a picture of your own behind any step of the creator. By default each step shows its
+- **Step backdrops** sets a picture of your own behind any step of the creator. By default each step shows its
   own emblem over a blurred picture of what the player chose.
 
 ### Other settings

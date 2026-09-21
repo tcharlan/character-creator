@@ -4,7 +4,7 @@
     {{#each tabs as |t|}}
     <button type="button" role="tab" id="cc-restrict-tab-{{t.key}}"
             class="cc-restrict__tab{{#if t.open}} cc-restrict__tab--open{{/if}}"
-            data-action="tab" data-tab="{{t.key}}" aria-selected="{{t.open}}">
+            data-action="show-tab" data-tab="{{t.key}}" aria-selected="{{t.open}}">
       <span class="cc-restrict__name">{{t.label}}</span>
       {{#if t.allowed}}<span class="cc-restrict__count">{{t.allowed}} / {{t.total}}</span>{{/if}}
       {{#if t.restricted}}<span class="cc-restrict__dot" aria-hidden="true"></span>{{/if}}

@@ -36,7 +36,8 @@ export class RestrictionsApp extends HandlebarsApplicationMixin(ApplicationV2) {
     window: { title: "CHARCREATOR.Restrictions.Title", icon: "fa-solid fa-list-check", resizable: true },
     position: { width: 900, height: 700 },
     actions: {
-      tab: onTab,
+      // Not "tab": ApplicationV2 keeps that action for its own tab groups and never passes it on (RESEARCH.md).
+      "show-tab": onTab,
       entry: onEntry,
       "allow-all": onAllowAll,
       "allow-none": onAllowNone,

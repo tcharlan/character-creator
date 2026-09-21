@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Fixed: the tabs down the side of the Allowed content screen did nothing when clicked.
+- The Allowed content tab for pictures behind each step is now called **Step backdrops**, so it isn't confused with
+  the Backgrounds category.
+
 ## 0.2.0
 
 - The creator opens fullscreen, with a button in its header to switch to a movable, resizable window and back.

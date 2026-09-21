@@ -108,8 +108,8 @@
         "Hint": "A picture of your own for a species, class, background or subclass, shown instead of the compendium’s. Set them on the Allowed content screen."
       },
       "stepArt": {
-        "Name": "Backgrounds per step",
-        "Hint": "A picture of your own behind a step of the creator, instead of its emblem. Set them on the Allowed content screen."
+        "Name": "Backdrops per step",
+        "Hint": "A picture of your own behind a step of the creator, instead of its emblem. Set them on the Allowed content screen, under Step backdrops."
       },
       "wizardDisplay": {
         "Name": "Fullscreen or window",
@@ -458,7 +458,7 @@
         "equipment": "Equipment",
         "packs": "Compendiums",
         "abilities": "Ability scores",
-        "backdrops": "Backgrounds"
+        "backdrops": "Step backdrops"
       },
       "Warning": {
         "NoneRequired": "No {category} are allowed, so nobody can make a character.",

@@ -17,6 +17,7 @@
  */
 
 import { spawn } from "node:child_process";
+import { lstatSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -128,6 +129,11 @@ async function ensureWorld(browser, world) {
   const s = await status();
   if ( s?.active && s.world === world ) return;
   if ( s?.active ) {
+    // Someone is using that world (the owner trying things by hand): never pull it out from under them.
+    if ( (s.users ?? 0) > 0 ) {
+      throw new Error(`${s.world} is running with ${s.users} user(s) connected. Not shutting it down; `
+        + `leave it (or return it to setup yourself) and run again.`);
+    }
     log(`returning ${s.world} to setup (as ${GM})`);
     const gm = await joinAs(browser, GM);
     await postSetup({ shutdown: true }, gm.context.request);
@@ -222,7 +228,23 @@ const onGMPage = key => key.endsWith("@gmpage");
 /*  Main                                        */
 /* -------------------------------------------- */
 
+/** The batches only exist in the repository, reached through the dev link; an installed copy has none. */
+function checkDevLink() {
+  const link = join(DATA, "Data", "modules", MODULE_ID);
+  let isLink;
+  try {
+    isLink = lstatSync(link).isSymbolicLink();
+  } catch {
+    isLink = false;
+  }
+  if ( !isLink ) {
+    throw new Error(`${link} isn't the link to this repository (an installed copy of the module, or missing), so `
+      + "there are no test batches to run. Put the link back first — see CLAUDE.md → Dev instance.");
+  }
+}
+
 async function main() {
+  checkDevLink();
   await ensureServer();
   const browser = await chromium.launch({
     channel: "msedge", headless: true,

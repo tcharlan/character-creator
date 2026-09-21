@@ -161,6 +161,24 @@ export function registerRestrictionsBatches(quench) {
         assert.equal(catalog.get(only)?.uuid !== undefined || catalog.isAllowed(only), true);
       });
 
+      it("clicking a tab opens it — every tab, clicked on its name as a GM would", async function() {
+        this.timeout(120_000);
+        const { TABS } = await import("../scripts/settings/restrictions-model.mjs");
+        app = await RestrictionsApp.open();
+        // Backwards, so the first click is never on the tab that is already open.
+        for ( const key of [...TABS].reverse() ) {
+          const name = el().querySelector(`#cc-restrict-tab-${key} .cc-restrict__name`);
+          assert.exists(name, `no tab for ${key}`);
+          name.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }));
+          for ( let i = 0; i < 50 && (el().querySelector(`#cc-restrict-tab-${key}`)?.getAttribute("aria-selected") !== "true"); i++ ) {
+            await new Promise(r => setTimeout(r, 50));
+          }
+          assert.equal(el().querySelector(`#cc-restrict-tab-${key}`).getAttribute("aria-selected"), "true", `${key} didn't open`);
+        }
+        const labels = [...el().querySelectorAll(".cc-restrict__name")].map(n => n.textContent.trim());
+        assert.equal(new Set(labels).size, labels.length, `two tabs share a name: ${labels.join(", ")}`);
+      });
+
       it("the Backgrounds tab shows each step's emblem, and a picture of the GM's own is saved (D28)", async function() {
         this.timeout(120_000);
         const { setStepArt } = await import("../scripts/settings/restrictions-model.mjs");
