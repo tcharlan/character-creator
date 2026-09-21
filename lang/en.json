@@ -106,6 +106,14 @@
       "optionArt": {
         "Name": "Pictures per option",
         "Hint": "A picture of your own for a species, class, background or subclass, shown instead of the compendium’s. Set them on the Allowed content screen."
+      },
+      "stepArt": {
+        "Name": "Backgrounds per step",
+        "Hint": "A picture of your own behind a step of the creator, instead of its emblem. Set them on the Allowed content screen."
+      },
+      "wizardDisplay": {
+        "Name": "Fullscreen or window",
+        "Hint": "Whether the creator opens fullscreen or as a window on this computer. Switched from the creator's own header."
       }
     },
     "Nav": {
@@ -449,7 +457,8 @@
         "spell": "Spells",
         "equipment": "Equipment",
         "packs": "Compendiums",
-        "abilities": "Ability scores"
+        "abilities": "Ability scores",
+        "backdrops": "Backgrounds"
       },
       "Warning": {
         "NoneRequired": "No {category} are allowed, so nobody can make a character.",
@@ -459,7 +468,10 @@
       },
       "ArtSet": "Use a picture of your own",
       "ArtChange": "Change the picture",
-      "ArtClear": "Back to the compendium's picture"
+      "ArtClear": "Back to the compendium's picture",
+      "BackdropsHint": "What shows behind each step of the creator. By default, the step's emblem over a blurred picture of what the player chose; a picture of your own replaces both.",
+      "BackdropDefault": "The step's emblem",
+      "BackdropClear": "Back to the step's emblem"
     },
     "Pending": {
       "Title": "Pending characters",
@@ -486,6 +498,10 @@
       "KB": "KB",
       "GP": "GP",
       "Feet": "ft"
+    },
+    "Display": {
+      "ToWindow": "Switch to a window",
+      "ToFullscreen": "Switch to fullscreen"
     }
   }
 }

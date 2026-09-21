@@ -9,6 +9,7 @@ import { registerArtBatch } from "./art.mjs";
 import { registerWizardBatches, registerOptionStepBatches, registerAbilityStepBatch, registerChoicesStepBatch, registerEquipmentStepBatch, registerSpellsStepBatch, registerDetailsStepBatch, registerPortraitStepBatch, registerCreateBatches } from "./wizard.mjs";
 import { registerEntryBatches } from "./entry.mjs";
 import { registerRestrictionsBatches } from "./restrictions.mjs";
+import { registerDisplayBatches } from "./display.mjs";
 import { registerPendingPanelBatches } from "./pending-panel.mjs";
 import { registerPortraitDialogBatches } from "./portrait-dialog.mjs";
 import { registerLimitsBatches } from "./limits.mjs";
@@ -62,6 +63,7 @@ export function registerQuenchBatches(quench) {
   registerCreateBatches(quench);
   registerEntryBatches(quench);
   registerRestrictionsBatches(quench);
+  registerDisplayBatches(quench);
   registerPendingPanelBatches(quench);
   registerPortraitDialogBatches(quench);
   registerLimitsBatches(quench);

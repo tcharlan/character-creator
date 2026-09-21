@@ -7,10 +7,11 @@
  */
 
 import { CATEGORIES, normalizeUuid } from "../catalog/filters.mjs";
-import { ABILITY_METHODS } from "../contracts.mjs";
+import { ABILITY_METHODS, STEPS } from "../contracts.mjs";
+import { sigilPath } from "../wizard/splash.mjs";
 
-/** The tabs, in order: one per category, then the packs and the ability-score methods. */
-export const TABS = Object.freeze([...CATEGORIES, "packs", "abilities"]);
+/** The tabs, in order: one per category, then the packs, the ability-score methods and the backgrounds (D28). */
+export const TABS = Object.freeze([...CATEGORIES, "packs", "abilities", "backdrops"]);
 
 /** Categories a character can't be made without. */
 export const REQUIRED = Object.freeze(["species", "background", "class"]);
@@ -22,12 +23,12 @@ const list = value => (Array.isArray(value) ? value.map(normalizeUuid) : null);
  * @param {object} restrictions   From the setting (normalised).
  * @param {string[]} abilityMethods
  */
-export function editorState(restrictions, abilityMethods, art = {}) {
+export function editorState(restrictions, abilityMethods, art = {}, stepArt = {}) {
   const categories = {};
   for ( const category of CATEGORIES ) categories[category] = list(restrictions?.categories?.[category]);
   const pictures = {};
   for ( const [uuid, path] of Object.entries(art ?? {}) ) pictures[normalizeUuid(uuid)] = path;
-  return { packs: list(restrictions?.packs), categories, art: pictures,
+  return { packs: list(restrictions?.packs), categories, art: pictures, stepArt: { ...(stepArt ?? {}) },
     abilityMethods: ABILITY_METHODS.filter(m => (abilityMethods ?? ABILITY_METHODS).includes(m)) };
 }
 
@@ -39,6 +40,21 @@ export function setArt(state, uuid, path) {
   else delete next[key];
   state.art = next;
   return state;
+}
+
+/** The GM's own background for one wizard step (D28); an empty path goes back to the step's emblem. */
+export function setStepArt(state, step, path) {
+  if ( !STEPS.includes(step) ) return state;
+  const next = { ...state.stepArt };
+  if ( path ) next[step] = path;
+  else delete next[step];
+  state.stepArt = next;
+  return state;
+}
+
+/** The step backgrounds to store. */
+export function toStoredStepArt(state) {
+  return { ...(state?.stepArt ?? {}) };
 }
 
 /** The pictures to store: what the GM set, and nothing else. */
@@ -156,10 +172,11 @@ export function restrictionsModel({ state, everything, packs, tab, search = "" }
     return { key, open: key === open, total: all.length, allowed,
       restricted: (key === "packs") ? Array.isArray(state.packs)
         : (key === "abilities") ? (state.abilityMethods.length < ABILITY_METHODS.length)
-          : Array.isArray(state.categories[key]) };
+          : (key === "backdrops") ? Object.keys(state.stepArt ?? {}).length > 0
+            : Array.isArray(state.categories[key]) };
   });
 
-  const model = { tabs, open, search, category: null, packs: null, abilities: null,
+  const model = { tabs, open, search, category: null, packs: null, abilities: null, backdrops: null,
     warnings: warnings(state, everything) };
 
   if ( CATEGORIES.includes(open) ) {
@@ -182,6 +199,11 @@ export function restrictionsModel({ state, everything, packs, tab, search = "" }
       unrestricted: !Array.isArray(state.packs),
       entries: packs.map(p => ({ ...p, allowed: !Array.isArray(state.packs) || state.packs.includes(p.collection) }))
     };
+  } else if ( open === "backdrops" ) {
+    model.backdrops = STEPS.map(step => {
+      const own = state.stepArt?.[step] ?? null;
+      return { step, own, img: own ?? sigilPath(step), labelKey: step === "start" ? "Nav.Start" : `Step.${step}.Title` };
+    });
   } else {
     model.abilities = ABILITY_METHODS.map(key => ({ key, allowed: state.abilityMethods.includes(key),
       only: state.abilityMethods.length === 1 && state.abilityMethods.includes(key) }));

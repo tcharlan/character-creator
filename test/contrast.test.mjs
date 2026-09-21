@@ -52,3 +52,20 @@ test("motion is asked for, not assumed", () => {
   assert.match(css, /@media \(prefers-reduced-motion: no-preference\)/,
     "transitions belong inside a no-preference query, so a player who asks for less gets none");
 });
+
+test("text stays readable over a step's backdrop at its brightest (D28)", () => {
+  // The worst case is a white picture: darkened by the brightness filter, faded over the ground by the opacity.
+  const number = name => {
+    const found = css.match(new RegExp(`--${name}:\\s*([0-9.]+)`));
+    assert.ok(found, `--${name} is missing`);
+    return Number(found[1]);
+  };
+  const opacity = number("cc-splash-art-opacity");
+  const brightness = number("cc-splash-art-brightness");
+  const ground = token("cc-ground").replace("#", "").match(/../g).map(x => parseInt(x, 16));
+  const worst = `#${ground.map(g => Math.round((255 * brightness * opacity) + (g * (1 - opacity))))
+    .map(v => v.toString(16).padStart(2, "0")).join("")}`;
+  const poor = TEXT.map(text => [text, ratio(token(text), worst)]).filter(([, value]) => value < 4.5)
+    .map(([text, value]) => `${text} on ${worst}: ${value.toFixed(2)}:1`);
+  assert.deepEqual(poor, []);
+});

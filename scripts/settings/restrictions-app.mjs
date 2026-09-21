@@ -13,7 +13,7 @@ import { getCatalog, itemPacks } from "../catalog/catalog.mjs";
 import { SETTINGS, readSettings } from "./settings.mjs";
 import { arrowKeys } from "../ui/keyboard.mjs";
 import { editorState, restrictionsModel, toStored, toStoredArt, toggleEntry, allowAll, allowNone, allowOnly,
-  togglePack, toggleMethod, setArt, TABS } from "./restrictions-model.mjs";
+  togglePack, toggleMethod, setArt, setStepArt, toStoredStepArt, TABS } from "./restrictions-model.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 const T = (key, data) => (data ? game.i18n.format(`CHARCREATOR.${key}`, data) : game.i18n.localize(`CHARCREATOR.${key}`));
@@ -44,6 +44,8 @@ export class RestrictionsApp extends HandlebarsApplicationMixin(ApplicationV2) {
       pack: onPack,
       art: onArt,
       "art-clear": onArtClear,
+      "step-art": onStepArt,
+      "step-art-clear": onStepArtClear,
       method: onMethod,
       save: onSave,
       cancel: onCancel
@@ -83,7 +85,7 @@ export class RestrictionsApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   async #load() {
     const settings = readSettings();
-    this.#state = editorState(settings.restrictions, settings.abilityMethods, settings.optionArt);
+    this.#state = editorState(settings.restrictions, settings.abilityMethods, settings.optionArt, settings.stepArt);
     // With no restrictions: the full list to choose from, including what the GM has switched off.
     const catalog = await getCatalog({ restrictions: NO_RESTRICTIONS });
     this.#everything = Object.fromEntries(CATEGORIES.map(c => [c, catalog.byCategory[c] ?? []]));
@@ -104,7 +106,8 @@ export class RestrictionsApp extends HandlebarsApplicationMixin(ApplicationV2) {
         artTooltip: T(e.art ? "Restrictions.ArtChange" : "Restrictions.ArtSet") })) } : null,
       warnings: model.warnings.map(w => ({ ...w, message: T(`Restrictions.Warning.${w.key}`,
         { category: T(`Restrictions.Tab.${w.category}`) }) })),
-      methods: (model.abilities ?? []).map(m => ({ ...m, label: T(`Abilities.${m.key}`) }))
+      methods: (model.abilities ?? []).map(m => ({ ...m, label: T(`Abilities.${m.key}`) })),
+      backdrops: model.backdrops ? model.backdrops.map(b => ({ ...b, label: T(b.labelKey) })) : null
     });
   }
 
@@ -145,13 +148,22 @@ export class RestrictionsApp extends HandlebarsApplicationMixin(ApplicationV2) {
    * world already holds; nothing is uploaded or fetched from elsewhere.
    */
   async pickArt(uuid, current = null) {
+    return this.#pickImage(current, (state, path) => setArt(state, uuid, path));
+  }
+
+  /** Ask for a background for one step of the creator (D28), the same way. */
+  async pickStepArt(step, current = null) {
+    return this.#pickImage(current, (state, path) => setStepArt(state, step, path));
+  }
+
+  async #pickImage(current, apply) {
     const FilePicker = foundry.applications.apps.FilePicker.implementation;
     return new Promise(resolve => {
       new FilePicker({
         type: "image",
         current: current ?? undefined,
         callback: async path => {
-          await this.change(state => setArt(state, uuid, path));
+          await this.change(state => apply(state, path));
           resolve(path);
         }
       }).render({ force: true });
@@ -167,6 +179,7 @@ export class RestrictionsApp extends HandlebarsApplicationMixin(ApplicationV2) {
       await game.settings.set(MODULE_ID, SETTINGS.RESTRICTIONS, toStored(this.#state));
       await game.settings.set(MODULE_ID, SETTINGS.ABILITY_METHODS, [...this.#state.abilityMethods]);
       await game.settings.set(MODULE_ID, SETTINGS.OPTION_ART, toStoredArt(this.#state));
+      await game.settings.set(MODULE_ID, SETTINGS.STEP_ART, toStoredStepArt(this.#state));
       ui.notifications?.info(T("Restrictions.Saved"));
       await this.close();
     } catch ( err ) {
@@ -209,6 +222,14 @@ function onAllowNone(event, target) {
 function onAllowShown(event, target) {
   const shown = this.shownUuids();
   return this.change(state => allowOnly(state, target.dataset.category, shown));
+}
+
+function onStepArt(event, target) {
+  return this.pickStepArt(target.dataset.step, target.dataset.art || null);
+}
+
+function onStepArtClear(event, target) {
+  return this.change(state => setStepArt(state, target.dataset.step, null));
 }
 
 function onArt(event, target) {

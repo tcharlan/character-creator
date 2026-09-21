@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- The creator opens fullscreen, with a button in its header to switch to a movable, resizable window and back.
+  Each player's choice, and where they left the window, is remembered.
+- A backdrop behind every step: an emblem drawn for the step, over a blurred picture of what the player chose.
+- GMs can set a picture of their own behind any step (Allowed content → Backgrounds).
+
 ## 0.1.0
 
 The first release.

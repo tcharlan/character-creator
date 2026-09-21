@@ -15,6 +15,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync, statSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { STEPS } from "../scripts/contracts.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
@@ -110,6 +111,10 @@ function check() {
     for ( const [path] of source.matchAll(/templates\/[\w/.-]+\.hbs/g) ) {
       if ( !entries.includes(path) ) problems.push(`scripts/${file} asks for ${path}, which isn't in the zip`);
     }
+  }
+  // Each step's emblem (D28): the path is built from the step's name, so the template check above can't see it.
+  for ( const step of STEPS ) {
+    if ( !entries.includes(`assets/splash/${step}.svg`) ) problems.push(`missing from the zip: assets/splash/${step}.svg`);
   }
   // The fonts ship with their licences (A9).
   for ( const font of entries.filter(e => e.startsWith("fonts/") && e.endsWith(".woff2")) ) {

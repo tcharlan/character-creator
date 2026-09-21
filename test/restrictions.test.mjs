@@ -122,3 +122,22 @@ test("a picture of the GM's own sits beside the option it belongs to (D24)", () 
   assert.deepEqual(toStoredArt({}), {});
   assert.deepEqual(editorState(NO_RESTRICTIONS, ABILITY_METHODS).art, {}, "no pictures by default");
 });
+
+test("the Backgrounds tab lists every step with its emblem or the GM's picture (D28)", async () => {
+  const { setStepArt, toStoredStepArt } = await import("../scripts/settings/restrictions-model.mjs");
+  const { STEPS } = await import("../scripts/contracts.mjs");
+  assert.ok(TABS.includes("backdrops"));
+  const s = editorState(NO_RESTRICTIONS, ABILITY_METHODS, {}, { spells: "worlds/w/stars.webp" });
+  setStepArt(s, "species", "worlds/w/hills.webp");
+  setStepArt(s, "spells", null);
+  setStepArt(s, "nonsense", "worlds/w/x.webp");
+  assert.deepEqual(toStoredStepArt(s), { species: "worlds/w/hills.webp" });
+  const model = restrictionsModel({ state: s, everything: EVERYTHING, packs: PACKS, tab: "backdrops" });
+  assert.deepEqual(model.backdrops.map(b => b.step), [...STEPS]);
+  const species = model.backdrops.find(b => b.step === "species");
+  assert.deepEqual([species.own, species.img], ["worlds/w/hills.webp", "worlds/w/hills.webp"]);
+  const spells = model.backdrops.find(b => b.step === "spells");
+  assert.deepEqual([spells.own, spells.img], [null, "modules/character-creator/assets/splash/spells.svg"]);
+  assert.equal(model.backdrops.find(b => b.step === "start").labelKey, "Nav.Start");
+  assert.equal(model.tabs.find(t => t.key === "backdrops").restricted, true, "marked when the GM has set any");
+});

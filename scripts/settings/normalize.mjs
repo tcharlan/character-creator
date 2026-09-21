@@ -4,7 +4,7 @@
  * Pure; `settings.mjs` registers them with Foundry.
  */
 
-import { ABILITY_METHODS, LIMITS } from "../contracts.mjs";
+import { ABILITY_METHODS, LIMITS, STEPS } from "../contracts.mjs";
 import { CATEGORIES, NO_RESTRICTIONS, normalizeUuid } from "../catalog/filters.mjs";
 
 export const SETTINGS = Object.freeze({
@@ -16,7 +16,9 @@ export const SETTINGS = Object.freeze({
   UPLOADS: "allowPortraitUploads",
   MAX_UPLOAD_MB: "maxUploadMB",
   RING_COLORS: "ringColors",             // { ring: "#rrggbb"|null, background: "#rrggbb"|null }; null = player's color
-  OPTION_ART: "optionArt"                // { [option uuid]: image path }; D24, the GM's own picture per option
+  OPTION_ART: "optionArt",               // { [option uuid]: image path }; D24, the GM's own picture per option
+  STEP_ART: "stepArt",                   // { [wizard step]: image path }; D28, the GM's own background per step
+  DISPLAY: "wizardDisplay"               // client: { mode: "fullscreen"|"window", window: position|null }; D28
 });
 
 export const DEFAULTS = Object.freeze({
@@ -28,7 +30,9 @@ export const DEFAULTS = Object.freeze({
   [SETTINGS.UPLOADS]: true,
   [SETTINGS.MAX_UPLOAD_MB]: LIMITS.portraitSourceMaxBytes / (1024 * 1024),
   [SETTINGS.RING_COLORS]: Object.freeze({ ring: null, background: null }),
-  [SETTINGS.OPTION_ART]: Object.freeze({})
+  [SETTINGS.OPTION_ART]: Object.freeze({}),
+  [SETTINGS.STEP_ART]: Object.freeze({}),
+  [SETTINGS.DISPLAY]: Object.freeze({ mode: "fullscreen", window: null })
 });
 
 /** As many pictures as a GM could plausibly assign, and no path longer than this. */
@@ -59,10 +63,29 @@ export function normalizeOptionArt(v) {
   if ( !v || (typeof v !== "object") ) return {};
   const out = {};
   for ( const [uuid, path] of Object.entries(v).slice(0, ART_LIMITS.entries) ) {
-    if ( (typeof path !== "string") || !path.trim() || (path.length > ART_LIMITS.pathLength) ) continue;
-    // A path inside this world only: no data:, file: or http(s) URLs, so nothing is ever fetched from elsewhere.
-    if ( /^[a-z][a-z0-9+.-]*:/i.test(path.trim()) ) continue;
-    out[normalizeUuid(uuid)] = path.trim();
+    const clean = artPath(path);
+    if ( clean ) out[normalizeUuid(uuid)] = clean;
+  }
+  return out;
+}
+
+/**
+ * An image path the GM chose, or null: a path inside this world only — no data:, file: or http(s) URLs, so
+ * nothing is ever fetched from elsewhere.
+ */
+export function artPath(path) {
+  if ( (typeof path !== "string") || !path.trim() || (path.length > ART_LIMITS.pathLength) ) return null;
+  if ( /^[a-z][a-z0-9+.-]*:/i.test(path.trim()) ) return null;
+  return path.trim();
+}
+
+/** The GM's own background per wizard step (D28): known steps only, paths as for option art. */
+export function normalizeStepArt(v) {
+  if ( !v || (typeof v !== "object") ) return {};
+  const out = {};
+  for ( const step of STEPS ) {
+    const clean = artPath(v[step]);
+    if ( clean ) out[step] = clean;
   }
   return out;
 }
@@ -102,6 +125,7 @@ export function normalizeSettings(get) {
         : DEFAULTS[SETTINGS.MAX_UPLOAD_MB]) * 1024 * 1024)
     },
     ringColors: { ring: color(ring?.ring), background: color(ring?.background) },
-    optionArt: normalizeOptionArt(read(SETTINGS.OPTION_ART))
+    optionArt: normalizeOptionArt(read(SETTINGS.OPTION_ART)),
+    stepArt: normalizeStepArt(read(SETTINGS.STEP_ART))
   };
 }

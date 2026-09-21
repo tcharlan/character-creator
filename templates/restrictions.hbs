@@ -89,6 +89,37 @@
       {{/each}}
     </ul>
 
+    {{else if backdrops}}
+    <header class="cc-restrict__head">
+      <div>
+        <h2>{{localize "CHARCREATOR.Restrictions.Tab.backdrops"}}</h2>
+        <p class="cc-hint">{{localize "CHARCREATOR.Restrictions.BackdropsHint"}}</p>
+      </div>
+    </header>
+    <ul class="cc-list">
+      {{#each backdrops as |b|}}
+      <li class="cc-entry-row cc-backdrop-row" data-step="{{b.step}}">
+        <div class="cc-entry cc-backdrop">
+          <img class="cc-backdrop__img{{#unless b.own}} cc-backdrop__img--sigil{{/unless}}" src="{{b.img}}" alt="">
+          <span class="cc-entry__name">{{b.label}}</span>
+          <span class="cc-entry__pack">{{#if b.own}}{{b.own}}{{else}}{{localize "CHARCREATOR.Restrictions.BackdropDefault"}}{{/if}}</span>
+        </div>
+        <button type="button" class="cc-entry__art{{#if b.own}} cc-entry__art--own{{/if}}" data-action="step-art"
+                data-step="{{b.step}}" data-art="{{b.own}}"
+                data-tooltip="{{localize 'CHARCREATOR.Restrictions.ArtSet'}}" aria-label="{{localize 'CHARCREATOR.Restrictions.ArtSet'}}">
+          <i class="fa-solid fa-image" inert></i>
+        </button>
+        {{#if b.own}}
+        <button type="button" class="cc-entry__art" data-action="step-art-clear" data-step="{{b.step}}"
+                data-tooltip="{{localize 'CHARCREATOR.Restrictions.BackdropClear'}}"
+                aria-label="{{localize 'CHARCREATOR.Restrictions.BackdropClear'}}">
+          <i class="fa-solid fa-xmark" inert></i>
+        </button>
+        {{/if}}
+      </li>
+      {{/each}}
+    </ul>
+
     {{else}}
     <header class="cc-restrict__head">
       <div>

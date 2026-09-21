@@ -1,5 +1,10 @@
 {{!-- The step pane. Until PLAN 3.2–3.9 build each step, it shows what the engine already knows. --}}
 <section class="cc-pane{{#if stepPartial}} cc-pane--full{{/if}}" data-step="{{step}}">
+  {{!-- The step's backdrop (D28): the GM's picture, or the sigil over the picked option's picture. --}}
+  <div class="cc-splash cc-splash--{{splash.source}}" data-splash="{{splash.step}}" aria-hidden="true">
+    {{#if splash.image}}<img class="cc-splash__art" src="{{splash.image}}" alt="">{{/if}}
+    {{#if splash.sigil}}<img class="cc-splash__sigil" src="{{splash.sigil}}" alt="">{{/if}}
+  </div>
   {{#unless stepPartial}}
   <header class="cc-pane__header">
     <h1 class="cc-pane__title">{{stepTitle}}</h1>

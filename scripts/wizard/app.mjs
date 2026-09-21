@@ -11,7 +11,7 @@ import { isEditable } from "../draft/state.mjs";
 import { getCatalog } from "../catalog/catalog.mjs";
 import { checkBuilt } from "../rules/validate.mjs";
 import { buildCharacter } from "../rules/build.mjs";
-import { readSettings } from "../settings/settings.mjs";
+import { readSettings, SETTINGS } from "../settings/settings.mjs";
 import { bannerSteps, canOpen, moveStep, groupErrors, attention, BANNER_STEPS } from "./steps-model.mjs";
 import { applyPick, answerStep, syncRecipe } from "./picks.mjs";
 import { optionList, optionDetail, optionDescription, subclassOptions, subclassStep, STEP_CATEGORY } from "./options-step.mjs";
@@ -31,6 +31,8 @@ import { createdFor } from "../gm/create.mjs";
 import { allowance } from "../ui/entry.mjs";
 import { arrowKeys } from "../ui/keyboard.mjs";
 import { rollAbilityScores } from "../rules/ability-roll.mjs";
+import { DISPLAY_MODES, displayButton, fullscreenPosition, readDisplay, windowPosition } from "./display.mjs";
+import { splashFor } from "./splash.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -51,6 +53,10 @@ const STEP_PARTIALS = {
 
 /** Shared pieces the step templates include. */
 const PART_TEMPLATES = { ccAbility: `modules/${MODULE_ID}/templates/parts/ability-picker.hbs` };
+/** The browser window's inner size: what fullscreen covers and what a window has to stay inside. */
+const viewport = () => ({ width: window.innerWidth, height: window.innerHeight });
+const display = () => readDisplay(key => game.settings.get(MODULE_ID, key), SETTINGS.DISPLAY);
+
 const T = (key, data) => (data ? game.i18n.format(`CHARCREATOR.${key}`, data) : game.i18n.localize(`CHARCREATOR.${key}`));
 
 /**
@@ -83,6 +89,12 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   // Set while a step holds its changes back (the ability scores): the rebuild happens when the player leaves.
   #deferred = false;
   #bonuses = {};
+  /** Fullscreen or a window (D28); null until set, when the options decide. */
+  #mode = null;
+  /** Fullscreen before a minimize, so restoring goes back to it. */
+  #restoreFullscreen = false;
+  #onViewport = null;
+  #saveWindow = null;
 
   static DEFAULT_OPTIONS = {
     id: "character-creator-wizard",
@@ -95,6 +107,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       back: onBack,
       next: onNext,
       discard: onDiscard,
+      display: onDisplay,
       begin: onBegin,
       pick: onPick,
       subclass: onSubclass,
@@ -136,9 +149,23 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     footer: { template: `modules/${MODULE_ID}/templates/footer.hbs` }
   };
 
+  /** @inheritDoc */
+  _initializeApplicationOptions(options) {
+    options = super._initializeApplicationOptions(options);
+    const { mode, window: saved } = display();
+    Object.assign(options.position, mode === "fullscreen" ? fullscreenPosition(viewport()) : windowPosition(saved, viewport()));
+    if ( mode === "fullscreen" ) options.classes = [...options.classes, "cc-fullscreen"];
+    return options;
+  }
+
   /** The draft being edited. */
   get draft() {
     return this.#store.draft;
+  }
+
+  /** "fullscreen" or "window" (D28). */
+  get displayMode() {
+    return this.#mode ?? (this.options.classes.includes("cc-fullscreen") ? "fullscreen" : "window");
   }
 
   /** The current step key. */
@@ -693,6 +720,8 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       summary: this.#summary(),
       characters: this.#allowance(),
       stepPartial: STEP_PARTIALS[this.#current] ?? null,
+      splash: splashFor(this.#current, { picks: draft?.picks, catalog: this.#catalog,
+        optionArt: readSettings().optionArt, stepArt: readSettings().stepArt }),
       rulesLabel: T(`Rules.${this.draft?.rules ?? "legacy"}`),
       resuming: this.#started(),
       ...(await this.#stepContext()),
@@ -913,8 +942,99 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /* -------------------------------------------- */
 
+  /* -------------------------------------------- */
+  /*  Fullscreen or a window (D28)                */
+  /* -------------------------------------------- */
+
+  /** @inheritDoc */
+  _getFrameButtons(options) {
+    const button = displayButton(this.displayMode);
+    return [{ icon: button.icon, label: button.label, action: "display" }, ...super._getFrameButtons(options)];
+  }
+
+  /** @inheritDoc */
+  _onFirstRender(context, options) {
+    super._onFirstRender(context, options);
+    this.#mode = this.displayMode;
+    // Fullscreen follows the browser window; a remembered window is saved as the player moves or sizes it.
+    this.#onViewport = foundry.utils.debounce(() => {
+      if ( !this.rendered || this.minimized ) return;
+      this.setPosition(this.displayMode === "fullscreen" ? fullscreenPosition(viewport()) : {});
+    }, 100);
+    window.addEventListener("resize", this.#onViewport);
+    // The window's place is saved under the mode the player chose: a window made for a minimize doesn't change it.
+    this.#saveWindow = foundry.utils.debounce(position => this.#remember(display().mode, position), 400);
+  }
+
+  /** @inheritDoc */
+  _updatePosition(position) {
+    // Fullscreen can't be dragged or resized: whatever is asked for, it covers the viewport.
+    if ( (this.displayMode === "fullscreen") && !this.minimized ) Object.assign(position, fullscreenPosition(viewport()));
+    return super._updatePosition(position);
+  }
+
+  /** @inheritDoc */
+  _onPosition(position) {
+    super._onPosition(position);
+    if ( (this.displayMode === "window") && this.rendered && !this.minimized && !this.#restoreFullscreen ) {
+      this.#saveWindow?.({ ...this.position });
+    }
+  }
+
+  /**
+   * Switch between fullscreen and a window.
+   * @param {"fullscreen"|"window"} mode
+   * @param {{ remember?: boolean }} [options]   `remember: false` for a switch the player didn't ask for (a minimize).
+   */
+  async setDisplay(mode, { remember = true } = {}) {
+    if ( !DISPLAY_MODES.includes(mode) || (mode === this.displayMode) ) return;
+    if ( this.minimized ) await this.maximize();
+    const saved = display().window;
+    const leaving = this.displayMode === "window" ? { ...this.position } : null;
+    this.#mode = mode;
+    this.element.classList.toggle("cc-fullscreen", mode === "fullscreen");
+    this.setPosition(mode === "fullscreen" ? fullscreenPosition(viewport()) : windowPosition(saved, viewport()));
+    const button = displayButton(mode);
+    const control = this.element.querySelector('.window-header [data-action="display"]');
+    if ( control ) {
+      control.className = `header-control ${button.icon} icon`;
+      control.setAttribute("aria-label", game.i18n.localize(button.label));
+    }
+    if ( remember ) await this.#remember(mode, leaving);
+  }
+
+  /** Save this player's choice, and the window's place when there is one to keep. */
+  async #remember(mode, position = null) {
+    const current = display();
+    const window = position ? { left: position.left, top: position.top, width: position.width, height: position.height }
+      : current.window;
+    if ( (current.mode === mode) && (JSON.stringify(current.window) === JSON.stringify(window)) ) return;
+    await game.settings.set(MODULE_ID, SETTINGS.DISPLAY, { mode, window })
+      .catch(err => console.warn(`${MODULE_ID} | couldn't remember the window`, err));
+  }
+
+  /** @inheritDoc */
+  async minimize() {
+    // A minimized window lives in a corner, so fullscreen steps down to a window first — and comes back after.
+    if ( (this.displayMode === "fullscreen") && !this.minimized ) {
+      this.#restoreFullscreen = true;
+      await this.setDisplay("window", { remember: false });
+    }
+    return super.minimize();
+  }
+
+  /** @inheritDoc */
+  async maximize() {
+    await super.maximize();
+    if ( this.#restoreFullscreen ) {
+      this.#restoreFullscreen = false;
+      await this.setDisplay("fullscreen", { remember: false });
+    }
+  }
+
   /** @inheritDoc */
   async close(options = {}) {
+    if ( this.#onViewport ) window.removeEventListener("resize", this.#onViewport);
     if ( this.#timer ) {
       clearTimeout(this.#timer);
       this.#timer = null;
@@ -1086,6 +1206,11 @@ function abilityBonuses(built, base) {
 
 function onNext() {
   return this.next();
+}
+
+/** The header button: fullscreen ↔ window. */
+function onDisplay() {
+  return this.setDisplay(this.displayMode === "fullscreen" ? "window" : "fullscreen");
 }
 
 async function onDiscard() {

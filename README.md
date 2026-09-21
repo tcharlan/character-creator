@@ -51,6 +51,8 @@ ability scores are allowed (point buy, standard array, rolled).
   screen warns you when a choice would leave players unable to make a character.
 - **Use a picture of your own** sets your own image for a species, class, background or subclass, shown in
   the creator instead of the compendium's. The image must already be in your world's files.
+- **Backgrounds** sets a picture of your own behind any step of the creator. By default each step shows its
+  own emblem over a blurred picture of what the player chose.
 
 ### Other settings
 
@@ -77,8 +79,10 @@ player's ability score roll, if they rolled, is posted to chat.
 
 ## For players
 
-Open the **Actors** tab and press **Create a character** (or answer the prompt when you log in). Work through
-the steps in any order; the banner along the top shows what each step still needs.
+Open the **Actors** tab and press **Create a character** (or answer the prompt when you log in). The creator
+opens fullscreen; the button beside the close button in its header switches to an ordinary window you can move
+and resize, and back — it remembers which you prefer. Work through the steps in any order; the banner along the
+top shows what each step still needs.
 
 | | |
 |---|---|
@@ -102,8 +106,9 @@ MIT — see [LICENSE](LICENSE).
 - Fonts: [Cinzel](https://fonts.google.com/specimen/Cinzel) and
   [Alegreya Sans](https://fonts.google.com/specimen/Alegreya+Sans), under the SIL Open Font License
   (`fonts/OFL-*.txt`).
+- The step emblems behind the creator are original drawings made for it, under the same MIT licence.
 - The screenshots show content from the dnd5e system's SRD compendiums. Character Creator bundles no rules
-  content or art of its own.
+  content, and no art but its own emblems.
 
 This work includes material taken from the System Reference Document 5.1 ("SRD 5.1") by Wizards of the Coast
 LLC and available at https://dnd.wizards.com/resources/systems-reference-document. The SRD 5.1 is licensed

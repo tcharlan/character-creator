@@ -27,6 +27,10 @@ export function registerSettings() {
   world(SETTINGS.MAX_UPLOAD_MB, { type: Number, config: true, range: { ...UPLOAD_MB_RANGE, step: 1 } });
   world(SETTINGS.RING_COLORS, { type: Object, config: false, default: { ring: null, background: null } });
   world(SETTINGS.OPTION_ART, { type: Object, config: false, default: {} });
+  world(SETTINGS.STEP_ART, { type: Object, config: false, default: {} });
+  // Each player's own: fullscreen or a window, and where the window was (D28).
+  game.settings.register(MODULE_ID, SETTINGS.DISPLAY, { scope: "client", config: false, type: Object,
+    default: { mode: "fullscreen", window: null } });
   // The objects above are edited on their own screen (PLAN 4.1), which the settings window links to.
   registerRestrictionsApp();
   registerPendingApp();

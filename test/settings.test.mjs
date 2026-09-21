@@ -14,7 +14,8 @@ test("defaults (DESIGN.md → Settings)", () => {
     showOnLogin: true,
     portraits: { enabled: true, maxSourceBytes: 10 * 1024 * 1024 },
     ringColors: { ring: null, background: null },
-    optionArt: {}
+    optionArt: {},
+    stepArt: {}
   });
 });
 
@@ -80,4 +81,16 @@ test("a GM's own picture per option is a plain path or nothing (D24)", () => {
     "Compendium.dnd5e.races.Item.aaaaaaaaaaaaaaab": "worlds/w/assets/dwarf.webp"
   }, "short UUIDs are normalised, paths trimmed, and anything that is not a path in this world dropped");
   assert.deepEqual(read({ [SETTINGS.OPTION_ART]: "nonsense" }).optionArt, {});
+});
+
+test("the GM's background per step keeps known steps and paths in this world only (D28)", () => {
+  const art = read({ [SETTINGS.STEP_ART]: {
+    species: " worlds/w/splash/mountains.webp ",
+    spells: "https://example.com/stars.webp",
+    review: "data:image/png;base64,AAAA",
+    nonsense: "worlds/w/x.webp",
+    class: 7
+  } }).stepArt;
+  assert.deepEqual(art, { species: "worlds/w/splash/mountains.webp" });
+  assert.deepEqual(read({ [SETTINGS.STEP_ART]: [1, 2] }).stepArt, {});
 });

@@ -12,7 +12,7 @@ export function registerRestrictionsBatches(quench) {
       let RestrictionsApp;
       let app = null;
       const reset = async () => {
-        for ( const key of ["restrictions", "abilityMethods", "optionArt"] ) {
+        for ( const key of ["restrictions", "abilityMethods", "optionArt", "stepArt"] ) {
           await CONFIG.queries[SETTINGS_TEST_QUERIES.SET]({ key, reset: true }, { user: game.user });
         }
       };
@@ -159,6 +159,23 @@ export function registerRestrictionsBatches(quench) {
         const catalog = await getCatalog();
         assert.lengthOf(catalog.byCategory.class, 1, "one class left");
         assert.equal(catalog.get(only)?.uuid !== undefined || catalog.isAllowed(only), true);
+      });
+
+      it("the Backgrounds tab shows each step's emblem, and a picture of the GM's own is saved (D28)", async function() {
+        this.timeout(120_000);
+        const { setStepArt } = await import("../scripts/settings/restrictions-model.mjs");
+        app = await RestrictionsApp.open();
+        await app.show("backdrops");
+        const rows = [...el().querySelectorAll(".cc-backdrop-row")];
+        assert.lengthOf(rows, 11, "one row per step, the start included");
+        const sigil = rows.find(r => r.dataset.step === "spells").querySelector("img");
+        assert.isTrue(sigil.getAttribute("src").endsWith("assets/splash/spells.svg"));
+        await app.change(state => setStepArt(state, "spells", "icons/svg/mystery-man.svg"));
+        assert.exists(el().querySelector('.cc-backdrop-row[data-step="spells"] [data-action="step-art-clear"]'),
+          "a picture of the GM's own can be taken off again");
+        el().querySelector('[data-action="save"]').click();
+        for ( let i = 0; i < 200 && app.rendered; i++ ) await new Promise(r => setTimeout(r, 100));
+        assert.deepEqual(game.settings.get(MODULE_ID, "stepArt"), { spells: "icons/svg/mystery-man.svg" });
       });
     });
   }, { displayName: "Character Creator: Allowed content (GM)" });

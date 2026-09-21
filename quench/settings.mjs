@@ -98,13 +98,16 @@ export function registerSettingsBatches(quench) {
       it("every setting is registered as a world setting, with the documented defaults", async function() {
         this.timeout(120_000);
         const { SETTINGS } = await import("../scripts/settings/normalize.mjs");
+        // Fullscreen or a window is each player's own (D28); everything else is the GM's, for the world.
+        const world = Object.values(SETTINGS).filter(key => key !== SETTINGS.DISPLAY);
         // A run that ended early can leave a setting behind; the documented defaults are what is stored nowhere.
-        for ( const key of Object.values(SETTINGS) ) await query(Q.SET, { key, reset: true });
-        for ( const key of Object.values(SETTINGS) ) {
+        for ( const key of world ) await query(Q.SET, { key, reset: true });
+        for ( const key of world ) {
           const cfg = game.settings.settings.get(`${MODULE_ID}.${key}`);
           assert.exists(cfg, key);
           assert.equal(cfg.scope, "world", key);
         }
+        assert.equal(game.settings.settings.get(`${MODULE_ID}.${SETTINGS.DISPLAY}`)?.scope, "client", SETTINGS.DISPLAY);
         const { readSettings } = await import("../scripts/settings/settings.mjs");
         const s = readSettings();
         assert.equal(s.characterLimit, 1);
