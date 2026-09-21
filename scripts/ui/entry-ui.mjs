@@ -10,6 +10,7 @@ import { readSettings } from "../settings/settings.mjs";
 import { CharacterWizard } from "../wizard/app.mjs";
 import { PendingApp, currentQueue } from "../gm/pending-app.mjs";
 import { entryState, loginPrompt } from "./entry.mjs";
+import { registerSheetEntry } from "./sheet-entry.mjs";
 
 const T = key => game.i18n.localize(key);
 
@@ -102,6 +103,8 @@ export function registerEntryPoints() {
   document.getElementById("notifications")?.addEventListener("click", event => {
     if ( event.target.closest("[data-cc-entry]") ) openWizard();
   });
+  // A character that already exists can be given a picture too (PLAN 4.3, A5).
+  registerSheetEntry();
   refreshEntryPoints();
   promptOnLogin();
 }

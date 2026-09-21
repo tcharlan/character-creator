@@ -1,0 +1,61 @@
+{{!-- Upload portrait for a character that already exists (PLAN 4.3, A5). --}}
+<div class="cc-upload">
+  <figure class="cc-token{{#unless preview}} cc-token--empty{{/unless}}"
+          style="--cc-ring: {{ring.ringPaint}}; --cc-ring-bg: {{ring.backgroundPaint}};">
+    {{#if preview}}
+    <img src="{{preview}}" alt="{{localize 'CHARCREATOR.Portrait.Preview'}}">
+    {{else}}
+    <span>{{localize "CHARCREATOR.Portrait.NoPicture"}}</span>
+    {{/if}}
+  </figure>
+
+  <div class="cc-upload__main">
+    <h2 class="cc-upload__name">{{name}}</h2>
+
+    {{#if blocked}}
+    <p class="cc-problem">{{localize blockedKey}}</p>
+    {{/if}}
+
+    {{#if canChoose}}
+    <div class="cc-portrait-controls">
+      <label class="cc-button cc-button--primary cc-file">
+        {{localize "CHARCREATOR.Portrait.Choose"}}
+        <input type="file" class="cc-file__input" accept="image/png,image/jpeg,image/webp">
+      </label>
+      {{#if chosen}}
+      <button type="button" class="cc-button" data-action="clear">{{localize "CHARCREATOR.Portrait.Remove"}}</button>
+      {{/if}}
+    </div>
+    <p class="cc-hint">
+      {{#if maxMB}}{{localize "CHARCREATOR.Portrait.Limits"}} {{maxMB}} MB.{{/if}}
+      {{localize "CHARCREATOR.Portrait.Resized"}}
+    </p>
+    {{/if}}
+
+    {{#if chosen}}
+    <p class="cc-hint">{{dimensions}} · {{size}} KB</p>
+    <div class="cc-ring-colors">
+      <label class="cc-field">
+        <span class="cc-field__label">{{localize "CHARCREATOR.Portrait.RingColor"}}</span>
+        <input type="color" class="cc-color" data-ring="ring" value="{{ring.ringPaint}}">
+      </label>
+      <label class="cc-field">
+        <span class="cc-field__label">{{localize "CHARCREATOR.Portrait.BackgroundColor"}}</span>
+        <input type="color" class="cc-color" data-ring="background" value="{{ring.backgroundPaint}}">
+      </label>
+      <button type="button" class="cc-button cc-button--quiet" data-action="ring-reset" data-ring="ring">
+        {{localize "CHARCREATOR.Portrait.ResetColors"}}
+      </button>
+    </div>
+    {{/if}}
+
+    {{#if error}}<p class="cc-problem">{{error}}</p>{{/if}}
+  </div>
+
+  <footer class="cc-upload__footer">
+    <button type="button" class="cc-button" data-action="cancel">{{localize "CHARCREATOR.Restrictions.Cancel"}}</button>
+    <button type="button" class="cc-button cc-button--primary" data-action="save" {{#unless canSave}}disabled{{/unless}}>
+      {{#if saving}}{{localize "CHARCREATOR.Portrait.Saving"}}{{else}}{{localize "CHARCREATOR.Portrait.Save"}}{{/if}}
+    </button>
+  </footer>
+</div>

@@ -10,6 +10,7 @@ import { registerWizardBatches, registerOptionStepBatches, registerAbilityStepBa
 import { registerEntryBatches } from "./entry.mjs";
 import { registerRestrictionsBatches } from "./restrictions.mjs";
 import { registerPendingPanelBatches } from "./pending-panel.mjs";
+import { registerPortraitDialogBatches } from "./portrait-dialog.mjs";
 import { registerCatalogBatches, registerCatalogTestQueries } from "./catalog.mjs";
 import { registerRulesBatches } from "./rules.mjs";
 import { registerAbilityBatches, registerAbilityTestQueries } from "./abilities.mjs";
@@ -58,5 +59,6 @@ export function registerQuenchBatches(quench) {
   registerEntryBatches(quench);
   registerRestrictionsBatches(quench);
   registerPendingPanelBatches(quench);
+  registerPortraitDialogBatches(quench);
   registerPhase2Batch(quench);
 }

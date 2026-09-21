@@ -251,7 +251,11 @@
       "BackgroundColor": "Ring background",
       "ResetColors": "Use the default colours",
       "Preview": "How your token will look",
-      "NoPicture": "No picture yet"
+      "NoPicture": "No picture yet",
+      "UploadTitle": "Upload portrait",
+      "Save": "Save portrait",
+      "Saving": "Saving…",
+      "Uploaded": "The portrait is on your character."
     },
     "Start": {
       "Heading": "Create your character",

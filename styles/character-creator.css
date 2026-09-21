@@ -896,3 +896,11 @@ li.notification button.cc-entry-prompt {
 .cc-queue__note { font-size: 12px; color: var(--cc-faint); }
 .cc-queue__step { color: var(--cc-faint); }
 .cc-queue__actions { display: flex; flex-direction: column; gap: 6px; }
+
+/* Upload portrait for a character that already exists (PLAN 4.3). */
+.cc-portrait-dialog .window-content { padding: 0; background: var(--cc-ground); color: var(--cc-text); font-family: var(--cc-body); }
+.cc-upload { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 18px; }
+.cc-upload__main { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; text-align: center; }
+.cc-upload__name { margin: 0; font-family: var(--cc-display); font-size: 22px; }
+.cc-upload .cc-ring-colors { justify-content: center; }
+.cc-upload__footer { display: flex; justify-content: flex-end; gap: 8px; width: 100%; padding-top: 6px; border-top: 1px solid var(--cc-line); }

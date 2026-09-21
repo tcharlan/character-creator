@@ -1093,5 +1093,6 @@ export function registerWizardApi() {
   if ( module ) module.api = Object.assign(module.api ?? {}, { CharacterWizard, openWizard: () => CharacterWizard.open(),
     openRestrictions: async () => (await import("../settings/restrictions-app.mjs")).RestrictionsApp.open(),
     openPending: async () => (await import("../gm/pending-app.mjs")).PendingApp.open(),
+    uploadPortrait: async actor => (await import("../portrait/portrait-app.mjs")).PortraitApp.open(actor),
     STATUS });
 }
