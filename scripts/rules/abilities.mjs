@@ -53,6 +53,8 @@ export function pointBuyCost(base) {
  */
 export function checkAbilities(abilities, { allowedMethods = ABILITY_METHODS } = {}) {
   const { method = null, base = null, roll = null } = abilities ?? {};
+  // Nothing chosen yet is a step still to do, not a refusal: the two read very differently to a player.
+  if ( (method === null) || (method === undefined) ) return [makeError("ABILITY_METHOD_MISSING")];
   if ( !ABILITY_METHODS.includes(method) || !allowedMethods.includes(method) ) {
     return [makeError("ABILITY_METHOD_NOT_ALLOWED", { method, allowed: [...allowedMethods] })];
   }
@@ -64,22 +66,28 @@ export function checkAbilities(abilities, { allowedMethods = ABILITY_METHODS } =
   switch ( method ) {
     case "pointBuy": {
       const { spent, outOfRange } = pointBuyCost(base);
-      if ( outOfRange.length || spent !== POINT_BUY.budget ) {
+      // Points still to spend is work in progress; spending too many, or leaving the 8–15 range, is not.
+      if ( outOfRange.length || (spent > POINT_BUY.budget) ) {
         return [makeError("POINT_BUY_INVALID", { spent, budget: POINT_BUY.budget, outOfRange })];
+      }
+      if ( spent < POINT_BUY.budget ) {
+        return [makeError("ABILITY_SCORES_MISSING", { method, spent, budget: POINT_BUY.budget })];
       }
       return [];
     }
     case "standardArray":
-      if ( missing.length || !sameMultiset(scores, STANDARD_ARRAY) ) {
+      if ( missing.length ) return [makeError("ABILITY_SCORES_MISSING", { method, missing })];
+      if ( !sameMultiset(scores, STANDARD_ARRAY) ) {
         return [makeError("STANDARD_ARRAY_INVALID", { scores, expected: [...STANDARD_ARRAY] })];
       }
       return [];
     case "rolled": {
       const results = roll?.results;
       if ( !roll || !Array.isArray(results) || results.length !== ABILITY_ROLL.count ) {
-        return [makeError("ROLL_INVALID", { notRolled: true })];
+        return [makeError("ABILITY_SCORES_MISSING", { method, notRolled: true })];
       }
-      if ( missing.length || !sameMultiset(scores, results) ) {
+      if ( missing.length ) return [makeError("ABILITY_SCORES_MISSING", { method, missing })];
+      if ( !sameMultiset(scores, results) ) {
         return [makeError("ROLL_INVALID", { scores, results: [...results] })];
       }
       return [];

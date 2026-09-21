@@ -673,7 +673,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       summary: this.#summary(),
       stepPartial: STEP_PARTIALS[this.#current] ?? null,
       rulesLabel: T(`Rules.${this.draft?.rules ?? "legacy"}`),
-      resuming: (this.draft?.recipe?.steps?.length ?? 0) > 0 || Object.values(this.draft?.picks ?? {}).some(Boolean),
+      resuming: this.#started(),
       ...(await this.#stepContext()),
       attention: state,
       backLabel: back ? T(`Step.${back}.Title`) : T("Nav.Start"),
@@ -686,7 +686,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   /** Whatever the current step's pane needs (PLAN 3.2: the option steps). */
   async #stepContext() {
     // These steps show what still needs doing where it belongs, so the pane-wide list would only repeat it.
-    const ownProblems = ["choices", "equipment", "spells", "details", "review"].includes(this.#current);
+    const ownProblems = ["abilities", "choices", "equipment", "spells", "details", "review"].includes(this.#current);
     return Object.assign({ ownProblems }, await this.#stepPane());
   }
 
@@ -827,6 +827,19 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     const currency = Object.entries(resolved?.currency ?? {}).map(([k, v]) => `${v} ${k.toUpperCase()}`).join(", ");
     return { sources, items, currencyText: currency,
       errors: countedErrors(this.#validation?.errors, "equipment") };
+  }
+
+  /**
+   * Has the player done anything to this draft yet? A pick the wizard made for them (D4: a category the GM
+   * narrowed to one option) doesn't count — otherwise a brand-new draft would offer to carry on where they
+   * left off.
+   */
+  #started() {
+    const draft = this.draft;
+    if ( !draft ) return false;
+    const chosen = Object.entries(draft.picks ?? {}).some(([role, uuid]) => uuid && !this.#auto.has(role));
+    return chosen || !!draft.abilities?.method || !!String(draft.details?.name ?? "").trim()
+      || (draft.portrait?.status && (draft.portrait.status !== "none"));
   }
 
   /** The picks' names for the banner. */

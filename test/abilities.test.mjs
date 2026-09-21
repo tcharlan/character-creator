@@ -23,11 +23,13 @@ test("point buy: exactly 27 points with every score 8–15", () => {
   const over = checkAbilities({ ...ok, base: base(15, 15, 15, 9, 8, 8) });
   assert.deepEqual(codes(over), ["POINT_BUY_INVALID"]);
   assert.equal(detail(over).spent, 28);
+  // Points still to spend is a step to finish, not a refusal.
   const under = checkAbilities({ ...ok, base: base(15, 14, 13, 12, 8, 8) });
-  assert.deepEqual(codes(under), ["POINT_BUY_INVALID"]);
+  assert.deepEqual(codes(under), ["ABILITY_SCORES_MISSING"]);
   assert.equal(detail(under).spent, 25);
   assert.deepEqual(detail(checkAbilities({ ...ok, base: base(16, 14, 13, 8, 8, 8) })).outOfRange, ["str"]);
   assert.deepEqual(detail(checkAbilities({ ...ok, base: base(15, 15, 15, 7, 9, 9) })).outOfRange, ["int"]);
+  // No scores at all under point buy is malformed rather than half-finished: the wizard starts them at 8.
   assert.deepEqual(codes(checkAbilities({ ...ok, base: null })), ["POINT_BUY_INVALID"]);
   assert.deepEqual(codes(checkAbilities({ ...ok, base: { str: 15, dex: 15, con: 15 } })), ["POINT_BUY_INVALID"]);
 });
@@ -36,19 +38,23 @@ test("standard array: each value used exactly once, in any order", () => {
   const ok = { method: "standardArray", base: base(8, 10, 12, 13, 14, 15), roll: null };
   assert.deepEqual(checkAbilities(ok), []);
   assert.deepEqual(checkAbilities({ ...ok, base: base(...STANDARD_ARRAY) }), []);
-  for ( const b of [base(15, 15, 13, 12, 10, 8), base(15, 14, 13, 12, 10, 9), base(15, 14, 13, 12, 10, null),
-    base(15, 14, 13, 12, 10, "8")] ) {
+  for ( const b of [base(15, 15, 13, 12, 10, 8), base(15, 14, 13, 12, 10, 9)] ) {
     assert.deepEqual(codes(checkAbilities({ ...ok, base: b })), ["STANDARD_ARRAY_INVALID"], JSON.stringify(b));
+  }
+  // A score not set yet is a step to finish, not a wrong answer.
+  for ( const b of [base(15, 14, 13, 12, 10, null), base(15, 14, 13, 12, 10, "8")] ) {
+    assert.deepEqual(codes(checkAbilities({ ...ok, base: b })), ["ABILITY_SCORES_MISSING"], JSON.stringify(b));
   }
 });
 
-test("method: missing, unknown or not allowed by the GM", () => {
+test("method: not chosen yet, unknown, or not allowed by the GM", () => {
   const sa = { method: "standardArray", base: base(...STANDARD_ARRAY), roll: null };
-  assert.deepEqual(codes(checkAbilities({ ...sa, method: null })), ["ABILITY_METHOD_NOT_ALLOWED"]);
+  // Not chosen yet is a step still to do; the GM refusing a method is something else entirely.
+  assert.deepEqual(codes(checkAbilities({ ...sa, method: null })), ["ABILITY_METHOD_MISSING"]);
+  assert.deepEqual(codes(checkAbilities(undefined)), ["ABILITY_METHOD_MISSING"]);
   assert.deepEqual(codes(checkAbilities({ ...sa, method: "manual" })), ["ABILITY_METHOD_NOT_ALLOWED"]);
   assert.deepEqual(codes(checkAbilities(sa, { allowedMethods: ["pointBuy"] })), ["ABILITY_METHOD_NOT_ALLOWED"]);
   assert.deepEqual(checkAbilities(sa, { allowedMethods: ["standardArray"] }), []);
-  assert.deepEqual(codes(checkAbilities(undefined)), ["ABILITY_METHOD_NOT_ALLOWED"]);
 });
 
 test("rolled: the scores are the recorded results, assigned in any order", () => {
@@ -57,8 +63,11 @@ test("rolled: the scores are the recorded results, assigned in any order", () =>
   assert.deepEqual(checkAbilities(ok), []);
   assert.deepEqual(codes(checkAbilities({ ...ok, base: base(8, 9, 11, 12, 14, 16) })), ["ROLL_INVALID"]);
   assert.deepEqual(codes(checkAbilities({ ...ok, base: base(16, 16, 11, 12, 14, 7) })), ["ROLL_INVALID"]);
-  assert.deepEqual(detail(checkAbilities({ ...ok, roll: null })), { notRolled: true });
-  assert.deepEqual(codes(checkAbilities({ ...ok, roll: { ...ok.roll, results: results.slice(0, 5) } })), ["ROLL_INVALID"]);
+  // Not rolled yet, or half-assigned, is a step to finish; scores that don't match the roll are not.
+  assert.deepEqual(detail(checkAbilities({ ...ok, roll: null })), { method: "rolled", notRolled: true });
+  assert.deepEqual(codes(checkAbilities({ ...ok, roll: { ...ok.roll, results: results.slice(0, 5) } })),
+    ["ABILITY_SCORES_MISSING"]);
+  assert.deepEqual(codes(checkAbilities({ ...ok, base: base(7, 9, 11, 12, 14, null) })), ["ABILITY_SCORES_MISSING"]);
 });
 
 test("a roll kept aside while another method is chosen is fine (D26)", () => {

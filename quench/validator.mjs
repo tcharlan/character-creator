@@ -118,7 +118,8 @@ export function registerValidatorBatches(quench) {
         ["abilities", "POINT_BUY_INVALID", d => d.abilities = { method: "pointBuy", base: { ...BASE, cha: 9 }, roll: null }],
         ["abilities", "STANDARD_ARRAY_INVALID", d => d.abilities.base.cha = 15],
         ["abilities", "ABILITY_METHOD_NOT_ALLOWED", () => {}, { allowedMethods: ["pointBuy"] }],
-        ["abilities", "ROLL_INVALID", d => d.abilities = { method: "rolled", base: BASE, roll: null }],
+        ["abilities", "ABILITY_SCORES_MISSING", d => d.abilities = { method: "rolled", base: BASE, roll: null }],
+        ["abilities", "ABILITY_METHOD_MISSING", d => d.abilities.method = null],
         ["choices", "MISSING_STEP", d => d.recipe.steps.pop()],
         ["choices", "UNKNOWN_ADVANCEMENT", d => d.recipe.steps.push({ ...d.recipe.steps[0], advancementId: "ZZZZZZZZZZZZZZZZ" })],
         // A blank selection: an OR without a choice, or a category without picks (2024 Cleric has only the latter).
