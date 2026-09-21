@@ -579,12 +579,24 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     }, REBUILD_DELAY);
   }
 
+  /**
+   * Change the draft now and let the autosave write it when it's ready. The store debounces its writes by a
+   * second, so waiting for one here would hold up whatever the player is looking at for that long — it is
+   * what made a new draft take over two seconds to open (PLAN 5.4). Closing the wizard flushes the save.
+   */
+  #saveLater(change) {
+    this.#store.update(change).catch(err => {
+      console.error(`${MODULE_ID} | the draft couldn't be saved`, err);
+      ui.notifications?.error(game.i18n.localize(err?.error?.key ?? "CHARCREATOR.Error.BAD_REQUEST"));
+    });
+  }
+
   /** Replay the recipe and validate; the result drives the banner, the pane and the footer. */
   async #rebuild() {
     if ( !this.draft ) return;
     this.#busy = true;
     try {
-      await this.#autoSelect();
+      this.#autoSelect();
       // Rebuild with automatic steps filled in (D18). Its recipe is what the draft keeps: it carries the
       // automatic answers, and leaves out answers that no longer fit (a changed pick, or content the GM
       // stopped allowing — A6).
@@ -594,7 +606,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       if ( isEditable(this.draft) ) {
         const next = syncRecipe(this.draft.recipe.steps, this.#build);
         if ( JSON.stringify(next) !== JSON.stringify(this.draft.recipe.steps) ) {
-          await this.#store.update(d => d.recipe.steps = foundry.utils.deepClone(next));
+          this.#saveLater(d => d.recipe.steps = foundry.utils.deepClone(next));
         }
       }
       this.#brokeDown = false;
@@ -644,12 +656,12 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   /** D4: a category the GM narrowed to a single option is chosen for the player. */
-  async #autoSelect() {
+  #autoSelect() {
     for ( const [step, category] of Object.entries(STEP_CATEGORY) ) {
       const only = this.#catalog?.byCategory?.[category];
       if ( only?.length !== 1 || this.draft.picks[step] ) continue;
       const uuid = only[0].uuid.replace(/^(Compendium\.[^.]+\.[^.]+\.)(?!Item\.)/, "$1Item.");
-      await this.#store.update(d => applyPick(d, step, uuid));
+      this.#saveLater(d => applyPick(d, step, uuid));
       this.#auto.add(step);
     }
   }

@@ -7,7 +7,8 @@ import { MODULE_ID } from "../scripts/main.mjs";
  * deletes it again. Runs on the GM, whose browser is the one that can make a compendium.
  */
 
-const PACK = "character-creator-imported";
+// Not named after the module, for the same reason as the scale test's pack.
+const PACK = "cc-import-test";
 const NAMES = Object.freeze({
   copied: "Imported Champion",     // an SRD class with the edition stripped off
   bare: "Bare Class",              // no advancements at all

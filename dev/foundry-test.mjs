@@ -4,6 +4,7 @@
  *   npm run test:foundry                       both test worlds, as Player A
  *   npm run test:foundry -- --world modern-test
  *   npm run test:foundry -- --batch pending    only batches whose key contains this text
+ *   Batches with ".heavy." in their key (e.g. building a book-sized world) run only when --batch names them.
  *
  * For each world it: starts the dev server if needed, switches worlds through Foundry's own setup
  * routes (GM "return to setup", then launchWorld), logs in through /join in headless Edge, runs the
@@ -241,7 +242,8 @@ async function main() {
         log(`${world}: joining as ${PLAYER}`);
         const session = await joinAs(browser, PLAYER);
         const started = Date.now();
-        const keys = await listBatches(session.page, batchFilter);
+        // A heavy batch (minutes, thousands of documents) only runs when asked for by name.
+        const keys = (await listBatches(session.page, batchFilter)).filter(k => batchFilter || !k.includes(".heavy."));
         if ( !keys.length ) throw new Error(`No batches match "${batchFilter}"`);
         const report = { passes: [], failures: [], pending: [] };
         const merge = r => {
