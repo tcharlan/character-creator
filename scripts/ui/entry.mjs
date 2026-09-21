@@ -44,6 +44,16 @@ export function entryState({ state = "none", created = 0, limit = null, isGM = f
 }
 
 /**
+ * How many characters this player may still make (A4). `limit` null means no limit at all.
+ * @returns {{ limit: number|null, made: number, left: number|null, atLimit: boolean, unlimited: boolean }}
+ */
+export function allowance({ limit = null, made = 0 } = {}) {
+  const unlimited = (limit === null) || (limit === undefined);
+  const left = unlimited ? null : Math.max(0, limit - made);
+  return { limit: unlimited ? null : limit, made, left, atLimit: !unlimited && (left === 0), unlimited };
+}
+
+/**
  * The prompt shown once a session (CREATION-FLOW → Entry points).
  *
  * A result the player is waiting for is always worth saying — it's the answer to something they sent, and for a

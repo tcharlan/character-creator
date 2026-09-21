@@ -107,6 +107,17 @@ export function registerEntryBatches(quench) {
         button().click();
         assert.isTrue(await until(() => flag() === undefined), "the created draft should be cleared once seen");
         assert.isTrue(await until(() => !button(), { tries: 200 }), "at the limit there is nothing to start");
+        // The wizard can still be opened by other means, so it says why it won't go anywhere (PLAN 4.4).
+        const { CharacterWizard } = await import("../scripts/wizard/app.mjs");
+        const wizard = await CharacterWizard.open();
+        assert.exists(wizard, "the wizard should still open");
+        await wizard.settle();
+        assert.equal(wizard.step, "start");
+        const note = wizard.element.querySelector(".cc-start__limit");
+        assert.exists(note, "the start screen should say how many characters are allowed");
+        assert.include(note.textContent, game.i18n.localize("CHARCREATOR.Start.AtLimit"));
+        await wizard.close();
+        await game.user.unsetFlag(MODULE_ID, DRAFT_FLAG);
         await cleanup();
         assert.isTrue(await until(() => !!button(), { tries: 200 }), "and it is back once the character is gone");
         assert.equal(label(), T("CHARCREATOR.Entry.create.Button"));

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { entryState, loginPrompt, ENTRY_KINDS } from "../scripts/ui/entry.mjs";
+import { entryState, loginPrompt, allowance, ENTRY_KINDS } from "../scripts/ui/entry.mjs";
 
 test("the button offers what the draft's state allows", () => {
   assert.deepEqual([entryState({ state: "none" }).kind, entryState({ state: "editable" }).kind,
@@ -61,4 +61,14 @@ test("a GM sees what is waiting to be created, and nothing when the queue is emp
   assert.equal(queue.label, "CHARCREATOR.Entry.queue.Button");
   assert.equal(entryState({ state: "editable", isGM: true, waiting: 2 }).kind, "queue",
     "a GM's own half-written draft is still not offered here");
+});
+
+test("how many characters a player may still make (A4)", () => {
+  assert.deepEqual(allowance({ limit: 1, made: 0 }), { limit: 1, made: 0, left: 1, atLimit: false, unlimited: false });
+  assert.deepEqual(allowance({ limit: 3, made: 1 }).left, 2);
+  assert.equal(allowance({ limit: 1, made: 1 }).atLimit, true);
+  assert.equal(allowance({ limit: 1, made: 4 }).left, 0, "over the limit is still none left, not a negative");
+  const none = allowance({ limit: null, made: 9 });
+  assert.deepEqual([none.unlimited, none.atLimit, none.left], [true, false, null]);
+  assert.equal(allowance().unlimited, true);
 });

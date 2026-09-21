@@ -8,6 +8,13 @@
     <div><dt>{{localize "CHARCREATOR.Step.class.Title"}}</dt><dd>{{summary.counts.class}}</dd></div>
     <div><dt>{{localize "CHARCREATOR.Step.background.Title"}}</dt><dd>{{summary.counts.background}}</dd></div>
   </dl>
+  {{#if characters.show}}
+  <p class="cc-start__limit{{#if characters.atLimit}} cc-problem{{/if}}">
+    {{#if characters.atLimit}}{{localize "CHARCREATOR.Start.AtLimit"}}
+    {{else}}{{localize "CHARCREATOR.Start.Allowance"}} {{characters.made}} / {{characters.limit}}
+    {{/if}}
+  </p>
+  {{/if}}
   <p class="cc-start__note">{{localize "CHARCREATOR.Start.Note"}}</p>
   <button type="button" class="cc-button cc-button--primary cc-start__go" data-action="begin">
     {{#if resuming}}{{localize "CHARCREATOR.Start.Resume"}}{{else}}{{localize "CHARCREATOR.Start.Begin"}}{{/if}}

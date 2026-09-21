@@ -263,7 +263,9 @@
       "Rules": "Rules",
       "Note": "Your draft saves itself as you go, so you can close this and come back later.",
       "Begin": "Begin",
-      "Resume": "Continue where you left off"
+      "Resume": "Continue where you left off",
+      "Allowance": "Characters you have made:",
+      "AtLimit": "You have all the characters your GM allows. Ask them if you need another."
     },
     "Rules": {
       "legacy": "2014 rules",

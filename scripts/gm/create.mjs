@@ -13,11 +13,19 @@ import { detailsData } from "./details.mjs";
 /** Actor flag marking a character this module created: `{ draftId, userId, rules, schema, createdAt }`. */
 export const CREATED_FLAG = "created";
 
-/** The Actor folder for new characters (the setting), created if missing; null for no folder. */
+/**
+ * The Actor folder for new characters (the setting), created if missing; null for no folder.
+ *
+ * A folder of that name already in the world is used wherever it sits, so a GM who has tidied it inside
+ * another folder doesn't end up with a second one at the top (PLAN 4.4). The top-level one wins when there
+ * are several.
+ */
 export async function ensureFolder(name) {
-  if ( !name ) return null;
-  const existing = game.folders.find(f => f.type === "Actor" && f.name === name && !f.folder);
-  return existing ?? foundry.utils.getDocumentClass("Folder").create({ name, type: "Actor" });
+  const wanted = String(name ?? "").trim();
+  if ( !wanted ) return null;
+  const matches = game.folders.filter(f => (f.type === "Actor") && (f.name === wanted));
+  const existing = matches.find(f => !f.folder) ?? matches[0];
+  return existing ?? foundry.utils.getDocumentClass("Folder").create({ name: wanted, type: "Actor" });
 }
 
 /** The flag data of an actor this module created, or null. */

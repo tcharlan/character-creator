@@ -904,3 +904,6 @@ li.notification button.cc-entry-prompt {
 .cc-upload__name { margin: 0; font-family: var(--cc-display); font-size: 22px; }
 .cc-upload .cc-ring-colors { justify-content: center; }
 .cc-upload__footer { display: flex; justify-content: flex-end; gap: 8px; width: 100%; padding-top: 6px; border-top: 1px solid var(--cc-line); }
+
+/* How many characters a player may make (PLAN 4.4). */
+.cc-start__limit { margin: 0; font-size: 14px; color: var(--cc-muted); }

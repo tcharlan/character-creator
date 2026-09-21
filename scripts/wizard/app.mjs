@@ -28,6 +28,7 @@ import { preparePortrait } from "../portrait/prepare.mjs";
 import { reviewModel } from "./review-step.mjs";
 import { submitDraft } from "../gm/pending.mjs";
 import { createdFor } from "../gm/create.mjs";
+import { allowance } from "../ui/entry.mjs";
 import { rollAbilityScores } from "../rules/ability-roll.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
@@ -671,6 +672,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       problems: Object.entries(errorsByStep).map(([step, errors]) => ({ step, title: T(`Step.${step}.Title`),
         errors: errors.map(e => ({ ...e, message: game.i18n.localize(e.key) })) })),
       summary: this.#summary(),
+      characters: this.#allowance(),
       stepPartial: STEP_PARTIALS[this.#current] ?? null,
       rulesLabel: T(`Rules.${this.draft?.rules ?? "legacy"}`),
       resuming: this.#started(),
@@ -859,6 +861,15 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   /** What the engine knows so far, shown in each step's placeholder pane until PLAN 3.2–3.9 replace it. */
+  /** How many characters this player may make, and how many they have (A4, PLAN 4.4). */
+  #allowance() {
+    const made = createdFor(game.user.id).length;
+    const { limit, left, atLimit, unlimited } = allowance({ limit: readSettings().characterLimit, made });
+    return { limit, made, left, atLimit, unlimited,
+      // Only worth saying when there is a limit and the player is near it.
+      show: !unlimited && (made > 0) };
+  }
+
   #summary() {
     const v = this.#validation;
     const built = this.#build ?? v?.built;
