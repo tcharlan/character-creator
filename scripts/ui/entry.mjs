@@ -3,8 +3,8 @@
  * sidebar button and the first-login prompt, so both always say the same thing. Pure — `entry-ui.mjs` is the
  * Foundry side.
  *
- * The wizard is a player tool: only the GM's browser writes characters (D13), and a GM would be asking their own
- * browser to do it, so the entry points stay hidden for GMs. `module.api.openWizard()` is still there for them.
+ * GMs use the creator too (D29): their own characters, with no limit, kept until they give them to a player. A GM
+ * also sees what is waiting to be created, as a second button (`queue`).
  */
 
 /** What the button offers, in the order a draft moves through. */
@@ -27,20 +27,22 @@ const ICONS = Object.freeze({ create: "fa-solid fa-hat-wizard", continue: "fa-so
  *   icon: string }}  `hidden` says why there's no button ("gm" or "limit"); the labels are i18n keys.
  */
 export function entryState({ state = "none", created = 0, limit = null, isGM = false, waiting = 0 } = {}) {
-  const none = reason => ({ visible: false, kind: null, hidden: reason, label: "", tooltip: "", icon: "" });
-  // A GM doesn't make characters here, but they are the one who creates them: show what is waiting (PLAN 4.2).
-  if ( isGM ) {
-    return waiting > 0
-      ? { visible: true, kind: "queue", hidden: null, count: waiting, label: "CHARCREATOR.Entry.queue.Button",
-        tooltip: "CHARCREATOR.Entry.queue.Tooltip", icon: ICONS.queue }
-      : none("gm");
-  }
+  const none = reason => ({ visible: false, kind: null, hidden: reason, label: "", tooltip: "", icon: "", queue: null });
   const kind = KIND_BY_STATE[state] ?? "create";
+  // A GM makes characters of their own, with no limit (D29), and sees what players sent while no GM was online
+  // (PLAN 4.2) as a second button.
+  if ( isGM ) {
+    const queue = waiting > 0 ? { kind: "queue", count: waiting, label: "CHARCREATOR.Entry.queue.Button",
+      tooltip: "CHARCREATOR.Entry.queue.Tooltip", icon: ICONS.queue } : null;
+    return { visible: true, kind, hidden: null, label: `CHARCREATOR.Entry.${kind}.Button`,
+      tooltip: (kind === "create") ? "CHARCREATOR.Entry.create.TooltipGM" : `CHARCREATOR.Entry.${kind}.Tooltip`,
+      icon: ICONS[kind], queue };
+  }
   // At the limit there's nothing to start; a draft already under way is still shown, so it can be finished or
   // discarded rather than sitting there invisibly.
   if ( (kind === "create") && (limit !== null) && (created >= limit) ) return none("limit");
   return { visible: true, kind, hidden: null, label: `CHARCREATOR.Entry.${kind}.Button`,
-    tooltip: `CHARCREATOR.Entry.${kind}.Tooltip`, icon: ICONS[kind] };
+    tooltip: `CHARCREATOR.Entry.${kind}.Tooltip`, icon: ICONS[kind], queue: null };
 }
 
 /**
@@ -63,8 +65,13 @@ export function allowance({ limit = null, made = 0 } = {}) {
  * @param {{ showOnLogin?: boolean, hasCharacter?: boolean }} [options]
  * @returns {{ message: string, kind: string, permanent: boolean }|null}
  */
-export function loginPrompt(entry, { showOnLogin = true, hasCharacter = false } = {}) {
+export function loginPrompt(entry, { showOnLogin = true, hasCharacter = false, isGM = false } = {}) {
   if ( !entry?.visible ) return null;
+  // A GM is only told about what is waiting for them, never that they have no character.
+  if ( isGM ) {
+    return (entry.queue && showOnLogin)
+      ? { kind: "queue", message: "CHARCREATOR.Entry.queue.Prompt", permanent: true } : null;
+  }
   const result = (entry.kind === "waiting") || (entry.kind === "ready");
   if ( !result && (!showOnLogin || hasCharacter) ) return null;
   return { kind: entry.kind, message: `CHARCREATOR.Entry.${entry.kind}.Prompt`, permanent: entry.kind !== "waiting" };

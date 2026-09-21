@@ -28,6 +28,7 @@ import { preparePortrait } from "../portrait/prepare.mjs";
 import { reviewModel } from "./review-step.mjs";
 import { submitDraft } from "../gm/pending.mjs";
 import { createdFor } from "../gm/create.mjs";
+import { givablePlayers, giveAndTell, giveDialog } from "../gm/assign.mjs";
 import { allowance } from "../ui/entry.mjs";
 import { arrowKeys } from "../ui/keyboard.mjs";
 import { rollAbilityScores } from "../rules/ability-roll.mjs";
@@ -89,6 +90,10 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   // Set while a step holds its changes back (the ability scores): the rebuild happens when the player leaves.
   #deferred = false;
   #bonuses = {};
+  /** A GM's character: the player it goes to when created ("" = the GM keeps it; D29). */
+  #assignTo = "";
+  /** The player the created character went to, for the outcome. */
+  #givenTo = null;
   /** Fullscreen or a window (D28); null until set, when the options decide. */
   #mode = null;
   /** Fullscreen before a minimize, so restoring goes back to it. */
@@ -108,6 +113,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       next: onNext,
       discard: onDiscard,
       display: onDisplay,
+      give: onGive,
       begin: onBegin,
       pick: onPick,
       subclass: onSubclass,
@@ -536,6 +542,10 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
           d.portrait = { ...d.portrait, pendingImage: null };
           d.result = { actorUuid: result.actorUuid, errors: result.warnings ?? [] };
         }, { wait: true });
+        // A GM who chose a player at Review: give it to them now (D29).
+        const player = (game.user.isGM && this.#assignTo) ? game.users.get(this.#assignTo) : null;
+        const actor = player ? await fromUuid(result.actorUuid) : null;
+        if ( actor ) this.#givenTo = await giveAndTell(actor, player);
       } else if ( !result.ok ) {
         await this.update(d => {
           d.status = STATUS.FAILED;
@@ -561,7 +571,21 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
    * Start again on a new character, once this one is made and the GM's limit leaves room (A4). The finished
    * draft is let go first — the character itself is the record.
    */
+  /** A GM gives the character just made to a player, choosing whom (D29). */
+  async giveCreated() {
+    const uuid = this.draft?.result?.actorUuid;
+    const actor = uuid ? await fromUuid(uuid) : null;
+    if ( !actor ) return null;
+    const player = await giveDialog(actor);
+    if ( player ) {
+      this.#givenTo = player;
+      await this.render({ parts: ["body"] });
+    }
+    return player;
+  }
+
   async makeAnother() {
+    this.#givenTo = null;
     await this.#store.acknowledge();
     await this.#store.create();
     this.#current = "start";
@@ -753,11 +777,19 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     if ( this.#current === "review" ) {
       const equipment = { items: (this.#validation?.equipment?.items ?? []).map(i => ({
         ...i, name: this.#catalog?.get(i.uuid)?.name ?? i.uuid })), currency: this.#validation?.equipment?.currency ?? {} };
-      const limit = readSettings().characterLimit;
+      const limit = game.user.isGM ? null : readSettings().characterLimit;
       const made = createdFor(game.user.id).length;
       const model = reviewModel({ built: this.#build, validation: this.#validation, draft: this.draft, equipment,
         busy: this.#submitting, another: (limit === null) || (made < limit) });
-      return { review: { ...model,
+      // A GM chooses who the character is for, or keeps it (D29).
+      const gm = game.user.isGM ? {
+        players: givablePlayers().map(u => ({ id: u.id, name: u.name, selected: u.id === this.#assignTo })),
+        keep: !this.#assignTo,
+        givenTo: this.#givenTo?.name ?? null,
+        givenText: this.#givenTo ? T("Review.GivenTo", { name: this.#givenTo.name }) : null,
+        canGive: !this.#givenTo && (givablePlayers().length > 0)
+      } : null;
+      return { gm, review: { ...model,
         skillsText: model.summary?.skills.join(", ") || "—",
         featuresText: model.summary?.features.join(", ") || "—",
         equipmentText: [model.summary?.equipment.map(i => i.count ? `${i.name} ×${i.count}` : i.name).join(", "),
@@ -842,6 +874,8 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     for ( const box of this.element.querySelectorAll(".cc-toggle") ) {
       box.addEventListener("change", event => this.answer({ action: event.target.dataset.toggle, value: event.target.dataset.key }));
     }
+    // A GM's "who is it for" at Review: remembered here, sent nowhere until Create (D29).
+    this.element.querySelector(".cc-assign-to")?.addEventListener("change", event => this.#assignTo = event.target.value);
     const file = this.element.querySelector(".cc-file__input");
     if ( file ) file.addEventListener("change", event => this.choosePortrait(event.target.files?.[0]));
     for ( const color of this.element.querySelectorAll(".cc-color") ) {
@@ -924,7 +958,8 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   /** How many characters this player may make, and how many they have (A4, PLAN 4.4). */
   #allowance() {
     const made = createdFor(game.user.id).length;
-    const { limit, left, atLimit, unlimited } = allowance({ limit: readSettings().characterLimit, made });
+    // A GM's characters have no limit (D29).
+    const { limit, left, atLimit, unlimited } = allowance({ limit: game.user.isGM ? null : readSettings().characterLimit, made });
     return { limit, made, left, atLimit, unlimited,
       // Only worth saying when there is a limit and the player is near it.
       show: !unlimited && (made > 0) };
@@ -1218,6 +1253,11 @@ function onNext() {
 /** The header button: fullscreen ↔ window. */
 function onDisplay() {
   return this.setDisplay(this.displayMode === "fullscreen" ? "window" : "fullscreen");
+}
+
+/** Review, for a GM: give the character just made to a player. */
+function onGive() {
+  return this.giveCreated();
 }
 
 async function onDiscard() {

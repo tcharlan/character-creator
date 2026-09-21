@@ -32,6 +32,8 @@ const draftPath = `flags.${MODULE_ID}.${DRAFT_FLAG}`;
  */
 export async function submitDraft(draft, { image = null, timeout = 30_000 } = {}) {
   const gm = game.users.activeGM;
+  // The active GM's own character (D29): no need to ask their own browser over the network.
+  if ( gm?.isSelf ) return submitFor({ draft: { ...draft, portrait: { ...draft.portrait, pendingImage: null } }, image }, game.user);
   if ( gm ) {
     try {
       return await gm.query(QUERIES.SUBMIT, { draft: { ...draft, portrait: { ...draft.portrait, pendingImage: null } }, image },

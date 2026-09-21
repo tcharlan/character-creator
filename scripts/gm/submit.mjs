@@ -55,13 +55,14 @@ async function submit({ draft, image = null }, user, overrides = {}) {
   if ( existing ) return { ok: true, actorUuid: existing.uuid, duplicate: true, warnings: [] };
 
   const catalog = await getCatalog({ user });
+  // The character limit is for players; a GM's characters are theirs to give away (D29).
   const validated = await validateDraft(draft, { catalog, userId: user.id, allowedMethods, image,
-    characters: { limit: characterLimit, existing: createdFor(user.id).length } });
+    characters: { limit: user.isGM ? null : characterLimit, existing: createdFor(user.id).length } });
   if ( !validated.ok ) return fail(validated.errors, { byStep: validated.byStep });
 
   const actor = await createCharacter(validated, { user, catalog, folderName: settings.folderName });
   const warnings = [];
-  if ( !user.character ) await user.update({ character: actor.id });
+  if ( !user.character && !user.isGM ) await user.update({ character: actor.id });
   if ( image && !settings.portraits.enabled ) warnings.push(makeError("UPLOADS_DISABLED"));
   else if ( image ) {
     const saved = await savePortrait(actor, image, draft.portrait?.ring, user, { ringDefaults: settings.ringColors });

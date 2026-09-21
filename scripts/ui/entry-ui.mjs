@@ -27,18 +27,22 @@ export function currentEntry() {
 export function renderEntryButton(root) {
   const actions = root?.querySelector(".directory-header .header-actions");
   if ( !actions ) return null;
-  actions.querySelector(".cc-entry")?.remove();
+  for ( const old of actions.querySelectorAll(".cc-entry") ) old.remove();
   const entry = currentEntry();
   if ( !entry.visible ) return null;
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = `cc-entry cc-entry--${entry.kind}`;
-  button.dataset.tooltip = T(entry.tooltip);
-  button.innerHTML = `<i class="${entry.icon}" inert></i><span></span>`;
-  button.querySelector("span").textContent = entry.count
-    ? game.i18n.format(entry.label, { count: entry.count }) : T(entry.label);
-  // The GM's button opens what is waiting; the player's opens their own character.
-  button.addEventListener("click", () => (entry.kind === "queue" ? PendingApp.open() : openWizard()));
+  const make = ({ kind, label, tooltip, icon, count }, onClick) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `cc-entry cc-entry--${kind}`;
+    button.dataset.tooltip = T(tooltip);
+    button.innerHTML = `<i class="${icon}" inert></i><span></span>`;
+    button.querySelector("span").textContent = count ? game.i18n.format(label, { count }) : T(label);
+    button.addEventListener("click", onClick);
+    return button;
+  };
+  // Their own character; and for a GM, what players sent while no GM was online.
+  const button = make(entry, () => openWizard());
+  if ( entry.queue ) actions.prepend(make(entry.queue, () => PendingApp.open()));
   actions.prepend(button);
   return button;
 }
@@ -76,11 +80,14 @@ export function refreshEntryPoints() {
 /** The prompt, once per session: a notification carrying the same button. Exported for the Quench batch. */
 export function promptOnLogin() {
   const entry = currentEntry();
-  const prompt = loginPrompt(entry, { showOnLogin: readSettings().showOnLogin, hasCharacter: !!game.user.character });
+  const prompt = loginPrompt(entry, { showOnLogin: readSettings().showOnLogin, hasCharacter: !!game.user.character,
+    isGM: game.user.isGM });
   if ( !prompt ) return null;
-  const label = foundry.utils.escapeHTML(T(entry.label));
+  const offered = prompt.kind === "queue" ? entry.queue : entry;
+  const label = foundry.utils.escapeHTML(offered.count ? game.i18n.format(offered.label, { count: offered.count })
+    : T(offered.label));
   const message = `${foundry.utils.escapeHTML(T(prompt.message))} `
-    + `<button type="button" class="cc-entry-prompt" data-cc-entry>${label}</button>`;
+    + `<button type="button" class="cc-entry-prompt" data-cc-entry="${prompt.kind}">${label}</button>`;
   // Our own markup, from lang/en.json: nothing here comes from a player, so it isn't escaped away again.
   return ui.notifications?.info(message, { escape: false, clean: false, permanent: prompt.permanent, console: false });
 }
@@ -101,7 +108,8 @@ export function registerEntryPoints() {
   });
   // The notification is removed by its own click handler; this one does the opening.
   document.getElementById("notifications")?.addEventListener("click", event => {
-    if ( event.target.closest("[data-cc-entry]") ) openWizard();
+    const offered = event.target.closest("[data-cc-entry]");
+    if ( offered ) return offered.dataset.ccEntry === "queue" ? PendingApp.open() : openWizard();
   });
   // A character that already exists can be given a picture too (PLAN 4.3, A5).
   registerSheetEntry();

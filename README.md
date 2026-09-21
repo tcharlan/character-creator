@@ -65,6 +65,14 @@ ability scores are allowed (point buy, standard array, rolled).
 | Largest portrait file (MB) | The largest image a player may choose; it is resized to 1024 px before it's sent. |
 | Default token ring colors | Used when a player doesn't choose ring colours. Unset means the player's user colour. |
 
+### Characters of your own
+
+GMs can use the creator too: **Create a character** is on the Actors tab for you as well. Your characters are
+checked against your allowed content like a player's, but the character limit doesn't apply to you. At Review,
+choose who the character is for — keep it for now, or pick a player. To give one away later, right-click it in the
+Actors tab and choose **Give to a player…**: the player becomes its owner, and if they have no character yet, it
+becomes theirs.
+
 ### Pending characters
 
 Characters sent while no GM was online wait for one. When you log in they are created automatically; the

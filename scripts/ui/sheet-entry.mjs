@@ -7,6 +7,7 @@
 import { MODULE_ID } from "../contracts.mjs";
 import { readSettings } from "../settings/settings.mjs";
 import { PortraitApp } from "../portrait/portrait-app.mjs";
+import { canGive, giveDialog } from "../gm/assign.mjs";
 
 const T = key => game.i18n.localize(`CHARCREATOR.${key}`);
 
@@ -42,6 +43,16 @@ export function registerSheetEntry() {
       visible: li => canUploadFor(actorFrom(directory, li)),
       callback: li => PortraitApp.open(actorFrom(directory, li)),
       onClick: li => PortraitApp.open(actorFrom(directory, li))
+    });
+    // A GM's characters are theirs until they give them to a player (D29).
+    options.push({
+      name: T("Assign.Menu"),
+      label: T("Assign.Menu"),
+      icon: '<i class="fa-solid fa-user-plus"></i>',
+      condition: li => canGive(actorFrom(directory, li)),
+      visible: li => canGive(actorFrom(directory, li)),
+      callback: li => giveDialog(actorFrom(directory, li)),
+      onClick: li => giveDialog(actorFrom(directory, li))
     });
   });
 }

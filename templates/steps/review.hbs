@@ -11,13 +11,21 @@
       {{/if}}
 
       {{#if (eq review.outcome.kind "created")}}
+      {{#if gm}}
+      <h1 class="cc-pane__title">{{localize "CHARCREATOR.Review.CreatedTitleGM"}}</h1>
+      <p class="cc-pane__hint">{{#if gm.givenTo}}{{gm.givenText}}{{else}}{{localize "CHARCREATOR.Review.CreatedBodyGM"}}{{/if}}</p>
+      {{else}}
       <h1 class="cc-pane__title">{{localize "CHARCREATOR.Review.CreatedTitle"}}</h1>
       <p class="cc-pane__hint">{{localize "CHARCREATOR.Review.CreatedBody"}}</p>
+      {{/if}}
       {{#if review.outcome.warnings.length}}
       <ul class="cc-problems">{{#each review.outcome.warnings as |w|}}<li class="cc-problem">{{localize w}}</li>{{/each}}</ul>
       {{/if}}
       <div class="cc-portrait-controls">
         <button type="button" class="cc-button cc-button--primary" data-action="open-sheet">{{localize "CHARCREATOR.Review.OpenSheet"}}</button>
+        {{#if gm.canGive}}
+        <button type="button" class="cc-button" data-action="give">{{localize "CHARCREATOR.Assign.Menu"}}</button>
+        {{/if}}
         {{#if review.another}}
         <button type="button" class="cc-button" data-action="another">{{localize "CHARCREATOR.Review.Another"}}</button>
         {{/if}}
@@ -105,11 +113,20 @@
     </div>
     {{/if}}
 
+    {{#if gm}}
+    <label class="cc-assign">
+      <span class="cc-section-title">{{localize "CHARCREATOR.Review.For"}}</span>
+      <select class="cc-assign-to">
+        <option value="" {{#if gm.keep}}selected{{/if}}>{{localize "CHARCREATOR.Review.ForMe"}}</option>
+        {{#each gm.players as |p|}}<option value="{{p.id}}" {{#if p.selected}}selected{{/if}}>{{p.name}}</option>{{/each}}
+      </select>
+    </label>
+    {{/if}}
     <button type="button" class="cc-button cc-button--primary cc-create" data-action="create"
             {{#unless review.ready}}disabled{{/unless}} {{#if review.busy}}disabled{{/if}}>
       {{#if review.busy}}{{localize "CHARCREATOR.Review.Creating"}}{{else}}{{localize "CHARCREATOR.Review.Create"}}{{/if}}
     </button>
-    <p class="cc-hint">{{localize "CHARCREATOR.Review.CreateHint"}}</p>
+    <p class="cc-hint">{{#if gm}}{{localize "CHARCREATOR.Review.CreateHintGM"}}{{else}}{{localize "CHARCREATOR.Review.CreateHint"}}{{/if}}</p>
     {{/unless}}
   </aside>
 </div>

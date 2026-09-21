@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- GMs can use the creator for characters of their own (no character limit), and give them to a player at Review or
+  later with **Give to a player…** (on the finished screen, or right-click the character in the Actors tab).
+
 ## 0.2.2
 
 - Fixed: in worlds with older or imported items, the Allowed content screen (and the character creator) could fail to

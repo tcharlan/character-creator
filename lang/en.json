@@ -209,7 +209,8 @@
       "create": {
         "Button": "Create a character",
         "Tooltip": "Build a level 1 character with your GM's content.",
-        "Prompt": "You don't have a character yet."
+        "Prompt": "You don't have a character yet.",
+        "TooltipGM": "Build a level 1 character yourself — keep it, or give it to a player now or later."
       },
       "continue": {
         "Button": "Continue your character",
@@ -428,7 +429,13 @@
       "Fix": "Back to fixing",
       "Close": "Close",
       "Another": "Make another character",
-      "NoMore": "That's all the characters your GM allows. Ask them if you need another."
+      "NoMore": "That's all the characters your GM allows. Ask them if you need another.",
+      "For": "Who is it for?",
+      "ForMe": "Me — I'll give it to a player later",
+      "CreateHintGM": "Checked against your allowed content like a player's character. Your characters have no limit.",
+      "CreatedTitleGM": "The character is ready",
+      "CreatedBodyGM": "It's yours. Give it to a player whenever you like — here, or by right-clicking it in the Actors tab.",
+      "GivenTo": "It's been created and given to {name}."
     },
     "Restrictions": {
       "Title": "Allowed content",
@@ -504,6 +511,16 @@
     "Display": {
       "ToWindow": "Switch to a window",
       "ToFullscreen": "Switch to fullscreen"
+    },
+    "Assign": {
+      "Menu": "Give to a player…",
+      "Title": "Give to a player",
+      "Label": "Player",
+      "Hint": "They become its owner, and if they don't have a character yet, it becomes theirs.",
+      "Confirm": "Give",
+      "Done": "{actor} now belongs to {name}.",
+      "Failed": "{actor} couldn't be given to {name}. The console (F12) says why.",
+      "NoPlayers": "There are no players in this world to give it to."
     }
   }
 }
