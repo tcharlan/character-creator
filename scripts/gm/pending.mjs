@@ -98,6 +98,30 @@ async function processOne(user, draft) {
   return next.status;
 }
 
+/**
+ * Create one player's waiting build now (the panel's "Create now", PLAN 4.2). Returns what happened, or
+ * null when that player has nothing waiting.
+ */
+export async function processFor(user) {
+  if ( !isActiveGM() ) return null;
+  const draft = user?.getFlag(MODULE_ID, DRAFT_FLAG) ?? null;
+  if ( draft?.status !== STATUS.SUBMITTED ) return null;
+  return processOne(user, draft);
+}
+
+/**
+ * Put a refused build back in the queue, for a GM who has fixed whatever refused it. The processor picks it
+ * up from the draft change, exactly as it would a fresh submission.
+ */
+export async function retryFor(user) {
+  if ( !isActiveGM() ) return null;
+  const draft = user?.getFlag(MODULE_ID, DRAFT_FLAG) ?? null;
+  if ( draft?.status !== STATUS.FAILED ) return null;
+  await writeDraft(user, { ...draft, status: STATUS.SUBMITTED, updatedAt: Date.now(),
+    result: { actorUuid: null, errors: [] } });
+  return processPending();
+}
+
 /** Run the processor on ready, when a draft changes, and when a user disconnects (a new active GM). */
 export function registerPendingProcessor() {
   Hooks.once("ready", () => processPending());

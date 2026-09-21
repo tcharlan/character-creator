@@ -201,6 +201,11 @@
         "Button": "Your character is ready",
         "Tooltip": "Open the character your GM created.",
         "Prompt": "Your GM created your character."
+      },
+      "queue": {
+        "Button": "{count} waiting to be created",
+        "Tooltip": "Characters your players sent while no GM was online, and any the creator refused.",
+        "Prompt": "Characters are waiting to be created."
       }
     },
     "Discard": {
@@ -429,6 +434,26 @@
         "OnlyOne": "Only one of the {category} is allowed, so the creator chooses it for the player.",
         "OneMethod": "Only one way of setting ability scores is allowed, so the creator uses it."
       }
+    },
+    "Pending": {
+      "Title": "Pending characters",
+      "MenuName": "Pending characters",
+      "MenuLabel": "See what is waiting",
+      "MenuHint": "Characters players sent while no GM was online, and any the creator refused, with the reasons.",
+      "Heading": "Waiting to be created",
+      "GMOnly": "Only a GM can create a waiting character.",
+      "Nothing": "Nothing is waiting.",
+      "NothingHint": "Characters sent while no GM is online wait here, as do any the creator refused.",
+      "Waiting": "Waiting:",
+      "Refused": "refused:",
+      "BadgeWaiting": "Waiting",
+      "BadgeRefused": "Refused",
+      "WithPortrait": "with a portrait to save",
+      "Unnamed": "(no name yet)",
+      "CreateNow": "Create now",
+      "Creating": "Creating…",
+      "CreateAll": "Create all waiting",
+      "TryAgain": "Try again"
     }
   }
 }

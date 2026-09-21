@@ -864,3 +864,35 @@ li.notification button.cc-entry-prompt {
 .cc-problem--note { color: var(--cc-muted); }
 .cc-problem--problem { color: var(--cc-bad); }
 .cc-restrict__buttons { display: flex; gap: 8px; }
+
+/* ---------------------------------------------- */
+/*  Pending characters (PLAN 4.2)                 */
+/* ---------------------------------------------- */
+
+.cc-pending .window-content { padding: 0; background: var(--cc-ground); color: var(--cc-text); font-family: var(--cc-body); }
+.cc-pending__body { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.cc-pending__head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 18px; border-bottom: 1px solid var(--cc-line); }
+.cc-pending__head h2 { margin: 0; font-family: var(--cc-display); font-size: 22px; }
+.cc-queue { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 16px 18px; list-style: none; }
+.cc-queue__row {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr auto;
+  align-items: start;
+  gap: 14px;
+  padding: 12px 14px;
+  background: var(--cc-panel);
+  border: 1px solid var(--cc-line-soft);
+  border-radius: var(--cc-radius);
+}
+.cc-queue__row--failed { border-color: var(--cc-bad); }
+.cc-queue__who { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cc-queue__player { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--cc-faint); }
+.cc-queue__character { font-family: var(--cc-display); font-size: 18px; }
+.cc-queue__picks { font-size: 13px; color: var(--cc-muted); }
+.cc-queue__state { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.cc-queue__badge { align-self: flex-start; padding: 2px 8px; border-radius: 999px; font-size: 12px; letter-spacing: 0.06em; }
+.cc-queue__badge--waiting { background: var(--cc-gold-dim); color: var(--cc-gold); }
+.cc-queue__badge--failed { background: rgba(226, 125, 109, 0.15); color: var(--cc-bad); }
+.cc-queue__note { font-size: 12px; color: var(--cc-faint); }
+.cc-queue__step { color: var(--cc-faint); }
+.cc-queue__actions { display: flex; flex-direction: column; gap: 6px; }

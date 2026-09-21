@@ -7,6 +7,7 @@
 import { MODULE_ID } from "../contracts.mjs";
 import { SETTINGS, DEFAULTS, UPLOAD_MB_RANGE, normalizeSettings } from "./normalize.mjs";
 import { registerRestrictionsApp } from "./restrictions-app.mjs";
+import { registerPendingApp } from "../gm/pending-app.mjs";
 
 export { SETTINGS };
 
@@ -27,6 +28,7 @@ export function registerSettings() {
   world(SETTINGS.RING_COLORS, { type: Object, config: false, default: { ring: null, background: null } });
   // The objects above are edited on their own screen (PLAN 4.1), which the settings window links to.
   registerRestrictionsApp();
+  registerPendingApp();
 }
 
 /** The module's settings, normalised (see normalize.mjs). */

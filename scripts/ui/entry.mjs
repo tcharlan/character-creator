@@ -14,7 +14,7 @@ export const ENTRY_KINDS = Object.freeze(["create", "continue", "waiting", "read
 const KIND_BY_STATE = Object.freeze({ editable: "continue", submitted: "waiting", created: "ready" });
 
 const ICONS = Object.freeze({ create: "fa-solid fa-hat-wizard", continue: "fa-solid fa-pen-fancy",
-  waiting: "fa-solid fa-hourglass-half", ready: "fa-solid fa-star" });
+  waiting: "fa-solid fa-hourglass-half", ready: "fa-solid fa-star", queue: "fa-solid fa-hourglass-half" });
 
 /**
  * What the Actors sidebar should show this user.
@@ -26,9 +26,15 @@ const ICONS = Object.freeze({ create: "fa-solid fa-hat-wizard", continue: "fa-so
  * @returns {{ visible: boolean, kind: string|null, hidden: string|null, label: string, tooltip: string,
  *   icon: string }}  `hidden` says why there's no button ("gm" or "limit"); the labels are i18n keys.
  */
-export function entryState({ state = "none", created = 0, limit = null, isGM = false } = {}) {
+export function entryState({ state = "none", created = 0, limit = null, isGM = false, waiting = 0 } = {}) {
   const none = reason => ({ visible: false, kind: null, hidden: reason, label: "", tooltip: "", icon: "" });
-  if ( isGM ) return none("gm");
+  // A GM doesn't make characters here, but they are the one who creates them: show what is waiting (PLAN 4.2).
+  if ( isGM ) {
+    return waiting > 0
+      ? { visible: true, kind: "queue", hidden: null, count: waiting, label: "CHARCREATOR.Entry.queue.Button",
+        tooltip: "CHARCREATOR.Entry.queue.Tooltip", icon: ICONS.queue }
+      : none("gm");
+  }
   const kind = KIND_BY_STATE[state] ?? "create";
   // At the limit there's nothing to start; a draft already under way is still shown, so it can be finished or
   // discarded rather than sitting there invisibly.

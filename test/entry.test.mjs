@@ -53,3 +53,12 @@ test("every label the entry points use is in lang/en.json", async () => {
   }
   assert.equal(typeof at("CHARCREATOR.Notify.CreatedGone"), "string");
 });
+
+test("a GM sees what is waiting to be created, and nothing when the queue is empty", () => {
+  assert.equal(entryState({ state: "none", isGM: true, waiting: 0 }).hidden, "gm");
+  const queue = entryState({ state: "none", isGM: true, waiting: 3 });
+  assert.deepEqual([queue.visible, queue.kind, queue.count], [true, "queue", 3]);
+  assert.equal(queue.label, "CHARCREATOR.Entry.queue.Button");
+  assert.equal(entryState({ state: "editable", isGM: true, waiting: 2 }).kind, "queue",
+    "a GM's own half-written draft is still not offered here");
+});

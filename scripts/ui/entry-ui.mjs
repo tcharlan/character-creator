@@ -8,6 +8,7 @@ import { draftState } from "../draft/state.mjs";
 import { createdFor } from "../gm/create.mjs";
 import { readSettings } from "../settings/settings.mjs";
 import { CharacterWizard } from "../wizard/app.mjs";
+import { PendingApp, currentQueue } from "../gm/pending-app.mjs";
 import { entryState, loginPrompt } from "./entry.mjs";
 
 const T = key => game.i18n.localize(key);
@@ -16,8 +17,9 @@ const T = key => game.i18n.localize(key);
 export function currentEntry() {
   const world = { worldId: game.world.id, rules: game.settings.get("dnd5e", "rulesVersion") };
   const { state } = draftState(game.user.getFlag(MODULE_ID, DRAFT_FLAG), world);
+  const waiting = game.user.isGM ? currentQueue().length : 0;
   return entryState({ state, created: createdFor(game.user.id).length, limit: readSettings().characterLimit,
-    isGM: game.user.isGM });
+    isGM: game.user.isGM, waiting });
 }
 
 /** Put the button in (or take it out of) one rendered Actors directory. */
@@ -32,8 +34,10 @@ export function renderEntryButton(root) {
   button.className = `cc-entry cc-entry--${entry.kind}`;
   button.dataset.tooltip = T(entry.tooltip);
   button.innerHTML = `<i class="${entry.icon}" inert></i><span></span>`;
-  button.querySelector("span").textContent = T(entry.label);
-  button.addEventListener("click", () => openWizard());
+  button.querySelector("span").textContent = entry.count
+    ? game.i18n.format(entry.label, { count: entry.count }) : T(entry.label);
+  // The GM's button opens what is waiting; the player's opens their own character.
+  button.addEventListener("click", () => (entry.kind === "queue" ? PendingApp.open() : openWizard()));
   actions.prepend(button);
   return button;
 }

@@ -1,0 +1,64 @@
+{{!-- Pending characters (PLAN 4.2): builds waiting for a GM, and builds the validator refused. --}}
+<div class="cc-pending__body">
+  <header class="cc-pending__head">
+    <div>
+      <h2>{{localize "CHARCREATOR.Pending.Heading"}}</h2>
+      <p class="cc-hint">
+        {{#if empty}}{{localize "CHARCREATOR.Pending.Nothing"}}
+        {{else}}{{localize "CHARCREATOR.Pending.Waiting"}} {{counts.waiting}} ·
+        {{localize "CHARCREATOR.Pending.Refused"}} {{counts.failed}}
+        {{/if}}
+      </p>
+    </div>
+    {{#if counts.waiting}}
+    <button type="button" class="cc-button cc-button--primary" data-action="all" {{#if busy}}disabled{{/if}}>
+      {{localize "CHARCREATOR.Pending.CreateAll"}}
+    </button>
+    {{/if}}
+  </header>
+
+  <ul class="cc-queue">
+    {{#each rows as |r|}}
+    <li class="cc-queue__row cc-queue__row--{{r.kind}}">
+      <div class="cc-queue__who">
+        <span class="cc-queue__player">{{r.player}}</span>
+        <span class="cc-queue__character">{{#if r.character}}{{r.character}}{{else}}{{localize "CHARCREATOR.Pending.Unnamed"}}{{/if}}</span>
+        {{#if r.picksText}}<span class="cc-queue__picks">{{r.picksText}}</span>{{/if}}
+      </div>
+
+      <div class="cc-queue__state">
+        {{#if (eq r.kind "waiting")}}
+        <span class="cc-queue__badge cc-queue__badge--waiting">{{localize "CHARCREATOR.Pending.BadgeWaiting"}}</span>
+        {{#if r.hasPortrait}}<span class="cc-queue__note">{{localize "CHARCREATOR.Pending.WithPortrait"}}</span>{{/if}}
+        {{else}}
+        <span class="cc-queue__badge cc-queue__badge--failed">{{localize "CHARCREATOR.Pending.BadgeRefused"}}</span>
+        <ul class="cc-problems">
+          {{#each r.errors as |e|}}
+          <li class="cc-problem">{{e.message}}{{#if e.stepLabel}} <span class="cc-queue__step">({{e.stepLabel}})</span>{{/if}}</li>
+          {{/each}}
+        </ul>
+        {{/if}}
+      </div>
+
+      <div class="cc-queue__actions">
+        {{#if r.canCreate}}
+        <button type="button" class="cc-button cc-button--primary" data-action="create" data-user="{{r.userId}}"
+                {{#if ../busy}}disabled{{/if}}>
+          {{#if r.busy}}{{localize "CHARCREATOR.Pending.Creating"}}{{else}}{{localize "CHARCREATOR.Pending.CreateNow"}}{{/if}}
+        </button>
+        {{/if}}
+        {{#if r.canRetry}}
+        <button type="button" class="cc-button" data-action="retry" data-user="{{r.userId}}"
+                {{#if ../busy}}disabled{{/if}}>
+          {{localize "CHARCREATOR.Pending.TryAgain"}}
+        </button>
+        {{/if}}
+      </div>
+    </li>
+    {{/each}}
+
+    {{#if empty}}
+    <li class="cc-empty">{{localize "CHARCREATOR.Pending.NothingHint"}}</li>
+    {{/if}}
+  </ul>
+</div>
