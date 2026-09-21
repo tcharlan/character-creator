@@ -4,6 +4,7 @@
  *   npm run test:foundry                       both test worlds, as Player A
  *   npm run test:foundry -- --world modern-test
  *   npm run test:foundry -- --batch pending    only batches whose key contains this text
+ *   CC_PLAYER / CC_GM name the users to join as; CC_PLAYER_PASSWORD / CC_GM_PASSWORD for a world that has them.
  *   Batches with ".heavy." in their key (e.g. building a book-sized world) run only when --batch names them.
  *
  * For each world it: starts the dev server if needed, switches worlds through Foundry's own setup
@@ -29,6 +30,8 @@ const BASE = new URL(process.env.FOUNDRY_URL ?? "http://localhost:30001");
 const DATA = process.env.FOUNDRY_DATA ?? join(homedir(), "FoundryDev");
 const PLAYER = process.env.CC_PLAYER ?? "Player A";
 const GM = process.env.CC_GM ?? "Gamemaster";
+/** Passwords, for a world whose users have them (a staging copy, docs/STAGING.md). Never stored. */
+const PASSWORDS = { [PLAYER]: process.env.CC_PLAYER_PASSWORD ?? "", [process.env.CC_GM ?? "Gamemaster"]: process.env.CC_GM_PASSWORD ?? "" };
 const WORLDS = ["legacy-test", "modern-test"];
 const MODULE_ID = "character-creator";
 
@@ -159,6 +162,7 @@ async function joinAs(browser, userName) {
     throw new Error(`"${userName}" is already connected — close that session (e.g. your browser tab) and retry`);
   }
   await page.selectOption('select[name="userid"]', { label: userName });
+  if ( PASSWORDS[userName] ) await page.fill('input[name="password"]', PASSWORDS[userName]);
   await Promise.all([
     page.waitForURL(/\/game/, { timeout: 30_000 }).catch(() => null),
     page.click('button[name="join"]')
