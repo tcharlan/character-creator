@@ -187,3 +187,13 @@ test("an answer is shown before the replay, and counted as done without one", ()
   assert.equal(model.counts.done, 1);
   assert.equal(withAnswer(null, "a", {}), null);
 });
+
+test("an advancement this module has no widget for needs attention, not a tick", () => {
+  const built = { results: [result({ status: "blocked", type: "Nonsense", item: "Homebrew Thing",
+    errors: [{ key: "CHARCREATOR.Error.UNKNOWN_ADVANCEMENT_TYPE" }] })] };
+  const model = choicesModel(built, catalog);
+  assert.equal(model.counts.invalid, 1);
+  assert.equal(model.counts.done, 0, "it is certainly not done");
+  assert.equal(model.open.widget, null, "no widget for it");
+  assert.deepEqual(model.open.errors, ["CHARCREATOR.Error.UNKNOWN_ADVANCEMENT_TYPE"]);
+});

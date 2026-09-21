@@ -134,7 +134,9 @@ export function choicesModel(built, catalog, openKey = null) {
       errors: (r.errors ?? []).map(e => e.key),
       automatic: r.status === "auto",
       needsInput: r.status === "needsInput",
-      invalid: r.status === "invalid"
+      // "blocked" is an advancement this module has no widget for (homebrew, PLAN 5.1): it needs attention
+      // just as much as a broken answer, and the player is told which item it came from.
+      invalid: (r.status === "invalid") || (r.status === "blocked")
     };
   });
 
