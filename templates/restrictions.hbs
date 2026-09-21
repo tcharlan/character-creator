@@ -43,13 +43,25 @@
 
     <ul class="cc-list">
       {{#each category.entries as |e|}}
-      <li>
+      <li class="cc-entry-row">
         <button type="button" class="cc-entry{{#if e.allowed}} cc-entry--allowed{{/if}}" data-action="entry"
                 data-category="{{../category.key}}" data-uuid="{{e.uuid}}" aria-pressed="{{e.allowed}}">
           {{#if e.img}}<img src="{{e.img}}" alt="">{{/if}}
           <span class="cc-entry__name">{{e.name}}</span>
           <span class="cc-entry__pack">{{e.pack}}</span>
         </button>
+        <button type="button" class="cc-entry__art{{#if e.art}} cc-entry__art--own{{/if}}" data-action="art"
+                data-uuid="{{e.uuid}}" data-art="{{e.art}}"
+                data-tooltip="{{e.artTooltip}}" aria-label="{{e.artTooltip}}">
+          <i class="fa-solid fa-image" inert></i>
+        </button>
+        {{#if e.art}}
+        <button type="button" class="cc-entry__art" data-action="art-clear" data-uuid="{{e.uuid}}"
+                data-tooltip="{{localize 'CHARCREATOR.Restrictions.ArtClear'}}"
+                aria-label="{{localize 'CHARCREATOR.Restrictions.ArtClear'}}">
+          <i class="fa-solid fa-xmark" inert></i>
+        </button>
+        {{/if}}
       </li>
       {{/each}}
       {{#unless category.entries.length}}

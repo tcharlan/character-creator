@@ -22,11 +22,28 @@ const list = value => (Array.isArray(value) ? value.map(normalizeUuid) : null);
  * @param {object} restrictions   From the setting (normalised).
  * @param {string[]} abilityMethods
  */
-export function editorState(restrictions, abilityMethods) {
+export function editorState(restrictions, abilityMethods, art = {}) {
   const categories = {};
   for ( const category of CATEGORIES ) categories[category] = list(restrictions?.categories?.[category]);
-  return { packs: list(restrictions?.packs), categories,
+  const pictures = {};
+  for ( const [uuid, path] of Object.entries(art ?? {}) ) pictures[normalizeUuid(uuid)] = path;
+  return { packs: list(restrictions?.packs), categories, art: pictures,
     abilityMethods: ABILITY_METHODS.filter(m => (abilityMethods ?? ABILITY_METHODS).includes(m)) };
+}
+
+/** The GM's own picture for one option (D24); an empty path takes it off again. */
+export function setArt(state, uuid, path) {
+  const key = normalizeUuid(uuid);
+  const next = { ...state.art };
+  if ( path ) next[key] = path;
+  else delete next[key];
+  state.art = next;
+  return state;
+}
+
+/** The pictures to store: what the GM set, and nothing else. */
+export function toStoredArt(state) {
+  return { ...(state?.art ?? {}) };
 }
 
 /** What to store: categories left at "all" are dropped, so nothing is written for an unrestricted world. */
@@ -154,8 +171,11 @@ export function restrictionsModel({ state, everything, packs, tab, search = "" }
       allowed: all.filter(e => isEntryAllowed(state, open, e.uuid)).length,
       unrestricted: !Array.isArray(state.categories[open]),
       shown: shown.length,
-      entries: shown.map(e => ({ uuid: normalizeUuid(e.uuid), name: e.name, img: e.img ?? null, pack: e.pack,
-        allowed: isEntryAllowed(state, open, e.uuid) }))
+      entries: shown.map(e => {
+        const own = state.art?.[normalizeUuid(e.uuid)] ?? null;
+        return { uuid: normalizeUuid(e.uuid), name: e.name, img: own ?? e.img ?? null, pack: e.pack,
+          art: own, allowed: isEntryAllowed(state, open, e.uuid) };
+      })
     };
   } else if ( open === "packs" ) {
     model.packs = {

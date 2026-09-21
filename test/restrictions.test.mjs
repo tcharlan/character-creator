@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { editorState, toStored, toggleEntry, allowAll, allowNone, allowOnly, togglePack, toggleMethod,
-  isEntryAllowed, warnings, restrictionsModel, TABS } from "../scripts/settings/restrictions-model.mjs";
+import { editorState, toStored, toStoredArt, toggleEntry, allowAll, allowNone, allowOnly, togglePack,
+  toggleMethod, setArt, isEntryAllowed, warnings, restrictionsModel, TABS }
+  from "../scripts/settings/restrictions-model.mjs";
 import { NO_RESTRICTIONS } from "../scripts/catalog/filters.mjs";
 import { ABILITY_METHODS } from "../scripts/contracts.mjs";
 
@@ -100,4 +101,24 @@ test("the screen: a tab per category plus packs and ability scores", () => {
   assert.deepEqual(abilities.abilities.map(a => a.key), [...ABILITY_METHODS]);
   assert.equal(abilities.abilities.every(a => a.allowed), true);
   assert.equal(restrictionsModel({ state: s, everything: EVERYTHING, packs: PACKS, tab: "nonsense" }).open, TABS[0]);
+});
+
+test("a picture of the GM's own sits beside the option it belongs to (D24)", () => {
+  const art = { [U("elf")]: "worlds/w/assets/elf.webp" };
+  const s = editorState(NO_RESTRICTIONS, ABILITY_METHODS, art);
+  assert.deepEqual(s.art, art);
+  const model = restrictionsModel({ state: s, everything: EVERYTHING, packs: PACKS, tab: "species" });
+  const elf = model.category.entries.find(e => e.uuid === U("elf"));
+  assert.equal(elf.art, art[U("elf")]);
+  assert.equal(elf.img, art[U("elf")], "the row shows the GM's picture, not the compendium's");
+  const dwarf = model.category.entries.find(e => e.uuid === U("dwarf"));
+  assert.equal(dwarf.art, null);
+  assert.equal(dwarf.img, "icon.webp");
+
+  setArt(s, U("dwarf"), "worlds/w/assets/dwarf.webp");
+  assert.deepEqual(Object.keys(toStoredArt(s)).sort(), [U("dwarf"), U("elf")].sort());
+  setArt(s, U("elf"), null);
+  assert.deepEqual(Object.keys(toStoredArt(s)), [U("dwarf")], "clearing one takes it off again");
+  assert.deepEqual(toStoredArt({}), {});
+  assert.deepEqual(editorState(NO_RESTRICTIONS, ABILITY_METHODS).art, {}, "no pictures by default");
 });

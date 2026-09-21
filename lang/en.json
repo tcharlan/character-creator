@@ -102,6 +102,10 @@
       "ringColors": {
         "Name": "Default token ring colors",
         "Hint": "Used when a player doesn't choose ring colors. Unset means the player's user color."
+      },
+      "optionArt": {
+        "Name": "Pictures per option",
+        "Hint": "A picture of your own for a species, class, background or subclass, shown instead of the compendium’s. Set them on the Allowed content screen."
       }
     },
     "Nav": {
@@ -284,7 +288,8 @@
       "SubclassHint": "This class chooses its subclass at level 1.",
       "ArtIcon": "The compendium's icon for this option",
       "ArtSystem": "Artwork from the dnd5e system",
-      "LoadingText": "Reading the description…"
+      "LoadingText": "Reading the description…",
+      "ArtGM": "Your GM's picture"
     },
     "Facts": {
       "Size": "Size",
@@ -439,7 +444,10 @@
         "NoneOptional": "No {category} are allowed. Anything that needs them will block the player.",
         "OnlyOne": "Only one of the {category} is allowed, so the creator chooses it for the player.",
         "OneMethod": "Only one way of setting ability scores is allowed, so the creator uses it."
-      }
+      },
+      "ArtSet": "Use a picture of your own",
+      "ArtChange": "Change the picture",
+      "ArtClear": "Back to the compendium's picture"
     },
     "Pending": {
       "Title": "Pending characters",

@@ -20,12 +20,23 @@ const descriptionCache = new Map();
 const descriptionJobs = new Map();
 let journalByItem = null;
 
+/**
+ * The picture for an option: the GM's own where they set one (D24), else the compendium's.
+ * @param {string} uuid
+ * @param {Record<string, string>} art   The `optionArt` setting.
+ * @param {string|null} fallback         The compendium entry's image.
+ */
+export function artFor(uuid, art, fallback = null) {
+  return art?.[normalizeUuid(uuid)] || fallback || null;
+}
+
 /** The option list for a step. */
-export function optionList(catalog, step, { search = "", selected = null } = {}) {
+export function optionList(catalog, step, { search = "", selected = null, art = {} } = {}) {
   const all = catalog?.byCategory?.[STEP_CATEGORY[step]] ?? [];
   const needle = search.trim().toLowerCase();
   const list = all.filter(e => !needle || e.name.toLowerCase().includes(needle))
-    .map(e => ({ uuid: normalizeUuid(e.uuid), name: e.name, img: e.img, selected: normalizeUuid(e.uuid) === selected }))
+    .map(e => ({ uuid: normalizeUuid(e.uuid), name: e.name, img: artFor(e.uuid, art, e.img),
+      selected: normalizeUuid(e.uuid) === selected }))
     .sort((a, b) => a.name.localeCompare(b.name));
   return { total: all.length, list, search, searchable: all.length >= SEARCHABLE_FROM };
 }
@@ -116,9 +127,17 @@ function chips(doc, step) {
  * @param {string} uuid
  * @param {"species"|"class"|"background"} step
  */
-export async function optionDetail(uuid, step) {
+export async function optionDetail(uuid, step, { art = {} } = {}) {
   const key = `${step}:${uuid}`;
-  if ( detailCache.has(key) ) return { ...detailCache.get(key), description: descriptionCache.get(key) ?? null };
+  // The GM's picture is a setting, not part of the option, so it is put on after the cache.
+  const withArt = detail => {
+    const own = art?.[normalizeUuid(uuid)] ?? null;
+    if ( !own ) return detail;
+    return { ...detail, img: own, largeArt: true, artNote: game.i18n.localize("CHARCREATOR.Options.ArtGM") };
+  };
+  if ( detailCache.has(key) ) {
+    return { ...withArt(detailCache.get(key)), description: descriptionCache.get(key) ?? null };
+  }
   const doc = await fromUuid(uuid);
   if ( !doc ) return null;
   const detail = {
@@ -128,7 +147,7 @@ export async function optionDetail(uuid, step) {
     identifier: doc.system?.identifier ?? null
   };
   detailCache.set(key, detail);
-  return { ...detail, description: descriptionCache.get(key) ?? null };
+  return { ...withArt(detail), description: descriptionCache.get(key) ?? null };
 }
 
 /**
@@ -158,10 +177,11 @@ export function optionDescription(uuid, step) {
 }
 
 /** Subclasses for a class, from the catalog (the class's own identifier links them). */
-export function subclassOptions(catalog, identifier, selected) {
+export function subclassOptions(catalog, identifier, selected, art = {}) {
   return (catalog?.byCategory?.subclass ?? [])
     .filter(e => e.system?.classIdentifier === identifier)
-    .map(e => ({ uuid: normalizeUuid(e.uuid), name: e.name, img: e.img, selected: normalizeUuid(e.uuid) === selected }))
+    .map(e => ({ uuid: normalizeUuid(e.uuid), name: e.name, img: artFor(e.uuid, art, e.img),
+      selected: normalizeUuid(e.uuid) === selected }))
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 

@@ -11,8 +11,8 @@ import { MODULE_ID } from "../contracts.mjs";
 import { CATEGORIES, NO_RESTRICTIONS } from "../catalog/filters.mjs";
 import { getCatalog, itemPacks } from "../catalog/catalog.mjs";
 import { SETTINGS, readSettings } from "./settings.mjs";
-import { editorState, restrictionsModel, toStored, toggleEntry, allowAll, allowNone, allowOnly, togglePack,
-  toggleMethod, TABS } from "./restrictions-model.mjs";
+import { editorState, restrictionsModel, toStored, toStoredArt, toggleEntry, allowAll, allowNone, allowOnly,
+  togglePack, toggleMethod, setArt, TABS } from "./restrictions-model.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 const T = (key, data) => (data ? game.i18n.format(`CHARCREATOR.${key}`, data) : game.i18n.localize(`CHARCREATOR.${key}`));
@@ -41,6 +41,8 @@ export class RestrictionsApp extends HandlebarsApplicationMixin(ApplicationV2) {
       "allow-none": onAllowNone,
       "allow-shown": onAllowShown,
       pack: onPack,
+      art: onArt,
+      "art-clear": onArtClear,
       method: onMethod,
       save: onSave,
       cancel: onCancel
@@ -80,7 +82,7 @@ export class RestrictionsApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   async #load() {
     const settings = readSettings();
-    this.#state = editorState(settings.restrictions, settings.abilityMethods);
+    this.#state = editorState(settings.restrictions, settings.abilityMethods, settings.optionArt);
     // With no restrictions: the full list to choose from, including what the GM has switched off.
     const catalog = await getCatalog({ restrictions: NO_RESTRICTIONS });
     this.#everything = Object.fromEntries(CATEGORIES.map(c => [c, catalog.byCategory[c] ?? []]));
@@ -97,6 +99,8 @@ export class RestrictionsApp extends HandlebarsApplicationMixin(ApplicationV2) {
       saving: this.#saving,
       ...model,
       tabs: model.tabs.map(t => ({ ...t, label: T(`Restrictions.Tab.${t.key}`) })),
+      category: model.category ? { ...model.category, entries: model.category.entries.map(e => ({ ...e,
+        artTooltip: T(e.art ? "Restrictions.ArtChange" : "Restrictions.ArtSet") })) } : null,
       warnings: model.warnings.map(w => ({ ...w, message: T(`Restrictions.Warning.${w.key}`,
         { category: T(`Restrictions.Tab.${w.category}`) }) })),
       methods: (model.abilities ?? []).map(m => ({ ...m, label: T(`Abilities.${m.key}`) }))
@@ -134,6 +138,24 @@ export class RestrictionsApp extends HandlebarsApplicationMixin(ApplicationV2) {
     return [...this.element.querySelectorAll("[data-action='entry']")].map(el => el.dataset.uuid);
   }
 
+  /**
+   * Ask for a picture for one option (D24). Foundry's own file browser, so the GM picks from what this
+   * world already holds; nothing is uploaded or fetched from elsewhere.
+   */
+  async pickArt(uuid, current = null) {
+    const FilePicker = foundry.applications.apps.FilePicker.implementation;
+    return new Promise(resolve => {
+      new FilePicker({
+        type: "image",
+        current: current ?? undefined,
+        callback: async path => {
+          await this.change(state => setArt(state, uuid, path));
+          resolve(path);
+        }
+      }).render({ force: true });
+    });
+  }
+
   /** Write the settings. The catalog invalidates itself on the change, so open wizards follow. */
   async save() {
     if ( this.#saving ) return;
@@ -142,6 +164,7 @@ export class RestrictionsApp extends HandlebarsApplicationMixin(ApplicationV2) {
     try {
       await game.settings.set(MODULE_ID, SETTINGS.RESTRICTIONS, toStored(this.#state));
       await game.settings.set(MODULE_ID, SETTINGS.ABILITY_METHODS, [...this.#state.abilityMethods]);
+      await game.settings.set(MODULE_ID, SETTINGS.OPTION_ART, toStoredArt(this.#state));
       ui.notifications?.info(T("Restrictions.Saved"));
       await this.close();
     } catch ( err ) {
@@ -184,6 +207,14 @@ function onAllowNone(event, target) {
 function onAllowShown(event, target) {
   const shown = this.shownUuids();
   return this.change(state => allowOnly(state, target.dataset.category, shown));
+}
+
+function onArt(event, target) {
+  return this.pickArt(target.dataset.uuid, target.dataset.art || null);
+}
+
+function onArtClear(event, target) {
+  return this.change(state => setArt(state, target.dataset.uuid, null));
 }
 
 function onPack(event, target) {

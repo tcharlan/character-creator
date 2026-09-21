@@ -5,7 +5,7 @@
  */
 
 import { ABILITY_METHODS, LIMITS } from "../contracts.mjs";
-import { CATEGORIES, NO_RESTRICTIONS } from "../catalog/filters.mjs";
+import { CATEGORIES, NO_RESTRICTIONS, normalizeUuid } from "../catalog/filters.mjs";
 
 export const SETTINGS = Object.freeze({
   RESTRICTIONS: "restrictions",          // { packs: string[]|null, categories: { [category]: uuid[]|null } }
@@ -15,7 +15,8 @@ export const SETTINGS = Object.freeze({
   SHOW_ON_LOGIN: "showOnLogin",
   UPLOADS: "allowPortraitUploads",
   MAX_UPLOAD_MB: "maxUploadMB",
-  RING_COLORS: "ringColors"              // { ring: "#rrggbb"|null, background: "#rrggbb"|null }; null = player's color
+  RING_COLORS: "ringColors",             // { ring: "#rrggbb"|null, background: "#rrggbb"|null }; null = player's color
+  OPTION_ART: "optionArt"                // { [option uuid]: image path }; D24, the GM's own picture per option
 });
 
 export const DEFAULTS = Object.freeze({
@@ -26,8 +27,12 @@ export const DEFAULTS = Object.freeze({
   [SETTINGS.SHOW_ON_LOGIN]: true,
   [SETTINGS.UPLOADS]: true,
   [SETTINGS.MAX_UPLOAD_MB]: LIMITS.portraitSourceMaxBytes / (1024 * 1024),
-  [SETTINGS.RING_COLORS]: Object.freeze({ ring: null, background: null })
+  [SETTINGS.RING_COLORS]: Object.freeze({ ring: null, background: null }),
+  [SETTINGS.OPTION_ART]: Object.freeze({})
 });
+
+/** As many pictures as a GM could plausibly assign, and no path longer than this. */
+export const ART_LIMITS = Object.freeze({ entries: 500, pathLength: 512 });
 
 /** Bounds of the upload size setting, in MB. */
 export const UPLOAD_MB_RANGE = Object.freeze({ min: 1, max: 50 });
@@ -44,6 +49,22 @@ export function normalizeRestrictions(v) {
     if ( isStringList(list) ) categories[c] = [...new Set(list)];
   }
   return { packs: isStringList(v.packs) ? [...new Set(v.packs)] : null, categories };
+}
+
+/**
+ * The GM's own picture per option (D24): a map of option UUID to an image path in this world. Anything that
+ * isn't a plain path is dropped rather than shown to a player.
+ */
+export function normalizeOptionArt(v) {
+  if ( !v || (typeof v !== "object") ) return {};
+  const out = {};
+  for ( const [uuid, path] of Object.entries(v).slice(0, ART_LIMITS.entries) ) {
+    if ( (typeof path !== "string") || !path.trim() || (path.length > ART_LIMITS.pathLength) ) continue;
+    // A path inside this world only: no data:, file: or http(s) URLs, so nothing is ever fetched from elsewhere.
+    if ( /^[a-z][a-z0-9+.-]*:/i.test(path.trim()) ) continue;
+    out[normalizeUuid(uuid)] = path.trim();
+  }
+  return out;
 }
 
 /**
@@ -80,6 +101,7 @@ export function normalizeSettings(get) {
       maxSourceBytes: Math.round((Number.isFinite(mb) ? Math.min(UPLOAD_MB_RANGE.max, Math.max(UPLOAD_MB_RANGE.min, mb))
         : DEFAULTS[SETTINGS.MAX_UPLOAD_MB]) * 1024 * 1024)
     },
-    ringColors: { ring: color(ring?.ring), background: color(ring?.background) }
+    ringColors: { ring: color(ring?.ring), background: color(ring?.background) },
+    optionArt: normalizeOptionArt(read(SETTINGS.OPTION_ART))
   };
 }

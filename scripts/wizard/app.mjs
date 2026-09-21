@@ -753,8 +753,10 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     const role = STEP_CATEGORY[this.#current];
     if ( !role ) return {};
     const selected = this.draft?.picks?.[role] ?? null;
-    const options = optionList(this.#catalog, this.#current, { search: this.#search[this.#current] ?? "", selected });
-    const detail = selected ? await optionDetail(selected, this.#current) : null;
+    const art = readSettings().optionArt;
+    const options = optionList(this.#catalog, this.#current, { search: this.#search[this.#current] ?? "",
+      selected, art });
+    const detail = selected ? await optionDetail(selected, this.#current, { art }) : null;
     if ( detail ) {
       detail.auto = this.#auto.has(role);
       // The description is enriched in the background; render again when it's ready.
@@ -769,7 +771,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       const step = subclassStep(this.#build);
       if ( step ) {
         const chosen = step.data?.uuid ?? null;
-        subclass = { list: subclassOptions(this.#catalog, detail.identifier, chosen), chosen };
+        subclass = { list: subclassOptions(this.#catalog, detail.identifier, chosen, art), chosen };
       }
     }
     return { options, detail, subclass };

@@ -13,7 +13,8 @@ test("defaults (DESIGN.md → Settings)", () => {
     folderName: "Player Characters",
     showOnLogin: true,
     portraits: { enabled: true, maxSourceBytes: 10 * 1024 * 1024 },
-    ringColors: { ring: null, background: null }
+    ringColors: { ring: null, background: null },
+    optionArt: {}
   });
 });
 
@@ -61,4 +62,22 @@ test("every setting has a label and hint in lang/en.json", async () => {
     assert.ok(lang.CHARCREATOR.Settings?.[key]?.Name, `${key} name`);
     assert.ok(lang.CHARCREATOR.Settings?.[key]?.Hint, `${key} hint`);
   }
+});
+
+test("a GM's own picture per option is a plain path or nothing (D24)", () => {
+  const art = read({ [SETTINGS.OPTION_ART]: {
+    "Compendium.dnd5e.races.Item.aaaaaaaaaaaaaaaa": "worlds/w/assets/elf.webp",
+    "Compendium.dnd5e.races.aaaaaaaaaaaaaaab": "  worlds/w/assets/dwarf.webp  ",
+    "Compendium.dnd5e.races.Item.aaaaaaaaaaaaaaac": "https://example.com/art.webp",
+    "Compendium.dnd5e.races.Item.aaaaaaaaaaaaaaad": "data:image/png;base64,AAAA",
+    "Compendium.dnd5e.races.Item.aaaaaaaaaaaaaaah": "file:///C:/art.webp",
+    "Compendium.dnd5e.races.Item.aaaaaaaaaaaaaaae": "   ",
+    "Compendium.dnd5e.races.Item.aaaaaaaaaaaaaaaf": 42,
+    "Compendium.dnd5e.races.Item.aaaaaaaaaaaaaaag": "x".repeat(600)
+  } }).optionArt;
+  assert.deepEqual(art, {
+    "Compendium.dnd5e.races.Item.aaaaaaaaaaaaaaaa": "worlds/w/assets/elf.webp",
+    "Compendium.dnd5e.races.Item.aaaaaaaaaaaaaaab": "worlds/w/assets/dwarf.webp"
+  }, "short UUIDs are normalised, paths trimmed, and anything that is not a path in this world dropped");
+  assert.deepEqual(read({ [SETTINGS.OPTION_ART]: "nonsense" }).optionArt, {});
 });

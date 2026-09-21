@@ -12,7 +12,7 @@ export function registerRestrictionsBatches(quench) {
       let RestrictionsApp;
       let app = null;
       const reset = async () => {
-        for ( const key of ["restrictions", "abilityMethods"] ) {
+        for ( const key of ["restrictions", "abilityMethods", "optionArt"] ) {
           await CONFIG.queries[SETTINGS_TEST_QUERIES.SET]({ key, reset: true }, { user: game.user });
         }
       };
@@ -78,6 +78,39 @@ export function registerRestrictionsBatches(quench) {
         const catalog = await getCatalog({ user: player });
         assert.notInclude(catalog.byCategory.class.map(e => e.name), name, "the player is not offered it any more");
         assert.isFalse(catalog.isAllowed(uuid), "and the validator would refuse it");
+      });
+
+      it("a picture of the GM's own replaces the compendium's, for the player too (D24)", async function() {
+        this.timeout(300_000);
+        const { setArt } = await import("../scripts/settings/restrictions-model.mjs");
+        const { optionList, optionDetail } = await import("../scripts/wizard/options-step.mjs");
+        const { readSettings } = await import("../scripts/settings/settings.mjs");
+        const { getCatalog, invalidateCatalog } = await import("../scripts/catalog/catalog.mjs");
+        const picture = "icons/svg/mystery-man.svg";
+
+        app = await RestrictionsApp.open();
+        await app.show("species");
+        const row = entries()[0];
+        const uuid = row.dataset.uuid;
+        const name = row.querySelector(".cc-entry__name").textContent.trim();
+        assert.exists(el().querySelector('[data-action="art"]'), "every option should offer a picture");
+        await app.change(state => setArt(state, uuid, picture));
+        assert.exists(el().querySelector('[data-action="art-clear"]'), "and a way to take it off again");
+        await app.save();
+        for ( let i = 0; i < 200 && app.rendered; i++ ) await new Promise(r => setTimeout(r, 100));
+
+        const art = readSettings().optionArt;
+        assert.equal(art[uuid], picture, "the picture is stored against the option");
+        invalidateCatalog("test");
+        const catalog = await getCatalog();
+        const list = optionList(catalog, "species", { art });
+        assert.equal(list.list.find(o => o.name === name).img, picture,
+          "the wizard's list shows the GM's picture");
+        const detail = await optionDetail(uuid, "species", { art });
+        assert.equal(detail.img, picture);
+        assert.equal(detail.artNote, game.i18n.localize("CHARCREATOR.Options.ArtGM"));
+        const plain = await optionDetail(uuid, "species", {});
+        assert.notEqual(plain.img, picture, "and the compendium's where the GM set none");
       });
 
       it("warns when a category is left empty or down to one, and when one method is left", async function() {

@@ -26,6 +26,7 @@ export function registerSettings() {
   world(SETTINGS.UPLOADS, { type: Boolean, config: true });
   world(SETTINGS.MAX_UPLOAD_MB, { type: Number, config: true, range: { ...UPLOAD_MB_RANGE, step: 1 } });
   world(SETTINGS.RING_COLORS, { type: Object, config: false, default: { ring: null, background: null } });
+  world(SETTINGS.OPTION_ART, { type: Object, config: false, default: {} });
   // The objects above are edited on their own screen (PLAN 4.1), which the settings window links to.
   registerRestrictionsApp();
   registerPendingApp();

@@ -907,3 +907,20 @@ li.notification button.cc-entry-prompt {
 
 /* How many characters a player may make (PLAN 4.4). */
 .cc-start__limit { margin: 0; font-size: 14px; color: var(--cc-muted); }
+
+/* A picture of the GM's own per option (PLAN 4.5, D24). */
+.cc-entry-row { display: flex; align-items: center; gap: 4px; }
+.cc-entry-row .cc-entry { flex: 1 1 auto; min-width: 0; }
+.cc-entry__art {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  background: var(--cc-panel);
+  border: 1px solid var(--cc-line-soft);
+  border-radius: var(--cc-radius);
+  color: var(--cc-faint);
+  cursor: pointer;
+}
+.cc-entry__art:hover { color: var(--cc-text); border-color: var(--cc-line); }
+.cc-entry__art--own { color: var(--cc-gold); border-color: var(--cc-gold-deep); }
