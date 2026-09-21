@@ -1,0 +1,56 @@
+name: Feature request
+description: An idea for something Character Creator could do.
+title: "[Idea] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ideas are welcome. It helps most to hear what you're trying to do at your table, not only the feature you have in mind.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like to do?
+      description: What you, your GM or your players are trying to do, and what gets in the way today.
+      placeholder: "As a GM, I'd like players to be able to start at level 3, because our campaign begins mid-adventure."
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: How might it work?
+      description: Your idea for it — where it would appear and what it would do. Rough is fine.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: who
+    attributes:
+      label: Who is it for?
+      options:
+        - Players, in the creator
+        - GMs, setting it up
+        - Both
+    validations:
+      required: true
+
+  - type: dropdown
+    id: rules
+    attributes:
+      label: Which rules?
+      options:
+        - Both 2014 and 2024
+        - 2024 (Modern) only
+        - 2014 (Legacy) only
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Other modules that do something similar, screenshots, sketches.
+    validations:
+      required: false

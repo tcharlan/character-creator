@@ -1,0 +1,146 @@
+name: Bug report
+description: Something in Character Creator doesn't work as it should.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. The more of this form you fill in, the faster it can be fixed.
+
+        **Please don't paste text from paid books** (spell or feature descriptions from official sourcebooks), and don't include passwords or your server's address. The name of the option is enough.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you saw, and what you expected to see instead.
+      placeholder: |
+        When I pick the Wizard class and go to Spells, the spellbook counter says 0 / 0 and I can't choose any spells.
+        I expected to choose six level 1 spells.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: What you picked on each step before it happened, as far as you remember.
+      placeholder: |
+        1. Species: Hill Dwarf
+        2. Class: Wizard
+        3. Background: Sage
+        4. Went to the Spells step
+    validations:
+      required: true
+
+  - type: dropdown
+    id: role
+    attributes:
+      label: Who ran into it?
+      options:
+        - A player, in the creator
+        - The GM, on the Allowed content screen
+        - The GM, on the Pending characters screen
+        - The GM, when a character was being created
+        - Someone else, or not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: step
+    attributes:
+      label: Which step of the creator?
+      description: Skip this if it wasn't in the creator.
+      options:
+        - Start
+        - Species
+        - Class
+        - Background
+        - Ability scores
+        - Choices
+        - Equipment
+        - Spells
+        - Details
+        - Portrait
+        - Review / creating the character
+        - Several steps, or not sure
+    validations:
+      required: false
+
+  - type: dropdown
+    id: rules
+    attributes:
+      label: Rules version
+      description: dnd5e's "Rules Version" setting (Game Settings → Configure Settings → Dungeons & Dragons Fifth Edition).
+      options:
+        - 2024 (Modern)
+        - 2014 (Legacy)
+        - Not sure
+    validations:
+      required: true
+
+  - type: input
+    id: module-version
+    attributes:
+      label: Character Creator version
+      description: Shown in Game Settings → Manage Modules.
+      placeholder: "0.2.0"
+    validations:
+      required: true
+
+  - type: input
+    id: foundry-version
+    attributes:
+      label: Foundry VTT version
+      description: Shown at the bottom of the Settings tab in the sidebar.
+      placeholder: "14.365"
+    validations:
+      required: true
+
+  - type: input
+    id: dnd5e-version
+    attributes:
+      label: dnd5e system version
+      description: Shown at the bottom of the Settings tab in the sidebar.
+      placeholder: "5.3.3"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: content
+    attributes:
+      label: Where does the content come from?
+      description: Tick everything the world uses for species, classes, backgrounds and spells.
+      options:
+        - label: dnd5e's own SRD compendiums
+        - label: Official books bought on Foundry (e.g. the Player's Handbook module)
+        - label: Content imported from elsewhere (D&D Beyond importers, homebrew compendiums, …)
+
+  - type: textarea
+    id: console
+    attributes:
+      label: Console errors
+      description: |
+        Press F12 (or Ctrl+Shift+I / Cmd+Option+I), open the **Console** tab, do the thing that goes wrong, and paste any red lines — especially ones mentioning `character-creator`.
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: modules
+    attributes:
+      label: Other active modules
+      description: |
+        A list of the other modules enabled in the world helps rule out conflicts. Does it still happen with only Character Creator enabled? (Game Settings → Manage Modules → Deactivate all, then enable Character Creator.)
+      placeholder: "libWrapper 1.13, Dice So Nice 5.2, … / It still happens with only Character Creator enabled."
+    validations:
+      required: false
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: Drag images here. A screenshot of the step where it goes wrong is often the quickest way to show it.
+    validations:
+      required: false
