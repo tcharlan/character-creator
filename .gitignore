@@ -9,3 +9,7 @@ dist/
 *.zip
 # In-Foundry test reports (npm run test:foundry)
 test-results/
+# Working notes: kept locally, not committed
+CLAUDE.md
+docs/*.md
+mockups/README.md
