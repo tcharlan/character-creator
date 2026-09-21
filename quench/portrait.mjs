@@ -130,12 +130,19 @@ export function registerPortraitBatches(quench) {
         assert.match(res.headers.get("content-type") ?? "", /image\/webp/);
         assert.equal((await res.arrayBuffer()).byteLength, bytesOf(image));
       });
-      it("img, token texture and ring all point at it, with the chosen colors and effects", async () => {
+      it("the portrait is the picture, the token a round cut-out of it, with the chosen colors", async () => {
         assert.isTrue(!!(await waitFor(() => actor.img === first.path)), `img is ${actor.img}`);
         const t = actor.prototypeToken;
-        assert.equal(t.texture.src, first.path);
+        // Token art is a cut-out: the ring draws it inside its circle, and a sheet showing token art draws it
+        // uncropped and unframed, so a full-bleed picture would spill over everything around it.
+        assert.match(t.texture.src, new RegExp(`^worlds/${game.world.id}/assets/actors/${actor.id}-token-?[A-Za-z0-9]*\\.webp$`),
+          `the token points at ${t.texture.src}`);
+        assert.notEqual(t.texture.src, first.path);
+        assert.equal(t.ring.subject.texture, t.texture.src);
+        const cutout = await fetch(`/${t.texture.src}`, { cache: "no-store" });
+        assert.equal(cutout.status, 200, "the cut-out isn't there");
+        assert.match(cutout.headers.get("content-type") ?? "", /image\/webp/);
         assert.isTrue(t.ring.enabled);
-        assert.equal(t.ring.subject.texture, first.path);
         assert.equal(t.ring.colors.ring.css, ring.ring);
         assert.equal(t.ring.colors.background.css, ring.background);
         assert.equal(t.ring.effects, ring.effects);

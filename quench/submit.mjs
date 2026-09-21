@@ -164,12 +164,14 @@ export function registerSubmitBatches(quench) {
         assert.equal(actor.ownership[game.user.id], L.OWNER);
         assert.equal(game.user.character?.id, actor.id);
       });
-      it("the portrait is saved under the actor's assets, with token and ring", () => {
+      it("the portrait is saved under the actor's assets, with a cut-out for the token and the ring", () => {
         assert.match(actor.img, new RegExp(`assets/actors/${actor.id}-[^/]+\\.webp$`));
-        assert.equal(actor.prototypeToken.texture.src, actor.img);
+        // The token gets a round cut-out of the same picture (PLAN 3.11), not the picture itself.
+        assert.match(actor.prototypeToken.texture.src, new RegExp(`assets/actors/${actor.id}-token-[^/]+\\.webp$`));
+        assert.notEqual(actor.prototypeToken.texture.src, actor.img);
         assert.isTrue(actor.prototypeToken.ring.enabled);
         assert.equal(actor.prototypeToken.ring.colors.ring.css, "#c9a227");
-        assert.equal(actor.prototypeToken.ring.subject.texture, actor.img);
+        assert.equal(actor.prototypeToken.ring.subject.texture, actor.prototypeToken.texture.src);
       });
       it("resubmitting the draft returns the same character (idempotent)", async function() {
         this.timeout(60_000);
