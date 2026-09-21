@@ -59,7 +59,8 @@ export function registerRestrictionsBatches(quench) {
       it("a class turned off is saved, and disappears from the player's catalog", async function() {
         this.timeout(300_000);
         const { getCatalog, invalidateCatalog } = await import("../scripts/catalog/catalog.mjs");
-        const player = game.users.find(u => !u.isGM && u.active) ?? game.users.find(u => !u.isGM);
+        const player = (globalThis.ccTestPlayer ? game.users.getName(globalThis.ccTestPlayer) : null)
+          ?? game.users.find(u => !u.isGM && u.active) ?? game.users.find(u => !u.isGM);
         app = await RestrictionsApp.open();
         await app.show("class");
         const dropped = entries()[1];

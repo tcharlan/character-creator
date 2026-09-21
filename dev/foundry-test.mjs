@@ -1,7 +1,7 @@
 /* global CONFIG, game, Hooks, quench */
 /*
  * Dev-only: run the module's Quench batches in the local dev Foundry, unattended.
- *   npm run test:foundry                       both test worlds, as Player A
+ *   npm run test:foundry                       both test worlds, as Player B (Player A is left for manual tests)
  *   npm run test:foundry -- --world modern-test
  *   npm run test:foundry -- --batch pending    only batches whose key contains this text
  *   CC_PLAYER / CC_GM name the users to join as; CC_PLAYER_PASSWORD / CC_GM_PASSWORD for a world that has them.
@@ -28,7 +28,9 @@ const REPO = resolve(HERE, "..");
 const FOUNDRY_ROOT = resolve(REPO, "..");
 const BASE = new URL(process.env.FOUNDRY_URL ?? "http://localhost:30001");
 const DATA = process.env.FOUNDRY_DATA ?? join(homedir(), "FoundryDev");
-const PLAYER = process.env.CC_PLAYER ?? "Player A";
+// Player B, not Player A: the batches delete the characters they make for their player, and Player A is the
+// one the owner tries things with by hand.
+const PLAYER = process.env.CC_PLAYER ?? "Player B";
 const GM = process.env.CC_GM ?? "Gamemaster";
 /** Passwords, for a world whose users have them (a staging copy, docs/STAGING.md). Never stored. */
 const PASSWORDS = { [PLAYER]: process.env.CC_PLAYER_PASSWORD ?? "", [process.env.CC_GM ?? "Gamemaster"]: process.env.CC_GM_PASSWORD ?? "" };
@@ -265,8 +267,11 @@ async function main() {
           await gm.page.waitForFunction(id => `${id}.test.submitCleanup` in CONFIG.queries, MODULE_ID, { timeout: 60_000 });
           await session.page.waitForFunction(() => !!game.users.activeGM, null, { timeout: 30_000 });
           if ( withGM.length ) merge(await runBatches(session.page, withGM));
-          // The GM's own screens run in the GM's session.
-          if ( gmPage.length ) merge(await runBatches(gm.page, gmPage));
+          // The GM's own screens run in the GM's session, told which player the run belongs to.
+          if ( gmPage.length ) {
+            await gm.page.evaluate(name => globalThis.ccTestPlayer = name, PLAYER);
+            merge(await runBatches(gm.page, gmPage));
+          }
           await gm.context.close();
         }
         result.batches = keys;

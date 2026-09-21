@@ -38,7 +38,9 @@ export function registerPendingPanelBatches(quench) {
         assert.isTrue(game.user.isGM, "this panel is the GM's");
         ({ PendingApp } = await import("../scripts/gm/pending-app.mjs"));
         catalog = await (await import("../scripts/catalog/catalog.mjs")).getCatalog();
-        player = game.users.find(u => !u.isGM && u.active) ?? game.users.find(u => !u.isGM);
+        // The runner says whose run this is; never guess, since the clean-up deletes that player's characters.
+        player = (globalThis.ccTestPlayer ? game.users.getName(globalThis.ccTestPlayer) : null)
+          ?? game.users.find(u => !u.isGM && u.active) ?? game.users.find(u => !u.isGM);
         assert.exists(player, "no player in this world");
         saved = player.getFlag(MODULE_ID, DRAFT_FLAG);
         await clearDraft();
