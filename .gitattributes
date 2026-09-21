@@ -4,3 +4,17 @@
 *.webp binary
 *.jpg binary
 *.woff2 binary
+
+# Left out of the release zip (git archive, dev/release.mjs): development only.
+test/ export-ignore
+quench/ export-ignore
+docs/ export-ignore
+mockups/ export-ignore
+dev/ export-ignore
+CLAUDE.md export-ignore
+eslint.config.mjs export-ignore
+package.json export-ignore
+package-lock.json export-ignore
+.gitignore export-ignore
+.gitattributes export-ignore
+.github/ export-ignore

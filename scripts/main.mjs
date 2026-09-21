@@ -27,8 +27,14 @@ Hooks.once("ready", () => {
   registerEntryPoints();
 });
 
-// In-Foundry integration tests; only loaded when the Quench module is active.
+// In-Foundry integration tests; only loaded when the Quench module is active. A release leaves the batches
+// out (they create and delete characters), so their absence is expected, not an error.
 Hooks.once("quenchReady", async quench => {
-  const { registerQuenchBatches } = await import("../quench/index.mjs");
-  registerQuenchBatches(quench);
+  let batches;
+  try {
+    batches = await import("../quench/index.mjs");
+  } catch {
+    return;
+  }
+  batches.registerQuenchBatches(quench);
 });

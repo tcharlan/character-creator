@@ -1,14 +1,17 @@
 {
   "name": "character-creator",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Foundry VTT module: player-driven level-1 character creation for dnd5e.",
   "license": "MIT",
   "type": "module",
   "scripts": {
     "test": "node --test \"test/**/*.test.mjs\"",
     "lint": "eslint .",
-    "test:foundry": "node dev/foundry-test.mjs"
+    "test:foundry": "node dev/foundry-test.mjs",
+    "release:check": "node dev/release.mjs check",
+    "release:version": "node dev/release.mjs version",
+    "release:publish": "node dev/release.mjs publish"
   },
   "engines": {
     "node": ">=24"

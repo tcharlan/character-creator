@@ -2,9 +2,10 @@
 <nav class="cc-banner" aria-label="{{localize 'CHARCREATOR.Nav.Steps'}}">
   {{#each steps as |s|}}
   <button type="button" id="cc-step-{{s.key}}" class="cc-step cc-step--{{s.state}}" data-action="step" data-step="{{s.key}}"
+          data-tooltip="{{localize (concat "CHARCREATOR.Step." s.key ".Title")}}"
           {{#if s.locked}}disabled{{/if}} {{#if (eq s.state "current")}}aria-current="step"{{/if}}>
     <span class="cc-step__numeral">{{s.numeral}}</span>
-    <span class="cc-step__name">{{localize (concat "CHARCREATOR.Step." s.key ".Title")}}</span>
+    <span class="cc-step__name">{{localize (concat "CHARCREATOR.Step." s.key ".Short")}}</span>
     <span class="cc-step__label">
       {{~#if s.label}}{{s.label}}{{else if (eq s.state "current")}}{{localize "CHARCREATOR.Nav.Choosing"}}{{/if~}}
     </span>

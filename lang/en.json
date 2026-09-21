@@ -127,43 +127,53 @@
     "Step": {
       "species": {
         "Title": "Species",
-        "Hint": "Choose your species. Its traits, speed and size come with it."
+        "Hint": "Choose your species. Its traits, speed and size come with it.",
+        "Short": "Species"
       },
       "class": {
         "Title": "Class",
-        "Hint": "Choose your class. It sets your hit points, proficiencies and level-1 features."
+        "Hint": "Choose your class. It sets your hit points, proficiencies and level-1 features.",
+        "Short": "Class"
       },
       "background": {
         "Title": "Background",
-        "Hint": "Choose your background. It adds skills, tools and starting equipment."
+        "Hint": "Choose your background. It adds skills, tools and starting equipment.",
+        "Short": "Background"
       },
       "abilities": {
         "Title": "Ability scores",
-        "Hint": "Set your six ability scores with a method your GM allows."
+        "Hint": "Set your six ability scores with a method your GM allows.",
+        "Short": "Abilities"
       },
       "choices": {
         "Title": "Choices",
-        "Hint": "Make the choices your species, background and class offer at level 1."
+        "Hint": "Make the choices your species, background and class offer at level 1.",
+        "Short": "Choices"
       },
       "equipment": {
         "Title": "Equipment",
-        "Hint": "Take your starting equipment, or the starting wealth where it's offered."
+        "Hint": "Take your starting equipment, or the starting wealth where it's offered.",
+        "Short": "Equipment"
       },
       "spells": {
         "Title": "Spells",
-        "Hint": "Choose your cantrips and level-1 spells."
+        "Hint": "Choose your cantrips and level-1 spells.",
+        "Short": "Spells"
       },
       "details": {
         "Title": "Details",
-        "Hint": "Name your character and add the details you want."
+        "Hint": "Name your character and add the details you want.",
+        "Short": "Details"
       },
       "portrait": {
         "Title": "Portrait",
-        "Hint": "Upload a portrait, or skip it and add one later."
+        "Hint": "Upload a portrait, or skip it and add one later.",
+        "Short": "Portrait"
       },
       "review": {
         "Title": "Review",
-        "Hint": "Check everything, then create your character."
+        "Hint": "Check everything, then create your character.",
+        "Short": "Review"
       }
     },
     "Summary": {

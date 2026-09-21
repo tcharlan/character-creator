@@ -14,10 +14,28 @@ test("module.json declares the id, Foundry v14 and dnd5e >= 5.3.0", async () => 
   assert.equal(dnd5e.compatibility.minimum, "5.3.0");
 });
 
-test("module.json has no manifest or download URLs before release (PLAN 0.2)", async () => {
+test("the release URLs point at GitHub releases, and the download at this version (PLAN 6.2)", async () => {
   const manifest = await readJSON("module.json");
-  assert.equal(manifest.manifest, undefined);
-  assert.equal(manifest.download, undefined);
+  const repo = manifest.url;
+  assert.match(repo, /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+$/);
+  assert.equal(manifest.manifest, `${repo}/releases/latest/download/module.json`);
+  assert.equal(manifest.download, `${repo}/releases/download/v${manifest.version}/module.zip`);
+  assert.equal(manifest.bugs, `${repo}/issues`);
+});
+
+test("module.json and package.json carry the same version", async () => {
+  const [manifest, pkg] = await Promise.all([readJSON("module.json"), readJSON("package.json")]);
+  assert.match(manifest.version, /^\d+\.\d+\.\d+$/);
+  assert.equal(manifest.version, pkg.version);
+});
+
+test("the compatibility this release was checked against is declared (PLAN 6.3)", async () => {
+  const manifest = await readJSON("module.json");
+  assert.ok(manifest.compatibility.verified, "Foundry verified version");
+  const dnd5e = manifest.relationships.systems.find(s => s.id === "dnd5e");
+  assert.ok(dnd5e.compatibility.verified, "dnd5e verified version");
+  assert.ok(manifest.authors?.length, "authors");
+  await access(new URL(manifest.license, root));
 });
 
 test("every file module.json references exists", async () => {
