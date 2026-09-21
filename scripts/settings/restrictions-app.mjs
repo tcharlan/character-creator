@@ -273,6 +273,11 @@ export function registerRestrictionsApp() {
 /** Foundry opens a menu by constructing its `type` and calling `render`. */
 class RestrictionsMenu extends foundry.applications.api.ApplicationV2 {
   render() {
-    return RestrictionsApp.open();
+    // Foundry's settings window doesn't wait on this: a failure would otherwise show nowhere but the console.
+    return RestrictionsApp.open().catch(err => {
+      console.error(`${MODULE_ID} | the allowed content screen couldn't open`, err);
+      ui.notifications?.error(T("Restrictions.OpenFailed"));
+      return null;
+    });
   }
 }

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.2
+
+- Fixed: in worlds with older or imported items, the Allowed content screen (and the character creator) could fail to
+  open, with "object is not iterable" in the console. Items whose data is stored in an older shape are now read
+  correctly, and a compendium that can't be read is skipped instead of stopping everything.
+- If either screen still can't open, it now says so on screen instead of silently doing nothing.
+
 ## 0.2.1
 
 - Fixed: the tabs down the side of the Allowed content screen did nothing when clicked.

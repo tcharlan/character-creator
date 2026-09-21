@@ -117,3 +117,28 @@ test("shortfall: enough, exact, or too few allowed options for a choice", () => 
   assert.equal(shortfall(options, 1, c).short, true, "spells restricted to none");
   assert.equal(shortfall([], 0, c).short, false);
 });
+
+test("fixed references read older and imported shapes of the index data, and never throw", () => {
+  // The index is raw stored data: imported and older items can keep a list as an object (a user's world did).
+  const grant = items => ({ system: { advancement: { a: { type: "ItemGrant", configuration: { items } } } } });
+  const u1 = U("core", "feat");
+  const u2 = U("old", "clothes");
+  assert.deepEqual(fixedReferences(grant({ 0: { uuid: u1 }, 1: { uuid: u2 } })), [u1, u2], "array stored as an object");
+  assert.deepEqual(fixedReferences(grant([u1, u2])), [u1, u2], "older list of UUID strings");
+  assert.deepEqual(fixedReferences(grant({ [u1]: true, [u2]: false })), [u1], "keyed by UUID");
+  assert.deepEqual(fixedReferences(grant("nonsense")), []);
+  assert.deepEqual(fixedReferences(grant([{ uuid: 42 }, null, { optional: true }])), []);
+  assert.deepEqual(fixedReferences({ system: { advancement: [{ type: "ItemGrant", configuration: { items: [{ uuid: u1 }] } }] } }),
+    [u1], "advancement stored as an array");
+  assert.deepEqual(fixedReferences({ system: { startingEquipment: { 0: { type: "linked", key: u2 }, 1: { type: "linked", key: 7 } } } }),
+    [u2], "starting equipment stored as an object");
+  assert.deepEqual(fixedReferences({ system: { advancement: 5, startingEquipment: "x" } }), []);
+  assert.deepEqual(fixedReferences(null), []);
+});
+
+test("one oddly stored entry doesn't stop the catalog", () => {
+  const odd = { ...ENTRIES.find(e => e.name === "sage"), uuid: U("core", "oddsage"), name: "odd sage",
+    system: { ...ENTRIES.find(e => e.name === "sage").system,
+      advancement: { a: { type: "ItemGrant", configuration: { items: { 0: { uuid: U("core", "feat") } } } } } } };
+  assert.doesNotThrow(() => buildCatalogData({ packs: PACKS, entries: [...ENTRIES, odd], rules: "modern" }));
+});

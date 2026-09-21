@@ -195,11 +195,18 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       return CharacterWizard.#instance;
     }
     const app = new CharacterWizard();
-    const opened = await app.#start();
-    if ( !opened ) return null;
-    CharacterWizard.#instance = app;
-    await app.render({ force: true });
-    return app;
+    // The buttons that open the creator don't wait on it: a failure would otherwise show only in the console.
+    try {
+      const opened = await app.#start();
+      if ( !opened ) return null;
+      CharacterWizard.#instance = app;
+      await app.render({ force: true });
+      return app;
+    } catch ( err ) {
+      console.error(`${MODULE_ID} | the character creator couldn't open`, err);
+      ui.notifications?.error(T("Notify.OpenFailed"));
+      return null;
+    }
   }
 
   /** Load or create the draft. Returns false when there's nothing to open. */

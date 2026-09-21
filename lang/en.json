@@ -202,7 +202,8 @@
       "Resumed": "Your draft was resumed.",
       "WaitingForGM": "Your character is waiting for a GM to come online.",
       "AlreadyCreated": "Your character has already been created.",
-      "CreatedGone": "Your character was created, but it isn't in this world any more. You can start a new one."
+      "CreatedGone": "Your character was created, but it isn't in this world any more. You can start a new one.",
+      "OpenFailed": "The character creator couldn't open. Please tell your GM; the browser console (F12) says why."
     },
     "Entry": {
       "create": {
@@ -471,7 +472,8 @@
       "ArtClear": "Back to the compendium's picture",
       "BackdropsHint": "What shows behind each step of the creator. By default, the step's emblem over a blurred picture of what the player chose; a picture of your own replaces both.",
       "BackdropDefault": "The step's emblem",
-      "BackdropClear": "Back to the step's emblem"
+      "BackdropClear": "Back to the step's emblem",
+      "OpenFailed": "The allowed content screen couldn't open. The browser console (F12) says why — please include it if you report this."
     },
     "Pending": {
       "Title": "Pending characters",

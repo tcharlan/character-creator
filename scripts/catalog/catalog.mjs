@@ -49,7 +49,14 @@ export async function buildCatalog({ rules = game.settings.get("dnd5e", "rulesVe
   for ( const pack of game.packs.contents ) {
     const d = packStatus.get(pack.collection);
     if ( d.documentName !== "Item" || !d.visible || !d.sourceEnabled ) continue;
-    const index = await pack.getIndex({ fields: INDEX_FIELDS });
+    // One compendium that won't load (a broken or half-installed module) must not take the rest down with it.
+    let index;
+    try {
+      index = await pack.getIndex({ fields: INDEX_FIELDS });
+    } catch ( err ) {
+      console.warn(`${MODULE_ID} | skipped the compendium ${pack.collection}: it couldn't be read`, err);
+      continue;
+    }
     for ( const e of index ) {
       const entry = { ...e, pack: pack.collection, uuid: e.uuid ?? `Compendium.${pack.collection}.Item.${e._id}` };
       entries.push(entry);

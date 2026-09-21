@@ -83,15 +83,36 @@ export function entryExclusion(entry, rules, restrictions = NO_RESTRICTIONS) {
 }
 
 /**
+ * A list as the compendium index stores it. The index is the raw stored data, not cleaned by dnd5e's data
+ * models, so older and imported items can hold an array as an object keyed by index or id — or as nothing.
+ */
+const listOf = value => (Array.isArray(value) ? value : ((value && (typeof value === "object")) ? Object.values(value) : []));
+
+/**
+ * The UUIDs in an ItemGrant's `configuration.items`, whatever shape it was stored in: today's `[{ uuid }]`, the
+ * older `[uuid]`, or an object — of those, or keyed by UUID (`{ [uuid]: true }`).
+ */
+function grantedUuids(items) {
+  const isUuid = v => (typeof v === "string") && /^(Compendium|Item)\./.test(v);
+  const pick = v => (isUuid(v) ? v : (isUuid(v?.uuid) ? v.uuid : null));
+  if ( Array.isArray(items) ) return items.map(pick).filter(Boolean);
+  if ( !items || (typeof items !== "object") ) return [];
+  return Object.entries(items).map(([key, value]) => pick(value) ?? (isUuid(key) && value ? key : null)).filter(Boolean);
+}
+
+/**
  * UUIDs an entry references as fixed content: ItemGrant items and starting-equipment linked items
- * (read from the index fields `system.advancement` and `system.startingEquipment`).
+ * (read from the index fields `system.advancement` and `system.startingEquipment`). Never throws: an item whose
+ * data is in a shape we don't know simply references nothing.
  */
 export function fixedReferences(entry) {
   const out = [];
-  for ( const adv of Object.values(entry?.system?.advancement ?? {}) ) {
-    if ( adv?.type === "ItemGrant" ) for ( const i of adv.configuration?.items ?? [] ) if ( i?.uuid ) out.push(i.uuid);
+  for ( const adv of listOf(entry?.system?.advancement) ) {
+    if ( adv?.type === "ItemGrant" ) out.push(...grantedUuids(adv.configuration?.items));
   }
-  for ( const e of entry?.system?.startingEquipment ?? [] ) if ( e?.type === "linked" && e.key ) out.push(e.key);
+  for ( const e of listOf(entry?.system?.startingEquipment) ) {
+    if ( (e?.type === "linked") && (typeof e.key === "string") && e.key ) out.push(e.key);
+  }
   return out.map(normalizeUuid);
 }
 
