@@ -17,11 +17,12 @@
 /* global game, foundry, CONST, User, fromUuid, document, location, ui -- used inside page.evaluate() */
 
 import { createServer } from "node:http";
-import { existsSync, lstatSync, readFileSync, renameSync, rmSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, readdirSync, renameSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright-core";
+import { zipEntries } from "./release.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
@@ -69,6 +70,27 @@ function restoreLink() {
   renameSync(PARKED, LINK);
   if ( !isLink(LINK) ) throw new Error(`${LINK} was restored but isn't a link`);
   log("the dev link is back");
+}
+
+/** Every file under a directory. */
+const countFiles = dir => readdirSync(dir, { withFileTypes: true })
+  .reduce((n, e) => n + (e.isDirectory() ? countFiles(join(dir, e.name)) : 1), 0);
+
+/**
+ * Foundry answers the install request at once and downloads and unpacks in the background, so wait until every
+ * file in the zip is there. The link must not go back while that is running: the unpacking would land in it.
+ */
+async function installFinished(ms = 120_000) {
+  const expected = ZIP_FILES.length;
+  const end = Date.now() + ms;
+  while ( Date.now() < end ) {
+    if ( !isLink(LINK) && existsSync(LINK) && (countFiles(LINK) >= expected) ) {
+      await sleep(2000);   // let the last write close
+      return;
+    }
+    await sleep(500);
+  }
+  throw new Error(`the install didn't finish in ${ms / 1000}s`);
 }
 
 function parkLink() {
@@ -130,8 +152,13 @@ async function shutdownWorld(browser) {
 /*  Browser                                     */
 /* -------------------------------------------- */
 
+/** Every browser session this run opened, closed before the world is shut down. */
+const sessions = new Set();
+
 async function joinAs(browser, name, errors = []) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1000 } });
+  sessions.add(context);
+  context.on("close", () => sessions.delete(context));
   const page = await context.newPage();
   page.on("pageerror", err => errors.push(`${name}: ${err?.stack ?? err}`));
   page.on("console", msg => {
@@ -185,6 +212,7 @@ if ( !existsSync(join(DIST, "module.zip")) ) {
   console.error("No dist/module.zip — run `node dev/release.mjs check` first.");
   process.exit(2);
 }
+const ZIP_FILES = zipEntries(join(DIST, "module.zip")).filter(e => !e.endsWith("/"));
 
 const browser = await chromium.launch({ channel: "msedge", headless: true,
   args: ["--enable-unsafe-swiftshader", "--use-angle=swiftshader", "--ignore-gpu-blocklist"] });
@@ -199,6 +227,7 @@ try {
   // 1. Install from the manifest URL, as a GM would.
   log(`installing from ${manifest.manifest}`);
   await post("/setup", { action: "installPackage", type: "module", id: MODULE_ID, manifest: manifest.manifest });
+  await installFinished();
   const installed = JSON.parse(readFileSync(join(LINK, "module.json"), "utf8"));
   check(!isLink(LINK) && (installed.version === manifest.version), `installed v${installed.version} as a real directory`);
   check(!existsSync(join(LINK, "quench")) && !existsSync(join(LINK, "test")), "no tests or Quench batches installed");
@@ -229,7 +258,8 @@ try {
   const entry = player.page.locator("#actors .cc-entry");
   await entry.waitFor({ timeout: 30_000 });
   check(/Create a character/.test(await entry.innerText()), "the Actors tab offers \"Create a character\"");
-  await entry.click();
+  // Clicked in the page: in a brand-new world, the system's first-run windows can sit over the sidebar.
+  await entry.evaluate(button => button.click());
   await player.page.locator(`#${MODULE_ID}-wizard`).waitFor({ timeout: 30_000 });
   check(true, "the creator opens from that button");
 
@@ -279,6 +309,7 @@ try {
   check(false, `stopped: ${err?.stack ?? err}`);
 } finally {
   try {
+    for ( const context of [...sessions] ) await context.close().catch(() => null);
     const s = await status();
     if ( s?.active ) {
       const gm = await joinAs(browser, GM);
@@ -288,6 +319,7 @@ try {
     }
     if ( worldMade ) await post("/setup", { action: "uninstallPackage", type: "world", id: WORLD }).catch(e => log(`world not removed: ${e.message}`));
   } finally {
+    if ( existsSync(PARKED) || isLink(PARKED) ) await installFinished(60_000).catch(() => null);
     restoreLink();
     await post("/setup", { action: "resetPackages" }).catch(() => null);
     server.close();

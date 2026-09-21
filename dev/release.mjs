@@ -14,7 +14,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync, statSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
@@ -50,7 +50,7 @@ function setVersion(version) {
 }
 
 /** The names in a zip, read from its central directory (no zip64: a module is far below 4 GB). */
-function zipEntries(path) {
+export function zipEntries(path) {
   const zip = readFileSync(path);
   const end = zip.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
   if ( end < 0 ) fail(`${path} isn't a zip`);
@@ -148,8 +148,10 @@ function changelogSection(version) {
   return text.slice(start, next < 0 ? undefined : next).trim();
 }
 
+// Run as a command, not when fresh-install.mjs borrows zipEntries.
 const [command, arg] = process.argv.slice(2);
-if ( command === "version" ) setVersion(arg);
+if ( import.meta.url !== pathToFileURL(process.argv[1]).href ) { /* imported */ }
+else if ( command === "version" ) setVersion(arg);
 else if ( command === "check" ) check();
 else if ( command === "publish" ) publish();
 else fail("usage: node dev/release.mjs version <x.y.z> | check | publish");
