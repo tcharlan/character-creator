@@ -1,0 +1,113 @@
+{{!-- The GM's allowed content (PLAN 4.1): a tab per category, plus the packs and the ability-score methods. --}}
+<div class="cc-restrict">
+  <nav class="cc-restrict__tabs" role="tablist" aria-label="{{localize 'CHARCREATOR.Restrictions.Tabs'}}">
+    {{#each tabs as |t|}}
+    <button type="button" role="tab" class="cc-restrict__tab{{#if t.open}} cc-restrict__tab--open{{/if}}"
+            data-action="tab" data-tab="{{t.key}}" aria-selected="{{t.open}}">
+      <span class="cc-restrict__name">{{t.label}}</span>
+      {{#if t.allowed}}<span class="cc-restrict__count">{{t.allowed}} / {{t.total}}</span>{{/if}}
+      {{#if t.restricted}}<span class="cc-restrict__dot" aria-hidden="true"></span>{{/if}}
+    </button>
+    {{/each}}
+  </nav>
+
+  <section class="cc-restrict__pane">
+    {{#if category}}
+    <header class="cc-restrict__head">
+      <div>
+        <h2>{{localize (concat "CHARCREATOR.Restrictions.Tab." category.key)}}</h2>
+        <p class="cc-hint">
+          {{#if category.unrestricted}}{{localize "CHARCREATOR.Restrictions.AllAllowed"}}
+          {{else}}{{localize "CHARCREATOR.Restrictions.SomeAllowed"}} {{category.allowed}} / {{category.total}}
+          {{/if}}
+        </p>
+      </div>
+      <div class="cc-restrict__tools">
+        <label class="cc-search">
+          <span class="cc-visually-hidden">{{localize "CHARCREATOR.Options.Search"}}</span>
+          <input type="search" value="{{search}}" placeholder="{{localize 'CHARCREATOR.Options.Search'}}">
+        </label>
+        <button type="button" class="cc-button" data-action="allow-all" data-category="{{category.key}}">
+          {{localize "CHARCREATOR.Restrictions.AllowAll"}}
+        </button>
+        <button type="button" class="cc-button" data-action="allow-none" data-category="{{category.key}}">
+          {{localize "CHARCREATOR.Restrictions.AllowNone"}}
+        </button>
+        {{#if search}}
+        <button type="button" class="cc-button" data-action="allow-shown" data-category="{{category.key}}">
+          {{localize "CHARCREATOR.Restrictions.AllowShown"}}
+        </button>
+        {{/if}}
+      </div>
+    </header>
+
+    <ul class="cc-list">
+      {{#each category.entries as |e|}}
+      <li>
+        <button type="button" class="cc-entry{{#if e.allowed}} cc-entry--allowed{{/if}}" data-action="entry"
+                data-category="{{../category.key}}" data-uuid="{{e.uuid}}" aria-pressed="{{e.allowed}}">
+          {{#if e.img}}<img src="{{e.img}}" alt="">{{/if}}
+          <span class="cc-entry__name">{{e.name}}</span>
+          <span class="cc-entry__pack">{{e.pack}}</span>
+        </button>
+      </li>
+      {{/each}}
+      {{#unless category.entries.length}}
+      <li class="cc-empty">{{localize "CHARCREATOR.Restrictions.NothingHere"}}</li>
+      {{/unless}}
+    </ul>
+
+    {{else if packs}}
+    <header class="cc-restrict__head">
+      <div>
+        <h2>{{localize "CHARCREATOR.Restrictions.Tab.packs"}}</h2>
+        <p class="cc-hint">{{localize "CHARCREATOR.Restrictions.PacksHint"}}</p>
+      </div>
+    </header>
+    <ul class="cc-list">
+      {{#each packs.entries as |p|}}
+      <li>
+        <button type="button" class="cc-entry{{#if p.allowed}} cc-entry--allowed{{/if}}" data-action="pack"
+                data-pack="{{p.collection}}" aria-pressed="{{p.allowed}}">
+          <span class="cc-entry__name">{{p.label}}</span>
+          <span class="cc-entry__pack">{{p.collection}}</span>
+        </button>
+      </li>
+      {{/each}}
+    </ul>
+
+    {{else}}
+    <header class="cc-restrict__head">
+      <div>
+        <h2>{{localize "CHARCREATOR.Restrictions.Tab.abilities"}}</h2>
+        <p class="cc-hint">{{localize "CHARCREATOR.Restrictions.AbilitiesHint"}}</p>
+      </div>
+    </header>
+    <ul class="cc-list">
+      {{#each methods as |m|}}
+      <li>
+        <button type="button" class="cc-entry{{#if m.allowed}} cc-entry--allowed{{/if}}" data-action="method"
+                data-method="{{m.key}}" aria-pressed="{{m.allowed}}" {{#if m.only}}disabled{{/if}}>
+          <span class="cc-entry__name">{{m.label}}</span>
+          {{#if m.only}}<span class="cc-entry__pack">{{localize "CHARCREATOR.Restrictions.LastMethod"}}</span>{{/if}}
+        </button>
+      </li>
+      {{/each}}
+    </ul>
+    {{/if}}
+  </section>
+
+  <footer class="cc-restrict__footer">
+    <ul class="cc-problems cc-restrict__warnings">
+      {{#each warnings as |w|}}
+      <li class="cc-problem cc-problem--{{w.level}}">{{w.message}}</li>
+      {{/each}}
+    </ul>
+    <div class="cc-restrict__buttons">
+      <button type="button" class="cc-button" data-action="cancel">{{localize "CHARCREATOR.Restrictions.Cancel"}}</button>
+      <button type="button" class="cc-button cc-button--primary" data-action="save" {{#if saving}}disabled{{/if}}>
+        {{localize "CHARCREATOR.Restrictions.Save"}}
+      </button>
+    </div>
+  </footer>
+</div>

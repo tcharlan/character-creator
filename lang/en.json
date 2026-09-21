@@ -392,6 +392,43 @@
       "Close": "Close",
       "Another": "Make another character",
       "NoMore": "That's all the characters your GM allows. Ask them if you need another."
+    },
+    "Restrictions": {
+      "Title": "Allowed content",
+      "MenuName": "Allowed content",
+      "MenuLabel": "Choose what players may use",
+      "MenuHint": "Which species, classes, backgrounds and other content players may choose in the character creator, which compendiums those come from, and how they may set their ability scores.",
+      "Tabs": "What to restrict",
+      "GMOnly": "Only a GM can change what players may use.",
+      "Saved": "Saved. Players see the change the next time they open the creator.",
+      "Save": "Save",
+      "Cancel": "Cancel",
+      "AllAllowed": "Everything here is allowed.",
+      "SomeAllowed": "Allowed:",
+      "AllowAll": "Allow all",
+      "AllowNone": "Allow none",
+      "AllowShown": "Allow only these",
+      "NothingHere": "Nothing here in this world.",
+      "PacksHint": "Which compendiums the creator draws on. Turning one off hides everything in it, whatever the lists above say.",
+      "AbilitiesHint": "How players may set their ability scores. With one method left, the creator chooses it for them.",
+      "LastMethod": "the only one left",
+      "Tab": {
+        "species": "Species",
+        "background": "Backgrounds",
+        "class": "Classes",
+        "subclass": "Subclasses",
+        "feat": "Feats",
+        "spell": "Spells",
+        "equipment": "Equipment",
+        "packs": "Compendiums",
+        "abilities": "Ability scores"
+      },
+      "Warning": {
+        "NoneRequired": "No {category} are allowed, so nobody can make a character.",
+        "NoneOptional": "No {category} are allowed. Anything that needs them will block the player.",
+        "OnlyOne": "Only one of the {category} is allowed, so the creator chooses it for the player.",
+        "OneMethod": "Only one way of setting ability scores is allowed, so the creator uses it."
+      }
     }
   }
 }

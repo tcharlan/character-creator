@@ -6,7 +6,7 @@
 
 import { readSettings } from "../settings/settings.mjs";
 import { MODULE_ID } from "../contracts.mjs";
-import { buildCatalogData, isAllowed, shortfall, normalizeUuid, NO_RESTRICTIONS } from "./filters.mjs";
+import { buildCatalogData, isAllowed, shortfall, normalizeUuid, packExclusion, NO_RESTRICTIONS } from "./filters.mjs";
 
 /**
  * Index fields the wizard, the rules adapter and the validator read (confirmed in Phase 1):
@@ -69,6 +69,19 @@ export async function buildCatalog({ rules = game.settings.get("dnd5e", "rulesVe
     stats: { packsRead: new Set(entries.map(e => e.pack)).size, entries: entries.length, allowed: data.allowed.size,
       referenced: data.referenced.size, ms: Math.round(performance.now() - t0) }
   });
+}
+
+/**
+ * The Item packs this world can draw on, for the GM's allowed-content screen (PLAN 4.1): the ones dnd5e and the
+ * world already enable, whether or not the module narrows them further.
+ * @returns {{ collection: string, label: string }[]}
+ */
+export function itemPacks() {
+  const sourceConfig = game.settings.get("dnd5e", "packSourceConfiguration") ?? {};
+  return game.packs.contents
+    .filter(p => !packExclusion(describePack(p, sourceConfig, game.user), NO_RESTRICTIONS))
+    .map(p => ({ collection: p.collection, label: p.metadata.label ?? p.collection }))
+    .sort((a, b) => a.label.localeCompare(b.label));
 }
 
 /* -------------------------------------------- */

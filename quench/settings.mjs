@@ -95,8 +95,11 @@ export function registerSettingsBatches(quench) {
         await query(ABILITY_TEST_QUERIES.CLEANUP, { draftIds });
       });
 
-      it("every setting is registered as a world setting, with the documented defaults", async () => {
+      it("every setting is registered as a world setting, with the documented defaults", async function() {
+        this.timeout(120_000);
         const { SETTINGS } = await import("../scripts/settings/normalize.mjs");
+        // A run that ended early can leave a setting behind; the documented defaults are what is stored nowhere.
+        for ( const key of Object.values(SETTINGS) ) await query(Q.SET, { key, reset: true });
         for ( const key of Object.values(SETTINGS) ) {
           const cfg = game.settings.settings.get(`${MODULE_ID}.${key}`);
           assert.exists(cfg, key);

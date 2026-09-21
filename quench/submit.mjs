@@ -180,12 +180,28 @@ export function registerSubmitBatches(quench) {
         assert.lengthOf(mine(), 1);
       });
       it("a second character is refused at the limit (A4: one per player by default)", async function() {
-        this.timeout(120_000);
-        const other = await legitDraft(FIXED[rules()], { catalog });
-        draftIds.push(other.id);
-        const res = await submit({ draft: other });
-        assert.deepEqual(res.errors.map(e => e.code), ["CHARACTER_LIMIT"]);
-        assert.lengthOf(mine(), 1);
+        this.timeout(180_000);
+        // Say what this test needs rather than trusting the world to be untouched.
+        const { SETTINGS_TEST_QUERIES } = await import("./settings.mjs");
+        const { readSettings } = await import("../scripts/settings/settings.mjs");
+        const setLimit = async value => {
+          await gm().query(SETTINGS_TEST_QUERIES.SET,
+            { key: "characterLimit", ...(value === null ? { reset: true } : { value }) }, { timeout: 60_000 });
+          const wanted = value === 0 ? null : value;
+          for ( let i = 0; i < 100 && (readSettings().characterLimit !== wanted); i++ ) {
+            await new Promise(r => setTimeout(r, 100));
+          }
+        };
+        await setLimit(1);
+        try {
+          const other = await legitDraft(FIXED[rules()], { catalog });
+          draftIds.push(other.id);
+          const res = await submit({ draft: other });
+          assert.deepEqual((res.errors ?? []).map(e => e.code), ["CHARACTER_LIMIT"], JSON.stringify(res).slice(0, 200));
+          assert.lengthOf(mine(), 1);
+        } finally {
+          await setLimit(null);
+        }
       });
       it("uploading a new portrait later (A5): own actor yes; missing or not-owned actor no", async function() {
         this.timeout(120_000);

@@ -6,6 +6,7 @@
 
 import { MODULE_ID } from "../contracts.mjs";
 import { SETTINGS, DEFAULTS, UPLOAD_MB_RANGE, normalizeSettings } from "./normalize.mjs";
+import { registerRestrictionsApp } from "./restrictions-app.mjs";
 
 export { SETTINGS };
 
@@ -24,6 +25,8 @@ export function registerSettings() {
   world(SETTINGS.UPLOADS, { type: Boolean, config: true });
   world(SETTINGS.MAX_UPLOAD_MB, { type: Number, config: true, range: { ...UPLOAD_MB_RANGE, step: 1 } });
   world(SETTINGS.RING_COLORS, { type: Object, config: false, default: { ring: null, background: null } });
+  // The objects above are edited on their own screen (PLAN 4.1), which the settings window links to.
+  registerRestrictionsApp();
 }
 
 /** The module's settings, normalised (see normalize.mjs). */

@@ -204,10 +204,12 @@ async function runBatches(page, keys) {
 /**
  * Batches whose key ends in "@gm" need a GM online while they run (run after the others, in registration
  * order). Batches ending in "@nogm" need no GM online and run last before the GM joins, so they can
- * leave state for a GM batch to pick up (quench/pending.mjs).
+ * leave state for a GM batch to pick up (quench/pending.mjs). Batches ending in "@gmpage" are the GM's own
+ * screens: they run in the GM's session rather than the player's.
  */
 const needsGM = key => key.endsWith("@gm");
 const noGM = key => key.endsWith("@nogm");
+const onGMPage = key => key.endsWith("@gmpage");
 
 /* -------------------------------------------- */
 /*  Main                                        */
@@ -245,17 +247,20 @@ async function main() {
         const merge = r => {
           for ( const k of ["passes", "failures", "pending"] ) report[k].push(...(r[k] ?? []));
         };
-        const alone = [...keys.filter(k => !needsGM(k) && !noGM(k)), ...keys.filter(noGM)];
+        const gmPage = keys.filter(onGMPage);
+        const alone = [...keys.filter(k => !needsGM(k) && !noGM(k) && !onGMPage(k)), ...keys.filter(noGM)];
         const withGM = keys.filter(needsGM);
         if ( alone.length ) merge(await runBatches(session.page, alone));
         let gm = null;
-        if ( withGM.length ) {
-          log(`${world}: joining as ${GM} for ${withGM.join(", ")}`);
+        if ( withGM.length || gmPage.length ) {
+          log(`${world}: joining as ${GM} for ${[...withGM, ...gmPage].join(", ")}`);
           gm = await joinAs(browser, GM);
           // The GM's copy of the module registers the test query handlers at quenchReady.
           await gm.page.waitForFunction(id => `${id}.test.submitCleanup` in CONFIG.queries, MODULE_ID, { timeout: 60_000 });
           await session.page.waitForFunction(() => !!game.users.activeGM, null, { timeout: 30_000 });
-          merge(await runBatches(session.page, withGM));
+          if ( withGM.length ) merge(await runBatches(session.page, withGM));
+          // The GM's own screens run in the GM's session.
+          if ( gmPage.length ) merge(await runBatches(gm.page, gmPage));
           await gm.context.close();
         }
         result.batches = keys;

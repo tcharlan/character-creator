@@ -1091,5 +1091,6 @@ export function preloadWizardTemplates() {
 export function registerWizardApi() {
   const module = game.modules.get(MODULE_ID);
   if ( module ) module.api = Object.assign(module.api ?? {}, { CharacterWizard, openWizard: () => CharacterWizard.open(),
+    openRestrictions: async () => (await import("../settings/restrictions-app.mjs")).RestrictionsApp.open(),
     STATUS });
 }
