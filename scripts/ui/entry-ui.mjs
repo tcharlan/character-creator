@@ -52,7 +52,7 @@ async function openWizard() {
     return await CharacterWizard.open();
   } catch ( err ) {
     console.error(`${MODULE_ID} | the wizard couldn't be opened`, err);
-    ui.notifications?.error(T("CHARCREATOR.Error.BAD_REQUEST"));
+    ui.notifications?.error(T("Error.BAD_REQUEST"));
     return null;
   } finally {
     opening = false;

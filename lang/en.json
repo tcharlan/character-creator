@@ -468,6 +468,12 @@
       "Creating": "Creating…",
       "CreateAll": "Create all waiting",
       "TryAgain": "Try again"
+    },
+    "Units": {
+      "MB": "MB.",
+      "KB": "KB",
+      "GP": "GP",
+      "Feet": "ft"
     }
   }
 }

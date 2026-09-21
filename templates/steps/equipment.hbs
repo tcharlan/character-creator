@@ -19,7 +19,7 @@
             </button>
             <button type="button" class="cc-method{{#if (eq s.mode 'wealth')}} cc-method--selected{{/if}}" data-action="equip-mode"
                     data-role="{{s.role}}" data-mode="wealth" aria-pressed="{{eq s.mode 'wealth'}}">
-              {{#if s.wealth.fixed}}{{localize "CHARCREATOR.Equipment.TakeGold"}} ({{s.wealth.fixed}} GP)
+              {{#if s.wealth.fixed}}{{localize "CHARCREATOR.Equipment.TakeGold"}} ({{s.wealth.fixed}} {{localize "CHARCREATOR.Units.GP"}})
               {{else}}{{localize "CHARCREATOR.Equipment.TakeGold"}}{{/if}}
             </button>
           </div>
@@ -29,9 +29,9 @@
         {{#if (eq s.mode "wealth")}}
         <div class="cc-wealth">
           {{#if s.wealth.fixed}}
-          <p class="cc-wealth__total">{{s.wealth.fixed}} GP</p>
+          <p class="cc-wealth__total">{{s.wealth.fixed}} {{localize "CHARCREATOR.Units.GP"}}</p>
           {{else if s.wealth.rolled}}
-          <p class="cc-wealth__total">{{s.wealth.total}} GP</p>
+          <p class="cc-wealth__total">{{s.wealth.total}} {{localize "CHARCREATOR.Units.GP"}}</p>
           <p class="cc-hint">{{localize "CHARCREATOR.Equipment.Rolled"}} {{s.wealth.formula}}</p>
           {{else}}
           <button type="button" class="cc-button cc-button--primary" data-action="equip-roll" data-role="{{s.role}}">

@@ -27,13 +27,13 @@
       {{/if}}
     </div>
     <p class="cc-hint">
-      {{#if maxMB}}{{localize "CHARCREATOR.Portrait.Limits"}} {{maxMB}} MB.{{/if}}
+      {{#if maxMB}}{{localize "CHARCREATOR.Portrait.Limits"}} {{maxMB}} {{localize "CHARCREATOR.Units.MB"}}{{/if}}
       {{localize "CHARCREATOR.Portrait.Resized"}}
     </p>
     {{/if}}
 
     {{#if chosen}}
-    <p class="cc-hint">{{dimensions}} · {{size}} KB</p>
+    <p class="cc-hint">{{dimensions}} · {{size}} {{localize "CHARCREATOR.Units.KB"}}</p>
     <div class="cc-ring-colors">
       <label class="cc-field">
         <span class="cc-field__label">{{localize "CHARCREATOR.Portrait.RingColor"}}</span>
