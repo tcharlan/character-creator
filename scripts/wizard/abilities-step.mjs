@@ -34,11 +34,25 @@ export function spendPoint(draft, ability, delta) {
   return draft;
 }
 
+/** Does the draft's set of scores hold anything besides the six abilities? (0.3.0 could add one; the GM refuses it.) */
+export function hasStrayScores(draft) {
+  const base = draft?.abilities?.base;
+  return !!base && Object.keys(base).some(k => !ABILITIES.includes(k));
+}
+
+/** Keep only the six abilities in the draft's scores. */
+export function cleanScores(draft) {
+  const base = draft?.abilities?.base;
+  if ( base ) draft.abilities.base = Object.fromEntries(ABILITIES.map(a => [a, Number.isInteger(base[a]) ? base[a] : null]));
+  return draft;
+}
+
 /**
  * Standard array and rolled: put one of the values on an ability. Each value in the pool is used once, and a
  * pool can hold the same number twice (two 12s in a roll), so a value only swaps when no copy is spare.
  */
 export function assignValue(draft, ability, value) {
+  if ( !ABILITIES.includes(ability) ) return cleanScores(draft);
   const base = { ...startingScores(draft.abilities.method ?? "standardArray"), ...(draft.abilities.base ?? {}) };
   const previous = base[ability] ?? null;
   if ( value === null ) base[ability] = null;
@@ -49,7 +63,7 @@ export function assignValue(draft, ability, value) {
     base[ability] = value;
   }
   draft.abilities.base = base;
-  return draft;
+  return cleanScores(draft);
 }
 
 /** The pool a method assigns from: the standard array, or the rolled results. */

@@ -114,13 +114,13 @@
     {{/if}}
 
     {{#if gm}}
-    <label class="cc-assign">
-      <span class="cc-section-title">{{localize "CHARCREATOR.Review.For"}}</span>
-      <select class="cc-assign-to">
+    <div class="cc-field cc-owner">
+      <label class="cc-field__label" for="cc-owner-pick">{{localize "CHARCREATOR.Review.For"}}</label>
+      <select id="cc-owner-pick" class="cc-input cc-select cc-owner-pick">
         <option value="" {{#if gm.keep}}selected{{/if}}>{{localize "CHARCREATOR.Review.ForMe"}}</option>
         {{#each gm.players as |p|}}<option value="{{p.id}}" {{#if p.selected}}selected{{/if}}>{{p.name}}</option>{{/each}}
       </select>
-    </label>
+    </div>
     {{/if}}
     <button type="button" class="cc-button cc-button--primary cc-create" data-action="create"
             {{#unless review.ready}}disabled{{/unless}} {{#if review.busy}}disabled{{/if}}>

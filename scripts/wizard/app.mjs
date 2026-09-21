@@ -15,7 +15,7 @@ import { readSettings, SETTINGS } from "../settings/settings.mjs";
 import { bannerSteps, canOpen, moveStep, groupErrors, attention, BANNER_STEPS } from "./steps-model.mjs";
 import { applyPick, answerStep, syncRecipe } from "./picks.mjs";
 import { optionList, optionDetail, optionDescription, subclassOptions, subclassStep, STEP_CATEGORY } from "./options-step.mjs";
-import { abilitiesModel, setMethod, spendPoint, assignValue } from "./abilities-step.mjs";
+import { abilitiesModel, setMethod, spendPoint, assignValue, cleanScores, hasStrayScores } from "./abilities-step.mjs";
 import { choicesModel, answerData, nextOpenChoice, withAnswer } from "./choices-step.mjs";
 import { sourceModel, setMode, chooseBranch, setPick, setWealth, EQUIPMENT_SOURCES } from "./equipment-step.mjs";
 import { equipmentContext, rollStartingWealth } from "../rules/equipment-items.mjs";
@@ -530,6 +530,9 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     this.#submitting = true;
     await this.render({ parts: ["body", "footer"] });
     try {
+      // 0.3.0 could leave a stray key in the ability scores (the Review list shared a class with them), which the
+      // GM's check refuses: clean it before sending.
+      if ( hasStrayScores(this.draft) ) await this.update(d => cleanScores(d), { wait: true, rebuild: false });
       const image = this.draft.portrait?.pendingImage ?? null;
       const result = await submitDraft(this.draft, { image });
       if ( result.pending ) {
@@ -875,7 +878,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       box.addEventListener("change", event => this.answer({ action: event.target.dataset.toggle, value: event.target.dataset.key }));
     }
     // A GM's "who is it for" at Review: remembered here, sent nowhere until Create (D29).
-    this.element.querySelector(".cc-assign-to")?.addEventListener("change", event => this.#assignTo = event.target.value);
+    this.element.querySelector(".cc-owner-pick")?.addEventListener("change", event => this.#assignTo = event.target.value);
     const file = this.element.querySelector(".cc-file__input");
     if ( file ) file.addEventListener("change", event => this.choosePortrait(event.target.files?.[0]));
     for ( const color of this.element.querySelectorAll(".cc-color") ) {

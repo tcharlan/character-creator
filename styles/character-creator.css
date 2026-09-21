@@ -1004,6 +1004,7 @@ li.notification button.cc-entry-prompt {
 .cc-backdrop__img { width: 44px; height: 44px; object-fit: cover; border: 0; border-radius: 4px; }
 .cc-backdrop__img--sigil { object-fit: contain; opacity: 0.8; }
 
-/* A GM's "who is it for" at Review (D29). */
-.cc-assign { display: flex; flex-direction: column; gap: 6px; align-self: stretch; }
-.cc-assign-to { width: 100%; }
+/* A GM's "who is it for" at Review (D29). Not .cc-assign: that is the ability scores' standard-array list. */
+/* Full width in the centred side column, like the Create button under it; the field looks as on Details. */
+.cc-owner { width: 100%; }
+.cc-owner-pick { width: 100%; }

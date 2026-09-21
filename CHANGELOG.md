@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1
+
+- Fixed: the "Who is it for?" list at Review was squashed into a small box.
+- Fixed: for a GM, choosing a player there also disturbed the ability scores, so the character was refused. Drafts
+  affected in 0.3.0 are cleaned up when you press Create.
+
 ## 0.3.0
 
 - GMs can use the creator for characters of their own (no character limit), and give them to a player at Review or

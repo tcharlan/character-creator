@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createDraft, checkDraftShape } from "../scripts/contracts.mjs";
 import { checkAbilities } from "../scripts/rules/abilities.mjs";
-import { setMethod, spendPoint, assignValue, poolFor, startingScores, abilitiesModel }
+import { setMethod, spendPoint, assignValue, poolFor, startingScores, abilitiesModel, cleanScores, hasStrayScores }
   from "../scripts/wizard/abilities-step.mjs";
 
 const ID = n => String(n).padEnd(16, "0");
@@ -128,4 +128,17 @@ test("a pool with the same value twice offers both, and only swaps when none is 
   assert.deepEqual([d.abilities.base.str, d.abilities.base.dex, d.abilities.base.con], [null, 12, 12],
     "no third copy: the first holder gives it up");
   assert.deepEqual(checkDraftShape(d), []);
+});
+
+test("only the six abilities are ever written to the scores, and 0.3.0's stray key is cleaned away", () => {
+  // 0.3.0's Review list shared a class with the standard-array lists: choosing a player wrote "undefined": NaN.
+  let d = draft({ method: "standardArray", base: { str: 15, dex: null, con: null, int: null, wis: null, cha: null } });
+  d = assignValue(d, undefined, NaN);
+  assert.deepEqual(Object.keys(d.abilities.base).sort(), ["cha", "con", "dex", "int", "str", "wis"]);
+  assert.equal(d.abilities.base.str, 15, "nothing else changed");
+  const stray = draft({ method: "standardArray", base: { str: 15, dex: 14, con: null, int: null, wis: null, cha: null, undefined: NaN } });
+  assert.equal(hasStrayScores(stray), true);
+  assert.deepEqual(cleanScores(stray).abilities.base, { str: 15, dex: 14, con: null, int: null, wis: null, cha: null });
+  assert.equal(hasStrayScores(stray), false);
+  assert.equal(hasStrayScores(draft({ method: "standardArray", base: null })), false);
 });

@@ -34,12 +34,15 @@ export function registerGmCreateBatches(quench) {
           await app.settle();
         }
         await walkWizard(app, { name });
-        const select = app.element.querySelector(".cc-assign-to");
+        const select = app.element.querySelector(".cc-owner-pick");
         assert.exists(select, "Review asks a GM who the character is for");
         assert.equal(select.value, "", "keeping it is the default");
         if ( forPlayer ) {
           select.value = forPlayer.id;
-          select.dispatchEvent(new Event("change"));
+          select.dispatchEvent(new Event("change", { bubbles: true }));
+          await app.settle();
+          assert.deepEqual(Object.keys(app.draft.abilities.base ?? {}).sort(), ["cha", "con", "dex", "int", "str", "wis"],
+            "choosing a player leaves the ability scores alone");
         }
         app.element.querySelector('[data-action="create"]').click();
         for ( let i = 0; i < 300 && (app.draft?.status !== "created"); i++ ) await wait(200);
