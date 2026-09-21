@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0
 
 - The creator opens fullscreen, with a button in its header to switch to a movable, resizable window and back.
   Each player's choice, and where they left the window, is remembered.
