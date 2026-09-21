@@ -26,6 +26,8 @@ export function registerGmCreateBatches(quench) {
 
       /** Walk the creator as the GM and press Create; returns the new actor. */
       const makeOne = async (name, forPlayer = null) => {
+        // A finished draft opens the finished character instead of the creator (as for a player): start fresh.
+        await game.user.unsetFlag(MODULE_ID, DRAFT_FLAG);
         app = await CharacterWizard.open();
         assert.exists(app, "the creator didn't open for a GM");
         await app.settle();
@@ -47,6 +49,9 @@ export function registerGmCreateBatches(quench) {
         app.element.querySelector('[data-action="create"]').click();
         for ( let i = 0; i < 300 && (app.draft?.status !== "created"); i++ ) await wait(200);
         assert.equal(app.draft.status, "created", JSON.stringify(app.draft.result?.errors ?? []).slice(0, 400));
+        // The finished screen is drawn once the create call has fully returned.
+        for ( let i = 0; i < 100 && !app.element.querySelector(".cc-outcome--created"); i++ ) await wait(100);
+        await app.settle();
         const actor = await fromUuid(app.draft.result.actorUuid);
         assert.exists(actor);
         made.push(actor.id);

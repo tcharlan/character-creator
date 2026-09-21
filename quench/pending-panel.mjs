@@ -118,13 +118,13 @@ export function registerPendingPanelBatches(quench) {
         const draft = await legitDraft(FIXED[rules()], { catalog });
         if ( !ui.actors.rendered ) await ui.actors.render({ force: true });
         refreshEntryPoints();
-        assert.notExists(ui.actors.element.querySelector(".cc-entry"), "nothing waiting, nothing shown");
+        assert.notExists(ui.actors.element.querySelector(".cc-entry--queue"), "nothing waiting, no queue button");
 
         await setDraft({ ...draft, status: "failed",
           result: { actorUuid: null, errors: [{ code: "NAME_REQUIRED", step: "details",
             key: "CHARCREATOR.Error.NAME_REQUIRED" }] } });
         refreshEntryPoints();
-        const button = ui.actors.element.querySelector(".cc-entry");
+        const button = ui.actors.element.querySelector(".cc-entry--queue");
         assert.exists(button, "the GM should see what is waiting");
         assert.include(button.textContent, "1");
         button.click();
