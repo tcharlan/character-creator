@@ -1,6 +1,6 @@
 /**
- * Dev-only: build and publish a release (PLAN 6.2). No dependencies: git makes the zip, tar lists it, the GitHub
- * CLI publishes it.
+ * Dev-only: build and publish a release (PLAN 6.2). No dependencies: git makes the zip, it is listed here from its
+ * central directory (the `tar` on PATH may be GNU tar, which can't read zips), and the GitHub CLI publishes it.
  *
  *   node dev/release.mjs version 0.2.0   set the version in module.json and package.json, and the download URL
  *   node dev/release.mjs check           build dist/module.zip from HEAD and check what is (and isn't) in it
@@ -49,6 +49,25 @@ function setVersion(version) {
   log(`version ${version} in module.json and package.json; add a CHANGELOG entry, commit, then publish`);
 }
 
+/** The names in a zip, read from its central directory (no zip64: a module is far below 4 GB). */
+function zipEntries(path) {
+  const zip = readFileSync(path);
+  const end = zip.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+  if ( end < 0 ) fail(`${path} isn't a zip`);
+  const count = zip.readUInt16LE(end + 10);
+  let at = zip.readUInt32LE(end + 16);
+  const names = [];
+  for ( let i = 0; i < count; i++ ) {
+    if ( zip.readUInt32LE(at) !== 0x02014b50 ) fail(`${path}: bad central directory`);
+    const nameLength = zip.readUInt16LE(at + 28);
+    const extra = zip.readUInt16LE(at + 30);
+    const comment = zip.readUInt16LE(at + 32);
+    names.push(zip.toString("utf8", at + 46, at + 46 + nameLength));
+    at += 46 + nameLength + extra + comment;
+  }
+  return names;
+}
+
 /** Every file in a directory, recursively, relative to the root. */
 function walk(dir, base = dir) {
   const out = [];
@@ -78,7 +97,7 @@ function check() {
   writeFileSync(join(DIST, "module.json"), `${JSON.stringify(committed, null, 2)}\n`);
   if ( committed.version !== manifest.version ) problems.push("module.json on disk differs from the committed one — commit first");
 
-  const entries = run("tar", ["-tf", ZIP]).split(/\r?\n/).filter(e => e && !e.endsWith("/"));
+  const entries = zipEntries(ZIP).filter(e => !e.endsWith("/"));
   for ( const path of [...REQUIRED, ...committed.esmodules, ...committed.styles, ...committed.languages.map(l => l.path)] ) {
     if ( !entries.includes(path) ) problems.push(`missing from the zip: ${path}`);
   }
