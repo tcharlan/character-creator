@@ -11,7 +11,7 @@
     {{else}}
     <div class="cc-methods" role="tablist" aria-label="{{localize 'CHARCREATOR.Spells.Lists'}}">
       {{#each spells.tabs as |t|}}
-      <button type="button" role="tab" class="cc-method{{#if t.open}} cc-method--selected{{/if}}" data-action="spell-tab"
+      <button type="button" role="tab" id="cc-spell-tab-{{t.key}}" class="cc-method{{#if t.open}} cc-method--selected{{/if}}" data-action="spell-tab"
               data-tab="{{t.key}}" aria-selected="{{t.open}}">
         {{localize (concat "CHARCREATOR.Spells." t.key)}} {{t.chosen}} / {{t.needed}}
       </button>

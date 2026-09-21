@@ -11,6 +11,7 @@ import { MODULE_ID } from "../contracts.mjs";
 import { CATEGORIES, NO_RESTRICTIONS } from "../catalog/filters.mjs";
 import { getCatalog, itemPacks } from "../catalog/catalog.mjs";
 import { SETTINGS, readSettings } from "./settings.mjs";
+import { arrowKeys } from "../ui/keyboard.mjs";
 import { editorState, restrictionsModel, toStored, toStoredArt, toggleEntry, allowAll, allowNone, allowOnly,
   togglePack, toggleMethod, setArt, TABS } from "./restrictions-model.mjs";
 
@@ -110,6 +111,7 @@ export class RestrictionsApp extends HandlebarsApplicationMixin(ApplicationV2) {
   /** @inheritDoc */
   _onRender(context, options) {
     super._onRender(context, options);
+    arrowKeys(this.element.querySelector(".cc-restrict__tabs"), '[role="tab"]');
     const search = this.element.querySelector(".cc-search input");
     if ( search ) {
       search.addEventListener("input", foundry.utils.debounce(event => {

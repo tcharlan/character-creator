@@ -121,7 +121,8 @@
       "Working": "Rebuilding your character…",
       "AllGood": "Everything checks out so far. Your draft is saved as you go.",
       "Attention": "Things to fix:",
-      "NextChoice": "Next choice"
+      "NextChoice": "Next choice",
+      "BrokeDown": "Something went wrong building your character. Your draft is saved — try a different option, or ask your GM."
     },
     "Step": {
       "species": {
@@ -340,7 +341,8 @@
         "armor": "armor",
         "tool": "tool",
         "focus": "focus"
-      }
+      },
+      "NoSources": "Your class and background bring no starting equipment."
     },
     "Spells": {
       "Lists": "Spell lists",

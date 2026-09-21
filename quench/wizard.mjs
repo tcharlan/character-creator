@@ -132,6 +132,22 @@ export function registerWizardBatches(quench) {
         assert.equal(app.step, target, "Go to this step moves there");
       });
 
+      it("the arrow keys move along the step banner (PLAN 5.2)", async function() {
+        this.timeout(60_000);
+        await open();
+        const reachable = () => steps().filter(b => !b.disabled);
+        const first = reachable()[0];
+        first.focus();
+        first.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+        await settled(app);
+        const second = reachable()[1];
+        assert.equal(document.activeElement, reachable()[1], "focus moved to the next step");
+        assert.equal(app.step, second.dataset.step, "and the step opened");
+        second.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
+        await settled(app);
+        assert.equal(app.step, reachable()[0].dataset.step, "and back again");
+      });
+
       it("edits are autosaved, and reopening resumes the draft at the same step", async function() {
         this.timeout(120_000);
         await open();

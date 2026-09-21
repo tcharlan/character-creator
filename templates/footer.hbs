@@ -4,7 +4,8 @@
     <i class="fa-solid fa-chevron-left"></i>{{backLabel}}
   </button>
   <span class="cc-status" role="status">
-    {{#if busy}}{{localize "CHARCREATOR.Nav.Working"}}
+    {{#if brokeDown}}{{localize "CHARCREATOR.Nav.BrokeDown"}}
+    {{else if busy}}{{localize "CHARCREATOR.Nav.Working"}}
     {{else if attention.ready}}{{localize "CHARCREATOR.Nav.AllGood"}}
     {{else}}{{localize "CHARCREATOR.Nav.Attention" }} {{attention.errors}}
     {{/if}}

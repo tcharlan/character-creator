@@ -7,6 +7,9 @@
     </header>
 
     <div class="cc-sources">
+      {{#unless equipment.sources.length}}
+      <p class="cc-empty">{{localize "CHARCREATOR.Equipment.NoSources"}}</p>
+      {{/unless}}
       {{#each equipment.sources as |s|}}
       <section class="cc-source">
         <div class="cc-source__head">

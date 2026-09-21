@@ -13,9 +13,11 @@
   --cc-line-soft: #262c35;
   --cc-text: #ede6d8;
   --cc-muted: #aaa396;
-  --cc-faint: #7f796e;
+  /* 4.95:1 or better on every surface here (PLAN 5.2); the old #7f796e was 3.4–4.4:1. */
+  --cc-faint: #9c9488;
   --cc-gold: #d4ad57;
-  --cc-gold-deep: #8a6a2a;
+  /* A border colour: 3.3:1 or better on every surface here, so it reads as a line (PLAN 5.2). */
+  --cc-gold-deep: #957132;
   --cc-gold-dim: #2c2416;
   --cc-ok: #8fbf8a;
   --cc-warn: #e0a15a;
@@ -40,7 +42,7 @@
 
 .cc-wizard a { color: var(--cc-gold); }
 .cc-wizard a:hover { color: #f0cd7a; }
-.cc-wizard :focus-visible { outline: 2px solid var(--cc-gold); outline-offset: 2px; }
+.character-creator :focus-visible { outline: 2px solid var(--cc-gold); outline-offset: 2px; }
 
 /* Step banner */
 .cc-banner {

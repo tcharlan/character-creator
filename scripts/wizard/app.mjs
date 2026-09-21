@@ -29,6 +29,7 @@ import { reviewModel } from "./review-step.mjs";
 import { submitDraft } from "../gm/pending.mjs";
 import { createdFor } from "../gm/create.mjs";
 import { allowance } from "../ui/entry.mjs";
+import { arrowKeys } from "../ui/keyboard.mjs";
 import { rollAbilityScores } from "../rules/ability-roll.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
@@ -78,6 +79,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   #spellTab = null;
   #tables = null;
   #submitting = false;
+  #brokeDown = false;
   // Set while a step holds its changes back (the ability scores): the rebuild happens when the player leaves.
   #deferred = false;
   #bonuses = {};
@@ -595,6 +597,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
           await this.#store.update(d => d.recipe.steps = foundry.utils.deepClone(next));
         }
       }
+      this.#brokeDown = false;
       this.#bonuses = abilityBonuses(this.#build, this.draft.abilities.base);
       const { errors, equipment } = await checkBuilt(this.draft, this.#build, { catalog: this.#catalog,
         userId: game.user.id, allowedMethods: readSettings().abilityMethods });
@@ -603,6 +606,9 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     } catch ( err ) {
       console.error(`${MODULE_ID} | rebuild failed`, err);
       this.#validation = null;
+      // Say so rather than showing a quietly empty screen: the draft is safe, the character isn't built.
+      if ( !this.#brokeDown ) ui.notifications?.error(T("Nav.BrokeDown"));
+      this.#brokeDown = true;
     } finally {
       this.#busy = false;
     }
@@ -663,6 +669,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     return Object.assign(context, {
       moduleId: MODULE_ID,
       busy: this.#busy,
+      brokeDown: this.#brokeDown,
       draft,
       step: this.#current,
       stepTitle: T(`Step.${this.#current}.Title`),
@@ -780,6 +787,9 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   /** @inheritDoc */
   _onRender(context, options) {
     super._onRender(context, options);
+    // The arrow keys move along the step banner and the tab strips, as a tablist should.
+    arrowKeys(this.element.querySelector(".cc-banner"), ".cc-step");
+    for ( const strip of this.element.querySelectorAll('[role="tablist"]') ) arrowKeys(strip, '[role="tab"]');
     // Checkboxes answer on "change": a click inside a <label> would otherwise fire the action twice.
     for ( const box of this.element.querySelectorAll(".cc-toggle") ) {
       box.addEventListener("change", event => this.answer({ action: event.target.dataset.toggle, value: event.target.dataset.key }));
