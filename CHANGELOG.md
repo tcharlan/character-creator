@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Choices: languages or skills you already get (Common, say) are shown ticked and greyed out, and the count is only
+  what you pick yourself ("Chosen: 0 / 2", not "1 / 3").
 - Fixed: continuing a character could leave "Reading the description…" on screen until you changed steps.
 - Removed the small explanatory notes around the creator (where an option's picture comes from, how the character is
   checked, how portraits are resized, and similar).

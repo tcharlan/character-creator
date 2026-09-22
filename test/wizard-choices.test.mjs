@@ -50,6 +50,8 @@ test("trait widget: granted keys are fixed, and picks stop at the count", () => 
   assert.deepEqual(widget.list.map(o => [o.key, o.checked, o.disabled]),
     [["skills:his", true, true], ["skills:ins", false, false], ["skills:med", false, false]]);
   assert.deepEqual([widget.chosen, widget.needed], [1, 2]);
+  assert.deepEqual([widget.picked, widget.toPick], [0, 1], "the count is what the player picks: the grant isn't one");
+  assert.deepEqual(widget.list.filter(o => o.given).map(o => o.key), ["skills:his"], "the grant is shown as given");
   assert.deepEqual(answerData(r, { value: "skills:ins" }), { chosen: ["skills:his", "skills:ins"] });
   const full = result({ options, data: { chosen: ["skills:his", "skills:ins"] } });
   assert.equal(answerData(full, { value: "skills:med" }), null, "no room for a third");

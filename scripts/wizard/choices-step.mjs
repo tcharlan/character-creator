@@ -33,12 +33,17 @@ function traitWidget(result) {
   const granted = new Set(options.grants ?? []);
   const needed = options.max ?? 0;
   const full = chosen.length >= needed;
-  const list = (options.allowed ?? []).map(key => ({
-    key, label: label(key), checked: chosen.includes(key), granted: granted.has(key),
-    // Only the picks beyond the grants can be turned off, and nothing beyond the count can be turned on.
-    disabled: (granted.has(key) && chosen.includes(key) && !options.replacements) || (full && !chosen.includes(key))
-  }));
-  return { type: "Trait", list, chosen: chosen.length, needed, replacements: !!options.replacements };
+  const list = (options.allowed ?? []).map(key => {
+    // Already the character's and not the player's to change (no replacements): shown ticked and greyed.
+    const given = granted.has(key) && chosen.includes(key) && !options.replacements;
+    return { key, label: label(key), checked: chosen.includes(key), granted: granted.has(key), given,
+      // Only the picks beyond the grants can be turned off, and nothing beyond the count can be turned on.
+      disabled: given || (full && !chosen.includes(key)) };
+  });
+  // What the player picks themselves: the count leaves out what is already given ("0 / 2", not "1 / 3").
+  const given = list.filter(o => o.given).length;
+  return { type: "Trait", list, chosen: chosen.length, needed, replacements: !!options.replacements,
+    picked: chosen.length - given, toPick: Math.max(0, needed - given) };
 }
 
 /** ItemChoice: pick `count` items (or spells) from the pool the GM allows. */

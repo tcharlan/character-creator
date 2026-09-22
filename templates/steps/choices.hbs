@@ -39,10 +39,10 @@
 
     {{#with c.widget as |w|}}
       {{#if (eq w.type "Trait")}}
-      <p class="cc-hint">{{localize "CHARCREATOR.Choices.Chosen"}} {{w.chosen}} / {{w.needed}}</p>
+      <p class="cc-hint">{{localize "CHARCREATOR.Choices.Chosen"}} {{w.picked}} / {{w.toPick}}</p>
       <div class="cc-keys">
         {{#each w.list as |o|}}
-        <label class="cc-key{{#if o.checked}} cc-key--checked{{/if}}{{#if o.hint}} cc-key--described{{/if}}">
+        <label class="cc-key{{#if o.given}} cc-key--given{{else if o.checked}} cc-key--checked{{/if}}{{#if o.hint}} cc-key--described{{/if}}">
           <input type="checkbox" class="cc-toggle" data-toggle="trait" data-key="{{o.key}}" {{#if o.checked}}checked{{/if}} {{#if o.disabled}}disabled{{/if}}>
           <span class="cc-key__text">
             <span>{{o.label}}</span>
