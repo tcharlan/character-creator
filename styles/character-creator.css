@@ -388,6 +388,10 @@
   border: 0;
 }
 .cc-description table { width: 100%; border-collapse: collapse; }
+/* Compendium text can carry pictures sized for a journal page: keep them inside the column. Blocks meant for the
+   journal page only are left out (withoutPageOnly); this catches any that get through. */
+.cc-description img { max-width: 100%; height: auto; }
+.cc-description .hide-in-embed { display: none; }
 .cc-description th, .cc-description td { border: 1px solid var(--cc-line-soft); padding: 4px 8px; }
 
 .cc-section-title {

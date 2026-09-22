@@ -5,6 +5,7 @@
 
 import { MODULE_ID } from "../contracts.mjs";
 import { normalizeUuid } from "../catalog/filters.mjs";
+import { withoutPageOnly } from "./descriptions.mjs";
 
 /** Which catalog category each step offers. */
 export const STEP_CATEGORY = Object.freeze({ species: "species", class: "class", background: "background" });
@@ -167,7 +168,7 @@ export function optionDescription(uuid, step) {
       const page = (await journalDescriptions()).get(normalizeUuid(uuid));
       if ( page?.html ) html = page.html;
     }
-    const enriched = await CONFIG.ux.TextEditor.implementation.enrichHTML(html, { relativeTo: doc, secrets: false });
+    const enriched = withoutPageOnly(await CONFIG.ux.TextEditor.implementation.enrichHTML(html, { relativeTo: doc, secrets: false }));
     descriptionCache.set(key, enriched);
     descriptionJobs.delete(key);
     return enriched;

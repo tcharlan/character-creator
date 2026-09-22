@@ -52,9 +52,44 @@ export function summariesReady(uuids) {
  * the name on its own ("Insight."), which tells the player nothing they can't already see, so short leading
  * sentences are passed over.
  */
+/**
+ * Leave out what the content marks as belonging to its own page only: `hide-in-embed`. dnd5e puts its "Free Rules
+ * content" notice (a large lock icon and a licence line) in such a block; Foundry hides it wherever the text is
+ * shown outside its journal page, and so does the creator.
+ */
+export function withoutPageOnly(html) {
+  const source = String(html ?? "");
+  if ( !source.includes("hide-in-embed") ) return source;
+  if ( globalThis.document ) {
+    const template = document.createElement("template");
+    template.innerHTML = source;
+    for ( const el of template.content.querySelectorAll(".hide-in-embed") ) el.remove();
+    return template.innerHTML;
+  }
+  // Outside a browser (unit tests): remove each marked element up to its own closing tag.
+  let out = source;
+  const open = /<([a-z][a-z0-9]*)\b[^>]*\bclass\s*=\s*["'][^"']*\bhide-in-embed\b[^"']*["'][^>]*>/i;
+  for ( let m = out.match(open); m; m = out.match(open) ) {
+    const tag = m[1].toLowerCase();
+    const tags = new RegExp(`<(/?)${tag}\\b[^>]*>`, "gi");
+    tags.lastIndex = m.index + m[0].length;
+    let depth = 1;
+    let end = out.length;
+    for ( let t = tags.exec(out); t; t = tags.exec(out) ) {
+      depth += t[1] ? -1 : 1;
+      if ( depth === 0 ) {
+        end = t.index + t[0].length;
+        break;
+      }
+    }
+    out = out.slice(0, m.index) + out.slice(end);
+  }
+  return out;
+}
+
 export function firstSentence(html, { max = MAX_LENGTH } = {}) {
   // Foundry's own markup would otherwise be read out as text ("&Reference[Invisible apply=false]").
-  const source = String(html ?? "")
+  const source = withoutPageOnly(html)
     .replace(/@UUID\[[^\]]*\]\{([^}]*)\}/g, "$1")
     .replace(/&Reference\[([^\s\]]+)[^\]]*\]/g, "$1")
     .replace(/@[A-Za-z]+\[[^\]]*\](?:\{([^}]*)\})?/g, "$1")

@@ -60,3 +60,16 @@ test("a spell card says its level and school", () => {
     delete globalThis.CONFIG;
   }
 });
+
+test("blocks the content keeps for its own page (dnd5e's Free Rules notice) are left out", async () => {
+  const { withoutPageOnly, firstSentence } = await import("../scripts/wizard/descriptions.mjs");
+  // As dnd5e 5.3.3 ships it in the 2024 content: a lock icon and a licence line, marked hide-in-embed.
+  const notice = '<div class="fvtt advice hide-in-embed"><figure class="icon"><img src="icons/svg/door-locked-outline.svg" '
+    + 'class="round"></figure><p>This is Free Rules content that isn\'t covered under the Creative Commons license.</p></div>';
+  const html = `<p>Orcs trace their creation to Gruumsh.</p>${notice}<p>Orcs are tall and broad.</p>`;
+  assert.equal(withoutPageOnly(html), "<p>Orcs trace their creation to Gruumsh.</p><p>Orcs are tall and broad.</p>");
+  assert.equal(withoutPageOnly(`<div class="hide-in-embed"><div>inner</div><p>x</p></div><p>kept</p>`), "<p>kept</p>",
+    "nested blocks go with it");
+  assert.equal(withoutPageOnly("<p>nothing to remove</p>"), "<p>nothing to remove</p>");
+  assert.ok(!firstSentence(`${notice}<p>A single stirge is usually little more than an annoyance.</p>`).includes("Free Rules"));
+});

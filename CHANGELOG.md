@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Fixed: large lock pictures in the descriptions of some 2024 options. They are dnd5e's "Free Rules content" notices,
+  which dnd5e marks to be shown only on its own journal pages; the creator now leaves them out, and keeps any picture in
+  a description inside its column.
+
 ## 0.3.1
 
 - Fixed: the "Who is it for?" list at Review was squashed into a small box.
