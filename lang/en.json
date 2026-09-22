@@ -259,8 +259,7 @@
       "PointsLeft": "Points left",
       "OfBudget": "of",
       "StillToAssign": "Still to assign",
-      "Increases": "Increases",
-      "IncreasesNote": "Your species or background adds to these; the totals are on the right of each row."
+      "Increases": "Increases"
     },
     "Portrait": {
       "Ready": "Uploaded",
@@ -271,7 +270,6 @@
       "SkippedNote": "You're continuing without a portrait. You can add one later from your character sheet.",
       "Disabled": "Your GM has turned portrait uploads off. You can still finish your character.",
       "Limits": "Pictures up to",
-      "Resized": "It's resized in your browser before it's sent, so large pictures are fine.",
       "RingColor": "Ring colour",
       "BackgroundColor": "Ring background",
       "ResetColors": "Use the default colours",
@@ -286,7 +284,6 @@
       "Heading": "Create your character",
       "Lead": "This takes you through your species, class, background, ability scores and the choices they offer. Your GM decides which options you can use.",
       "Rules": "Rules",
-      "Note": "Your draft saves itself as you go, so you can close this and come back later.",
       "Begin": "Begin",
       "Resume": "Continue where you left off",
       "Allowance": "Characters you have made:",
@@ -307,10 +304,7 @@
       "AutoSelected": "Your GM allows only this one, so it's already chosen.",
       "Subclass": "Subclass",
       "SubclassHint": "This class chooses its subclass at level 1.",
-      "ArtIcon": "The compendium's icon for this option",
-      "ArtSystem": "Artwork from the dnd5e system",
-      "LoadingText": "Reading the description…",
-      "ArtGM": "Your GM's picture"
+      "LoadingText": "Reading the description…"
     },
     "Facts": {
       "Size": "Size",
@@ -340,8 +334,7 @@
       "Fixed": "fixed",
       "SpellcastingAbility": "Cast these with:",
       "StillOpen": "Still to choose",
-      "NoWidget": "This choice isn't something the wizard can show yet.",
-      "RebuildNote": "Every change rebuilds your character, so these numbers are always what your GM will create."
+      "NoWidget": "This choice isn't something the wizard can show yet."
     },
     "Equipment": {
       "Mode": "Items or gold",
@@ -417,7 +410,6 @@
       "ToFix": "To fix",
       "Create": "Create character",
       "Creating": "Sending…",
-      "CreateHint": "Your GM's copy of the module checks everything again and creates the character.",
       "PendingTitle": "Waiting for a GM",
       "PendingBody": "No GM is online, so your character will be created as soon as one joins. You can close this window.",
       "CreatedTitle": "Your character is ready",
@@ -432,7 +424,6 @@
       "NoMore": "That's all the characters your GM allows. Ask them if you need another.",
       "For": "Who is it for?",
       "ForMe": "Me — I'll give it to a player later",
-      "CreateHintGM": "Checked against your allowed content like a player's character. Your characters have no limit.",
       "CreatedTitleGM": "The character is ready",
       "CreatedBodyGM": "It's yours. Give it to a player whenever you like — here, or by right-clicking it in the Actors tab.",
       "GivenTo": "It's been created and given to {name}."

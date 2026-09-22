@@ -91,7 +91,6 @@
     {{/if}}
     <dl class="cc-facts">
       <div><dt>{{localize "CHARCREATOR.Summary.HitPoints"}}</dt><dd>{{#if summary.hp}}{{summary.hp}}{{else}}—{{/if}}</dd></div>
-      <div><dt>{{localize "CHARCREATOR.Abilities.Increases"}}</dt><dd>{{localize "CHARCREATOR.Abilities.IncreasesNote"}}</dd></div>
     </dl>
     {{#if errors.length}}
     <ul class="cc-problems">{{#each errors as |e|}}<li class="cc-problem">{{localize e.key}}</li>{{/each}}</ul>

@@ -21,7 +21,6 @@
     </div>
     <p class="cc-hint">
       {{#if portrait.maxMB}}{{localize "CHARCREATOR.Portrait.Limits"}} {{portrait.maxMB}} {{localize "CHARCREATOR.Units.MB"}}{{/if}}
-      {{localize "CHARCREATOR.Portrait.Resized"}}
     </p>
 
     {{#if portrait.skipped}}<p class="cc-chosen-for-you">{{localize "CHARCREATOR.Portrait.SkippedNote"}}</p>{{/if}}
@@ -47,9 +46,6 @@
     <figure class="cc-token" style="--cc-ring: {{portrait.ring.ringShown}}; --cc-ring-bg: {{portrait.ring.backgroundShown}};">
       <img src="{{portrait.preview}}" alt="{{localize 'CHARCREATOR.Portrait.Preview'}}">
     </figure>
-    <figcaption class="cc-art__caption">
-      {{localize "CHARCREATOR.Portrait.Preview"}} · {{portrait.dimensions}} · {{portrait.size}} {{localize "CHARCREATOR.Units.KB"}}
-    </figcaption>
     {{else}}
     <figure class="cc-token cc-token--empty" style="--cc-ring: {{portrait.ring.ringShown}}; --cc-ring-bg: {{portrait.ring.backgroundShown}};">
       <span>{{localize "CHARCREATOR.Portrait.NoPicture"}}</span>

@@ -109,7 +109,7 @@ export function registerRestrictionsBatches(quench) {
           "the wizard's list shows the GM's picture");
         const detail = await optionDetail(uuid, "species", { art });
         assert.equal(detail.img, picture);
-        assert.equal(detail.artNote, game.i18n.localize("CHARCREATOR.Options.ArtGM"));
+        assert.isTrue(detail.ownArt, "marked as the GM's own picture");
         const plain = await optionDetail(uuid, "species", {});
         assert.notEqual(plain.img, picture, "and the compendium's where the GM set none");
       });

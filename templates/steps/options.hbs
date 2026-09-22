@@ -61,7 +61,6 @@
     <figure class="cc-art__frame{{#if detail.largeArt}} cc-art__frame--large{{/if}}">
       <img src="{{detail.img}}" alt="">
     </figure>
-    <figcaption class="cc-art__caption">{{detail.artNote}}</figcaption>
     {{#if detail.facts.length}}
     <dl class="cc-facts">{{#each detail.facts as |f|}}<div><dt>{{f.label}}</dt><dd>{{f.value}}</dd></div>{{/each}}</dl>
     {{/if}}

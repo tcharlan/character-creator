@@ -134,7 +134,7 @@ export async function optionDetail(uuid, step, { art = {} } = {}) {
   const withArt = detail => {
     const own = art?.[normalizeUuid(uuid)] ?? null;
     if ( !own ) return detail;
-    return { ...detail, img: own, largeArt: true, artNote: game.i18n.localize("CHARCREATOR.Options.ArtGM") };
+    return { ...detail, img: own, largeArt: true, ownArt: true };
   };
   if ( detailCache.has(key) ) {
     return { ...withArt(detailCache.get(key)), description: descriptionCache.get(key) ?? null };
@@ -144,7 +144,6 @@ export async function optionDetail(uuid, step, { art = {} } = {}) {
   const detail = {
     uuid, name: doc.name, img: doc.img, chips: chips(doc, step), features: features(doc), facts: facts(doc, step),
     largeArt: LARGE_ART.test(doc.img ?? ""),
-    artNote: game.i18n.localize(LARGE_ART.test(doc.img ?? "") ? "CHARCREATOR.Options.ArtSystem" : "CHARCREATOR.Options.ArtIcon"),
     identifier: doc.system?.identifier ?? null
   };
   detailCache.set(key, detail);

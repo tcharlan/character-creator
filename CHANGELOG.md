@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Removed the small explanatory notes around the creator (where an option's picture comes from, how the character is
+  checked, how portraits are resized, and similar).
 - Fixed: large lock pictures in the descriptions of some 2024 options. They are dnd5e's "Free Rules content" notices,
   which dnd5e marks to be shown only on its own journal pages; the creator now leaves them out, and keeps any picture in
   a description inside its column.
