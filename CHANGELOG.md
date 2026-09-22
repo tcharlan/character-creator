@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.2
 
 - Choices: languages or skills you already get (Common, say) are shown ticked and greyed out, and the count is only
   what you pick yourself ("Chosen: 0 / 2", not "1 / 3").
