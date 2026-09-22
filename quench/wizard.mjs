@@ -255,6 +255,26 @@ export function registerOptionStepBatches(quench) {
         assert.equal(app.step, "species");
       });
 
+      it("a resumed draft shows the chosen option's description without the player doing anything", async function() {
+        this.timeout(120_000);
+        const { forgetDescriptions } = await import("../scripts/wizard/options-step.mjs");
+        await open();
+        el().querySelector('[data-action="begin"]')?.click();
+        await app.settle();
+        await app.goTo("species");
+        options()[0].click();
+        for ( let i = 0; i < 100 && !app.draft.picks.species; i++ ) await new Promise(r => setTimeout(r, 100));
+        await app.close();
+        // As after a page reload: nothing read yet, so the description is fetched while the window opens.
+        forgetDescriptions();
+        // Opened as the sidebar button does, without settle(): a settle would redraw and hide the bug.
+        app = await CharacterWizard.open();
+        assert.equal(app.step, "species", "it resumes where the player was");
+        const text = () => el().querySelector(".cc-description:not(.cc-description--loading)");
+        for ( let i = 0; i < 100 && !text(); i++ ) await new Promise(r => setTimeout(r, 100));
+        assert.exists(text(), "still 'Reading the description…' after 10 s with nobody touching anything");
+      });
+
       it("the species step lists every allowed species; picking one shows its details and art", async function() {
         this.timeout(120_000);
         await open();

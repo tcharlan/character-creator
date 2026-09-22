@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Fixed: continuing a character could leave "Reading the description…" on screen until you changed steps.
 - Removed the small explanatory notes around the creator (where an option's picture comes from, how the character is
   checked, how portraits are resized, and similar).
 - Fixed: large lock pictures in the descriptions of some 2024 options. They are dnd5e's "Free Rules content" notices,

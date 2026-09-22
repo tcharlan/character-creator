@@ -90,6 +90,8 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   // Set while a step holds its changes back (the ability scores): the rebuild happens when the player leaves.
   #deferred = false;
   #bonuses = {};
+  /** Something arrived in the background while the window was still opening: redraw once it has opened. */
+  #refreshWanted = false;
   /** A GM's character: the player it goes to when created ("" = the GM keeps it; D29). */
   #assignTo = "";
   /** The player the created character went to, for the outcome. */
@@ -699,10 +701,24 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     if ( !summariesReady(uuids) ) {
       const step = this.#current;
       loadSummaries(uuids)
-        .then(() => (this.rendered && (this.#current === step)) ? this.render({ parts: ["body"] }) : null)
+        .then(() => this.#refreshBody(() => this.#current === step))
         .catch(err => console.warn(`${MODULE_ID} | couldn't read the descriptions`, err));
     }
     return rows.map((row, i) => ({ ...row, hint: summaryCached(uuids[i]) }));
+  }
+
+  /**
+   * Redraw the step pane for something fetched in the background (a description, the spell summaries), if it
+   * still applies. A fetch can finish while the window is still opening — often, when a draft is resumed and the
+   * text is already cached — and a redraw asked for then would be lost, leaving "Reading the description…" until
+   * the player changed steps; so it waits for the window to open.
+   * @param {() => boolean} stillWanted
+   */
+  #refreshBody(stillWanted) {
+    if ( !stillWanted() ) return null;
+    if ( this.rendered ) return this.render({ parts: ["body"] });
+    this.#refreshWanted = true;
+    return null;
   }
 
   /** Each source's starting-equipment tree, candidates and proficiency, for the equipment step. */
@@ -852,7 +868,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       // The description is enriched in the background; render again when it's ready.
       if ( detail.description === null ) {
         optionDescription(selected, this.#current)
-          .then(() => (this.rendered && (this.draft?.picks?.[role] === selected)) ? this.render({ parts: ["body"] }) : null)
+          .then(() => this.#refreshBody(() => this.draft?.picks?.[role] === selected))
           .catch(err => console.warn(`${MODULE_ID} | couldn't read the description`, err));
       }
     }
@@ -870,6 +886,11 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   /** @inheritDoc */
   _onRender(context, options) {
     super._onRender(context, options);
+    if ( this.#refreshWanted ) {
+      this.#refreshWanted = false;
+      // After this render has finished, not inside it.
+      setTimeout(() => this.rendered && this.render({ parts: ["body"] }), 0);
+    }
     // The arrow keys move along the step banner and the tab strips, as a tablist should.
     arrowKeys(this.element.querySelector(".cc-banner"), ".cc-step");
     for ( const strip of this.element.querySelectorAll('[role="tablist"]') ) arrowKeys(strip, '[role="tab"]');

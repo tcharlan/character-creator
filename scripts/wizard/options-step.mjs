@@ -19,6 +19,12 @@ const LARGE_ART = /systems\/dnd5e\/icons\/classes\//;
 const detailCache = new Map();
 const descriptionCache = new Map();
 const descriptionJobs = new Map();
+
+/** Forget the descriptions read so far, as a fresh page load would (for the tests). */
+export function forgetDescriptions() {
+  descriptionCache.clear();
+  descriptionJobs.clear();
+}
 let journalByItem = null;
 
 /**
