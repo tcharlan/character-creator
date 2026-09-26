@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.0
 
 - **Random character (hardcore):** players can let the dice make a character — species, class, background, the
   scores in the order they fall, the choices, the starting gear (never the gold instead), alignment and personality. The rolls go to chat and
