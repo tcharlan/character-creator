@@ -28,6 +28,7 @@ export function registerSettings() {
   world(SETTINGS.RING_COLORS, { type: Object, config: false, default: { ring: null, background: null } });
   world(SETTINGS.OPTION_ART, { type: Object, config: false, default: {} });
   world(SETTINGS.STEP_ART, { type: Object, config: false, default: {} });
+  world(SETTINGS.HARDCORE, { type: Object, config: false, default: { offered: true, free: [] } });
   // Each player's own: fullscreen or a window, and where the window was (D28).
   game.settings.register(MODULE_ID, SETTINGS.DISPLAY, { scope: "client", config: false, type: Object,
     default: { mode: "fullscreen", window: null } });

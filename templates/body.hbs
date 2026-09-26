@@ -1,5 +1,5 @@
 {{!-- The step pane. Until PLAN 3.2–3.9 build each step, it shows what the engine already knows. --}}
-<section class="cc-pane{{#if stepPartial}} cc-pane--full{{/if}}" data-step="{{step}}">
+<section class="cc-pane{{#if stepPartial}} cc-pane--full{{/if}}{{#if hardcore.locked}} cc-pane--rolled{{/if}}" data-step="{{step}}">
   {{!-- The step's backdrop (D28): the GM's picture, or the sigil over the picked option's picture. --}}
   <div class="cc-splash cc-splash--{{splash.source}}" data-splash="{{splash.step}}" aria-hidden="true">
     {{#if splash.image}}<img class="cc-splash__art" src="{{splash.image}}" alt="">{{/if}}
@@ -9,6 +9,7 @@
   <header class="cc-pane__header">
     <h1 class="cc-pane__title">{{stepTitle}}</h1>
     <p class="cc-pane__hint">{{stepHint}}</p>
+    {{#if hardcore.locked}}<p class="cc-rolled"><i class="fa-solid fa-dice-d20" inert></i>{{localize "CHARCREATOR.Random.Rolled"}}</p>{{/if}}
   </header>
   {{/unless}}
 

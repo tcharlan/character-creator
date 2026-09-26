@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import {
   SCHEMA_VERSION, QUERIES, ERRORS, STEPS, LIMITS, MODULE_ID, createDraft, checkDraftShape, checkImage,
-  checkSubmitPayload, checkUploadPayload, migrateDraft, makeError, isCompendiumUuid
+  checkSubmitPayload, checkUploadPayload, migrateDraft, MIGRATIONS, makeError, isCompendiumUuid
 } from "../scripts/contracts.mjs";
 
 const ID = n => String(n).padEnd(16, "0");
@@ -160,13 +160,34 @@ test("migrateDraft: current drafts pass through; older ones step up; newer ones 
   const v0 = { schema: 0, name: "Old" };
   const migrations = { 0: old => ({ ...createDraft({ id: ID("m"), worldId: "w", rules: "legacy", now: 0 }),
     details: { ...createDraft({ id: ID("m"), worldId: "w", rules: "legacy" }).details, name: old.name } }) };
-  const { draft, migrated } = migrateDraft(v0, { migrations, target: 1 });
+  const { draft, migrated } = migrateDraft(v0, { migrations: { ...MIGRATIONS, ...migrations }, target: SCHEMA_VERSION });
   assert.ok(migrated);
-  assert.equal(draft.schema, 1);
+  assert.equal(draft.schema, SCHEMA_VERSION);
   assert.equal(draft.details.name, "Old");
   assert.deepEqual(checkDraftShape(draft), []);
   assert.equal(v0.schema, 0, "the input is not modified");
   assert.throws(() => migrateDraft({ schema: SCHEMA_VERSION + 1 }), e => e.code === "SCHEMA_TOO_NEW");
   assert.throws(() => migrateDraft({ schema: 0 }), e => e.code === "BAD_REQUEST");
   assert.throws(() => migrateDraft({}), e => e.code === "BAD_REQUEST");
+});
+
+test("a draft written before hardcore mode gains its fields (schema 1 → 2, D31)", () => {
+  const before = { ...fullDraft(), schema: 1 };
+  delete before.mode;
+  delete before.random;
+  const { draft, migrated } = migrateDraft(before);
+  assert.ok(migrated);
+  assert.deepEqual([draft.schema, draft.mode, draft.random], [SCHEMA_VERSION, "normal", null]);
+  assert.deepEqual(checkDraftShape(draft), []);
+});
+
+test("a rolled draft keeps its rolls, and only well-formed ones pass", () => {
+  const d = fullDraft();
+  d.mode = "hardcore";
+  d.random = { messageId: ID("msg"), rolls: [{ key: "species", faces: 9, total: 4 }, { key: "class", faces: 12, total: 11 }] };
+  assert.deepEqual(checkDraftShape(d), []);
+  assert.deepEqual(checkDraftShape({ ...d, mode: "cheating" }).map(p => p.path), ["draft.mode"]);
+  assert.ok(checkDraftShape({ ...d, random: { messageId: "nope", rolls: [] } }).length, "a bad message id is refused");
+  assert.ok(checkDraftShape({ ...d, random: { messageId: ID("msg"), rolls: [{ key: "species", faces: 0, total: 1 }] } }).length,
+    "a die with no faces is refused");
 });

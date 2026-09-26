@@ -5,7 +5,7 @@
  * then each step shows what the engine already knows about it.
  */
 
-import { MODULE_ID, STATUS } from "../contracts.mjs";
+import { ABILITIES, MODULE_ID, STATUS } from "../contracts.mjs";
 import { DraftStore } from "../draft/store.mjs";
 import { isEditable } from "../draft/state.mjs";
 import { getCatalog } from "../catalog/catalog.mjs";
@@ -22,7 +22,7 @@ import { equipmentContext, rollStartingWealth } from "../rules/equipment-items.m
 import { spellsModel, toggleSpell } from "./spells-step.mjs";
 import { spellContext } from "../rules/spell-facts.mjs";
 import { traitReference, summaryCached, summariesReady, loadSummaries, spellMeta } from "./descriptions.mjs";
-import { detailsModel, setDetail, setHeightPart, setAmount, PERSONALITY } from "./details-step.mjs";
+import { detailsModel, setDetail, setHeightPart, setAmount, alignmentOptions, PERSONALITY } from "./details-step.mjs";
 import { portraitModel, setImage, clearImage, skipPortrait, setRingColor } from "./portrait-step.mjs";
 import { preparePortrait } from "../portrait/prepare.mjs";
 import { reviewModel } from "./review-step.mjs";
@@ -32,6 +32,9 @@ import { givablePlayers, giveAndTell, giveDialog } from "../gm/assign.mjs";
 import { allowance } from "../ui/entry.mjs";
 import { arrowKeys } from "../ui/keyboard.mjs";
 import { rollAbilityScores } from "../rules/ability-roll.mjs";
+import { rollCharacter } from "../rules/random.mjs";
+import { postMadeRolls } from "../rules/roll-messages.mjs";
+import { ROLL_PURPOSE } from "../rules/roll-record.mjs";
 import { DISPLAY_MODES, displayButton, fullscreenPosition, readDisplay, windowPosition } from "./display.mjs";
 import { splashFor } from "./splash.mjs";
 
@@ -66,6 +69,10 @@ const T = (key, data) => (data ? game.i18n.format(`CHARCREATOR.${key}`, data) : 
  * pause triggers the rebuild that updates the banner counts and the footer.
  */
 const REBUILD_DELAY = 800;
+
+/** The part of a random character each step settles (D31); the steps not listed are always the player's. */
+const STEP_PART = Object.freeze({ species: "species", class: "class", background: "background",
+  abilities: "abilities", choices: "choices", equipment: "equipment", details: "details" });
 
 export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   /** The open wizard, if any (one per client). */
@@ -117,6 +124,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       display: onDisplay,
       give: onGive,
       begin: onBegin,
+      "roll-character": onRollCharacter,
       pick: onPick,
       subclass: onSubclass,
       method: onMethod,
@@ -317,6 +325,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
    * pick are dropped (picks.mjs).
    */
   async pick(uuid) {
+    if ( this.#locked(STEP_PART[this.#current]) ) return;
     const role = STEP_CATEGORY[this.#current];
     if ( !role ) return;
     this.#auto.delete(role);
@@ -336,6 +345,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** Choose how ability scores are set (only the methods the GM allows are offered). */
   async chooseMethod(method) {
+    if ( this.#locked("abilities") ) return;
     await this.update(d => setMethod(d, method), { rebuild: false });
     await this.render({ parts: ["banner", "body", "footer"] });
   }
@@ -348,8 +358,90 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** Standard array and rolled: put a value on an ability (they swap if it was taken). */
   async assign(ability, value) {
+    if ( this.#locked("abilities") ) return;
     await this.update(d => assignValue(d, ability, value), { rebuild: false });
     await this.render({ parts: ["banner", "body", "footer"] });
+  }
+
+  /**
+   * The random character (D31): the dice make everything the GM hasn't left to the player, the rolls go to chat
+   * in one message, and the draft remembers them so the GM's copy can check the character against them.
+   */
+  async rollRandomCharacter() {
+    const settings = readSettings();
+    if ( this.#busy || (this.draft?.mode === "hardcore") || !settings.hardcore.offered ) return;
+    this.#busy = true;
+    await this.render({ parts: ["body", "footer"] });
+    const made = [];
+    const rolled = [];
+    try {
+      // The loop runs on a copy and is written once, so a half-rolled character is never saved.
+      const working = foundry.utils.deepClone(this.draft);
+      working.mode = "hardcore";
+      let build = this.#build;
+      const roll = async (faces, key) => {
+        const die = await new Roll(`1d${faces}`).evaluate();
+        made.push(die);
+        rolled.push({ key, faces, total: die.total });
+        return die.total;
+      };
+      await rollCharacter({
+        draft: working,
+        catalog: this.#catalog,
+        free: settings.hardcore.free,
+        roll,
+        rebuild: async draft => {
+          build = await buildCharacter({ picks: draft.picks, base: draft.abilities.base, steps: draft.recipe.steps },
+            { catalog: this.#catalog, fill: true, withOptions: true });
+          return build;
+        },
+        equipmentContext: async role => {
+          const item = build?.actor?.items?.get(build.roots?.[role]);
+          return item ? equipmentContext(build.actor, item, this.#catalog) : null;
+        },
+        wealth: async (role, context) => {
+          const result = await rollStartingWealth(working, role, context.wealth);
+          setWealth(working, role, result);
+        },
+        abilities: async () => {
+          working.abilities.method = "rolled";
+          const { messageId, results } = await rollAbilityScores(working);
+          working.abilities.roll = { messageId, results };
+          // In the order they fell: no arranging them afterwards.
+          working.abilities.base = Object.fromEntries(ABILITIES.map((key, i) => [key, results[i] ?? null]));
+        },
+        alignments: alignmentOptions(),
+        tables: field => this.#personalityEntries(field)
+      });
+      const messageId = await postMadeRolls({ draftId: working.id, purpose: ROLL_PURPOSE.RANDOM, rolls: made,
+        flavor: T("Random.Flavor") });
+      working.random = { messageId, rolls: rolled };
+      await this.update(() => working, { wait: true });
+      this.#current = "review";
+      this.#visited = [];
+    } catch ( err ) {
+      console.error(`${MODULE_ID} | the random character couldn't be rolled`, err);
+      ui.notifications?.error(T("Random.Failed"));
+    } finally {
+      this.#busy = false;
+    }
+    await this.settle();
+  }
+
+  /** A personality table's entries, in the order the table lists them (D31 rolls one of them). */
+  async #personalityEntries(field) {
+    const uuid = (await this.#personalityTables())[field];
+    if ( !uuid ) return [];
+    try {
+      const table = await fromUuid(uuid);
+      return [...(table?.results ?? [])]
+        .sort((a, b) => (a.range?.[0] ?? 0) - (b.range?.[0] ?? 0))
+        .map(r => String(r.description ?? r.text ?? r.name ?? "").trim())
+        .filter(Boolean);
+    } catch ( err ) {
+      console.warn(`${MODULE_ID} | couldn't read the ${field} table`, err);
+      return [];
+    }
   }
 
   /** Roll the six scores in this browser and post them to chat (D15). Only possible once (A10). */
@@ -378,6 +470,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
    * @param {{ action?: string, value?: string }} click
    */
   async answer(click) {
+    if ( this.#locked("choices") ) return;
     const model = choicesModel(this.#build, this.#catalog, this.#openChoice);
     const open = model.open;
     if ( !open ) return;
@@ -399,6 +492,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** Take a source's items or its starting wealth (D23: the two sources are separate). */
   async setEquipmentMode(role, mode) {
+    if ( this.#locked("equipment") ) return;
     await this.update(d => setMode(d, role, mode));
     await this.settle();
   }
@@ -413,6 +507,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** Put an item in one slot of a category pick. */
   async setEquipmentPick(role, entryId, index, uuid) {
+    if ( this.#locked("equipment") ) return;
     await this.update(d => setPick(d, role, entryId, index, uuid));
     await this.settle();
   }
@@ -452,6 +547,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
    * an amount is stored with (the weight), so what the draft keeps is the sentence a character sheet shows.
    */
   async setDetail(field, value, { part = null, unit = null } = {}) {
+    if ( (field !== "name") && this.#locked("details") ) return;
     await this.update(d => {
       if ( part ) return setHeightPart(d, part, value);
       if ( unit ) return setAmount(d, field, value, unit);
@@ -769,6 +865,8 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
         errors: errors.map(e => ({ ...e, message: game.i18n.localize(e.key) })) })),
       summary: this.#summary(),
       characters: this.#allowance(),
+      // The random character (D31): offered on the start screen, and each rolled step is closed to the player.
+      hardcore: this.#hardcore(),
       stepPartial: STEP_PARTIALS[this.#current] ?? null,
       splash: splashFor(this.#current, { picks: draft?.picks, catalog: this.#catalog,
         optionArt: readSettings().optionArt, stepArt: readSettings().stepArt }),
@@ -979,6 +1077,23 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   /** What the engine knows so far, shown in each step's placeholder pane until PLAN 3.2–3.9 replace it. */
+  /**
+   * Hardcore mode as this step sees it (D31): whether to offer it, and whether the dice have settled this step.
+   * @returns {{ offered: boolean, rolled: boolean, locked: boolean }}
+   */
+  #hardcore() {
+    const { offered, free } = readSettings().hardcore;
+    const rolled = this.draft?.mode === "hardcore";
+    const part = STEP_PART[this.#current] ?? null;
+    return { offered: offered && !rolled && !this.#started(), rolled,
+      locked: rolled && !!part && !free.includes(part) };
+  }
+
+  /** Has the draft settled this part by dice, so the player doesn't get to change it (D31)? */
+  #locked(part) {
+    return (this.draft?.mode === "hardcore") && !readSettings().hardcore.free.includes(part);
+  }
+
   /** How many characters this player may make, and how many they have (A4, PLAN 4.4). */
   #allowance() {
     const made = createdFor(game.user.id).length;
@@ -1282,6 +1397,11 @@ function onDisplay() {
 /** Review, for a GM: give the character just made to a player. */
 function onGive() {
   return this.giveCreated();
+}
+
+/** The start screen: let the dice make the whole character (D31). */
+function onRollCharacter() {
+  return this.rollRandomCharacter();
 }
 
 async function onDiscard() {

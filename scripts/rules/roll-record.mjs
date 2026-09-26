@@ -11,7 +11,7 @@ import { makeError } from "../contracts.mjs";
 
 /** The chat message flag that ties a roll to one draft (`flags[MODULE_ID].roll`). */
 export const ROLL_FLAG = "roll";
-export const ROLL_PURPOSE = Object.freeze({ ABILITIES: "abilities", WEALTH: "wealth" });
+export const ROLL_PURPOSE = Object.freeze({ ABILITIES: "abilities", WEALTH: "wealth", RANDOM: "random" });
 
 /** The server stamps a new message's createdTime and modifiedTime separately (≈1 ms apart); a later edit moves modifiedTime further. */
 export const EDIT_TOLERANCE_MS = 1000;

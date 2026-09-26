@@ -1036,3 +1036,24 @@ li.notification button.cc-entry-prompt {
 }
 .cc-entry__clash--quiet { border-color: var(--cc-line); color: var(--cc-faint); }
 .cc-entry-row--clash .cc-entry { border-color: var(--cc-warn); }
+
+/* The random character (D31): the two ways to start, and the note on a step the dice settled. */
+.cc-start__ways { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.cc-start__dice { display: inline-flex; align-items: center; gap: 8px; }
+.cc-start__dice-hint { max-width: 62ch; }
+.cc-rolled {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 4px 10px;
+  align-self: flex-start;
+  border: 1px solid var(--cc-gold-deep);
+  border-radius: 999px;
+  color: var(--cc-gold);
+  font-size: 13px;
+}
+/* Nothing on a rolled step answers to a click; the panes still show what the dice chose. */
+.cc-pane--rolled .cc-options, .cc-pane--rolled .cc-keys, .cc-pane--rolled .cc-cards,
+.cc-pane--rolled .cc-scores, .cc-pane--rolled .cc-methods, .cc-pane--rolled .cc-decision,
+.cc-pane--rolled .cc-fields { pointer-events: none; opacity: 0.85; }

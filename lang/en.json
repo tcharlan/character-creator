@@ -114,6 +114,10 @@
       "wizardDisplay": {
         "Name": "Fullscreen or window",
         "Hint": "Whether the creator opens fullscreen or as a window on this computer. Switched from the creator's own header."
+      },
+      "hardcore": {
+        "Name": "Random character (hardcore)",
+        "Hint": "Whether players may let the dice make their character, and which parts they may still choose. Set on the Allowed content screen."
       }
     },
     "Nav": {
@@ -456,7 +460,8 @@
         "equipment": "Equipment",
         "packs": "Compendiums",
         "abilities": "Ability scores",
-        "backdrops": "Step backdrops"
+        "backdrops": "Step backdrops",
+        "hardcore": "Random characters"
       },
       "Warning": {
         "NoneRequired": "No {category} are allowed, so nobody can make a character.",
@@ -478,7 +483,11 @@
       "Duplicates": "{count} of these are in more than one compendium. Players see each copy separately, so allow the one you want.",
       "ShowDuplicates": "Show only those",
       "ShowAll": "Show everything again",
-      "AlsoIn": "Also in {packs}"
+      "AlsoIn": "Also in {packs}",
+      "HardcoreHint": "Players can let the dice make a character: everything below is rolled, and the rolls are posted to chat. Tick anything you would rather they chose for themselves. Spells, the portrait and the name are always theirs.",
+      "HardcoreOffered": "Offer random characters to players",
+      "HardcoreRolled": "Rolled",
+      "HardcoreFree": "Player chooses"
     },
     "Pending": {
       "Title": "Pending characters",
@@ -519,6 +528,21 @@
       "Done": "{actor} now belongs to {name}.",
       "Failed": "{actor} couldn't be given to {name}. The console (F12) says why.",
       "NoPlayers": "There are no players in this world to give it to."
+    },
+    "Random": {
+      "species": "Species",
+      "class": "Class",
+      "background": "Background",
+      "abilities": "Ability scores",
+      "choices": "Skills, languages and other choices",
+      "equipment": "Equipment",
+      "details": "Alignment and personality",
+      "Flavor": "Random character: the dice choose",
+      "Failed": "The dice couldn't make a character. Nothing was saved — try again.",
+      "Button": "Random character (hardcore)",
+      "Hint": "The dice choose your species, class, background, scores and the rest. You still pick your spells, your portrait and your name. Rolls go to chat and can't be taken back.",
+      "Rolled": "The dice chose this.",
+      "Rolling": "Rolling…"
     }
   }
 }

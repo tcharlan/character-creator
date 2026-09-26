@@ -9,7 +9,7 @@
 export const MODULE_ID = "character-creator";
 
 /** Bump when the draft shape changes, and add a migration below. */
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 /** Where the draft lives: `user.flags[MODULE_ID][DRAFT_FLAG]` (players may write their own flags). */
 export const DRAFT_FLAG = "draft";
@@ -30,6 +30,16 @@ export const STEPS = Object.freeze(["start", "species", "class", "background", "
   "spells", "details", "portrait", "review"]);
 
 export const ROLES = Object.freeze(["species", "background", "class"]);
+
+/** How a character was made: the player choosing, or the dice (D31). */
+export const DRAFT_MODES = Object.freeze(["normal", "hardcore"]);
+
+/**
+ * What hardcore mode can roll for the player, in the order it is rolled. The GM may hand any of them back to
+ * the player (the `hardcore.free` setting); spells, the portrait and the name are always the player's.
+ */
+export const RANDOM_PARTS = Object.freeze(["species", "class", "background", "abilities", "choices", "equipment",
+  "details"]);
 export const ABILITIES = Object.freeze(["str", "dex", "con", "int", "wis", "cha"]);
 export const ABILITY_METHODS = Object.freeze(["pointBuy", "standardArray", "rolled"]);
 export const EQUIPMENT_MODES = Object.freeze(["items", "wealth"]);
@@ -121,6 +131,9 @@ export function createDraft({ id, worldId, rules, now = Date.now() }) {
     status: STATUS.DRAFT,
     step: "start",
     updatedAt: now,
+    mode: "normal",
+    // Set when the dice made this character (D31): the chat message with the rolls, and each roll in order.
+    random: null,
     picks: { species: null, background: null, class: null },
     abilities: { method: null, base: null, roll: null },
     recipe: { steps: [] },
@@ -227,8 +240,8 @@ export function checkImage(image, path = "image") {
  */
 export function checkDraftShape(draft) {
   const c = new Checker();
-  const top = ["schema", "id", "worldId", "rules", "status", "step", "updatedAt", "picks", "abilities", "recipe",
-    "equipment", "spells", "details", "portrait", "result"];
+  const top = ["schema", "id", "worldId", "rules", "status", "step", "updatedAt", "mode", "random", "picks",
+    "abilities", "recipe", "equipment", "spells", "details", "portrait", "result"];
   if ( !c.object("draft", draft, top) ) return c.problems;
   const d = draft;
   c.oneOf("draft.schema", d.schema, [SCHEMA_VERSION]);
@@ -238,6 +251,16 @@ export function checkDraftShape(draft) {
   c.oneOf("draft.status", d.status, Object.values(STATUS));
   c.oneOf("draft.step", d.step, STEPS);
   c.int("draft.updatedAt", d.updatedAt, 0, Number.MAX_SAFE_INTEGER);
+  c.oneOf("draft.mode", d.mode, DRAFT_MODES);
+  if ( d.random !== null && c.object("draft.random", d.random, ["messageId", "rolls"]) ) {
+    c.test("draft.random.messageId", d.random.messageId, isId, "a message id");
+    c.list("draft.random.rolls", d.random.rolls, (path, v) => {
+      if ( !c.object(path, v, ["key", "faces", "total"]) ) return;
+      c.string(`${path}.key`, v.key, LIMITS.shortTextMaxLength);
+      c.int(`${path}.faces`, v.faces, 1, 1000);
+      c.int(`${path}.total`, v.total, 1, 1000);
+    }, { max: LIMITS.maxSteps });
+  }
 
   if ( c.object("draft.picks", d.picks, ROLES) ) {
     for ( const r of ROLES ) c.test(`draft.picks.${r}`, d.picks[r], isCompendiumUuid, "a compendium item UUID", { nullable: true });
@@ -320,10 +343,13 @@ export function checkDraftShape(draft) {
 /* -------------------------------------------- */
 
 /**
- * Draft migrations: `MIGRATIONS[n]` turns a schema-n draft into schema n+1. Empty at v1.
+ * Draft migrations: `MIGRATIONS[n]` turns a schema-n draft into schema n+1.
  * @type {Record<number, (draft: object) => object>}
  */
-export const MIGRATIONS = Object.freeze({});
+export const MIGRATIONS = Object.freeze({
+  // 1 → 2: the draft says how it was made, and keeps the rolls when the dice made it (D31).
+  1: draft => ({ ...draft, mode: draft.mode ?? "normal", random: draft.random ?? null })
+});
 
 /**
  * Bring a stored draft up to the current schema.

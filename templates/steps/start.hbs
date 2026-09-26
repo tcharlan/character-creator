@@ -15,7 +15,17 @@
     {{/if}}
   </p>
   {{/if}}
-  <button type="button" class="cc-button cc-button--primary cc-start__go" data-action="begin">
-    {{#if resuming}}{{localize "CHARCREATOR.Start.Resume"}}{{else}}{{localize "CHARCREATOR.Start.Begin"}}{{/if}}
-  </button>
+  <div class="cc-start__ways">
+    <button type="button" class="cc-button cc-button--primary cc-start__go" data-action="begin" {{#if busy}}disabled{{/if}}>
+      {{#if resuming}}{{localize "CHARCREATOR.Start.Resume"}}{{else}}{{localize "CHARCREATOR.Start.Begin"}}{{/if}}
+    </button>
+    {{#if hardcore.offered}}
+    {{!-- The dice make the whole character (D31). --}}
+    <button type="button" class="cc-button cc-start__dice" data-action="roll-character" {{#if busy}}disabled{{/if}}>
+      <i class="fa-solid fa-dice-d20" inert></i>
+      {{#if busy}}{{localize "CHARCREATOR.Random.Rolling"}}{{else}}{{localize "CHARCREATOR.Random.Button"}}{{/if}}
+    </button>
+    {{/if}}
+  </div>
+  {{#if hardcore.offered}}<p class="cc-hint cc-start__dice-hint">{{localize "CHARCREATOR.Random.Hint"}}</p>{{/if}}
 </div>

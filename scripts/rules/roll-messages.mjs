@@ -28,6 +28,24 @@ export async function postRolls({ draftId, purpose, source, formula, count = 1, 
   return { messageId: message.id, results };
 }
 
+/**
+ * Post rolls that have already been made, in one public message — the random character rolls its dice as it
+ * goes (each result decides what is rolled next) and posts them together at the end (D31).
+ * @param {{ draftId: string, purpose: string, rolls: Roll[], flavor: string }} options
+ * @returns {Promise<string>} the message id
+ */
+export async function postMadeRolls({ draftId, purpose, rolls, flavor }) {
+  const message = await ChatMessage.implementation.create({
+    author: game.user.id,
+    speaker: { alias: game.user.name },
+    flavor,
+    rolls: rolls.map(r => r.toJSON()),
+    sound: CONFIG.sounds.dice,
+    flags: { [MODULE_ID]: { [ROLL_FLAG]: { draftId, purpose } } }
+  }, { messageMode: "public" });
+  return message.id;
+}
+
 /** A plain copy of a roll message for checkRecord, or null. */
 export function readRollRecord(message) {
   if ( !message ) return null;

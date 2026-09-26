@@ -118,6 +118,34 @@
       {{/each}}
     </ul>
 
+    {{else if hardcore}}
+    <header class="cc-restrict__head">
+      <div>
+        <h2>{{localize "CHARCREATOR.Restrictions.Tab.hardcore"}}</h2>
+        <p class="cc-hint">{{localize "CHARCREATOR.Restrictions.HardcoreHint"}}</p>
+      </div>
+    </header>
+    <ul class="cc-list">
+      <li>
+        <button type="button" class="cc-entry{{#if hardcore.offered}} cc-entry--allowed{{/if}}" data-action="hardcore"
+                aria-pressed="{{hardcore.offered}}">
+          <span class="cc-entry__name">{{localize "CHARCREATOR.Restrictions.HardcoreOffered"}}</span>
+        </button>
+      </li>
+      {{#each hardcore.parts as |p|}}
+      <li>
+        <button type="button" class="cc-entry{{#if p.free}} cc-entry--allowed{{/if}}" data-action="random-part"
+                data-part="{{p.part}}" aria-pressed="{{p.free}}">
+          <span class="cc-entry__name">{{p.label}}</span>
+          <span class="cc-entry__pack">
+            {{#if p.free}}{{localize "CHARCREATOR.Restrictions.HardcoreFree"}}
+            {{else}}{{localize "CHARCREATOR.Restrictions.HardcoreRolled"}}{{/if}}
+          </span>
+        </button>
+      </li>
+      {{/each}}
+    </ul>
+
     {{else if backdrops}}
     <header class="cc-restrict__head">
       <div>

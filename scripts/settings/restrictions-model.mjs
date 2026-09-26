@@ -7,11 +7,11 @@
  */
 
 import { CATEGORIES, normalizeUuid } from "../catalog/filters.mjs";
-import { ABILITY_METHODS, STEPS } from "../contracts.mjs";
+import { ABILITY_METHODS, RANDOM_PARTS, STEPS } from "../contracts.mjs";
 import { sigilPath } from "../wizard/splash.mjs";
 
 /** The tabs, in order: one per category, then the packs, the ability-score methods and the backgrounds (D28). */
-export const TABS = Object.freeze([...CATEGORIES, "packs", "abilities", "backdrops"]);
+export const TABS = Object.freeze([...CATEGORIES, "packs", "abilities", "backdrops", "hardcore"]);
 
 /** Categories a character can't be made without. */
 export const REQUIRED = Object.freeze(["species", "background", "class"]);
@@ -23,12 +23,13 @@ const list = value => (Array.isArray(value) ? value.map(normalizeUuid) : null);
  * @param {object} restrictions   From the setting (normalised).
  * @param {string[]} abilityMethods
  */
-export function editorState(restrictions, abilityMethods, art = {}, stepArt = {}) {
+export function editorState(restrictions, abilityMethods, art = {}, stepArt = {}, hardcore = null) {
   const categories = {};
   for ( const category of CATEGORIES ) categories[category] = list(restrictions?.categories?.[category]);
   const pictures = {};
   for ( const [uuid, path] of Object.entries(art ?? {}) ) pictures[normalizeUuid(uuid)] = path;
   return { packs: list(restrictions?.packs), categories, art: pictures, stepArt: { ...(stepArt ?? {}) },
+    hardcore: { offered: hardcore?.offered !== false, free: RANDOM_PARTS.filter(p => (hardcore?.free ?? []).includes(p)) },
     abilityMethods: ABILITY_METHODS.filter(m => (abilityMethods ?? ABILITY_METHODS).includes(m)) };
 }
 
@@ -50,6 +51,25 @@ export function setStepArt(state, step, path) {
   else delete next[step];
   state.stepArt = next;
   return state;
+}
+
+/** Hardcore mode (D31): offer it at all, and hand one of its parts back to the player. */
+export function toggleHardcore(state) {
+  state.hardcore = { ...state.hardcore, offered: !state.hardcore.offered };
+  return state;
+}
+
+export function toggleRandomPart(state, part) {
+  if ( !RANDOM_PARTS.includes(part) ) return state;
+  const free = state.hardcore.free.includes(part)
+    ? state.hardcore.free.filter(p => p !== part) : [...state.hardcore.free, part];
+  state.hardcore = { ...state.hardcore, free: RANDOM_PARTS.filter(p => free.includes(p)) };
+  return state;
+}
+
+/** What to store for hardcore mode. */
+export function toStoredHardcore(state) {
+  return { offered: state?.hardcore?.offered !== false, free: [...(state?.hardcore?.free ?? [])] };
 }
 
 /** The step backgrounds to store. */
@@ -216,10 +236,11 @@ export function restrictionsModel({ state, everything, packs, tab, search = "", 
       restricted: (key === "packs") ? Array.isArray(state.packs)
         : (key === "abilities") ? (state.abilityMethods.length < ABILITY_METHODS.length)
           : (key === "backdrops") ? Object.keys(state.stepArt ?? {}).length > 0
-            : Array.isArray(state.categories[key]) };
+            : (key === "hardcore") ? (state.hardcore.free.length > 0) || !state.hardcore.offered
+              : Array.isArray(state.categories[key]) };
   });
 
-  const model = { tabs, open, search, category: null, packs: null, abilities: null, backdrops: null,
+  const model = { tabs, open, search, category: null, packs: null, abilities: null, backdrops: null, hardcore: null,
     warnings: warnings(state, everything) };
 
   if ( CATEGORIES.includes(open) ) {
@@ -267,6 +288,12 @@ export function restrictionsModel({ state, everything, packs, tab, search = "", 
     model.packs = {
       unrestricted: !Array.isArray(state.packs),
       entries: packs.map(p => ({ ...p, allowed: !Array.isArray(state.packs) || state.packs.includes(p.collection) }))
+    };
+  } else if ( open === "hardcore" ) {
+    model.hardcore = {
+      offered: state.hardcore.offered,
+      // Everything is rolled unless the GM hands it back; the order is the order the dice go in.
+      parts: RANDOM_PARTS.map(part => ({ part, free: state.hardcore.free.includes(part) }))
     };
   } else if ( open === "backdrops" ) {
     model.backdrops = STEPS.map(step => {

@@ -15,7 +15,8 @@ test("defaults (DESIGN.md → Settings)", () => {
     portraits: { enabled: true, maxSourceBytes: 10 * 1024 * 1024 },
     ringColors: { ring: null, background: null },
     optionArt: {},
-    stepArt: {}
+    stepArt: {},
+    hardcore: { offered: true, free: [] }
   });
 });
 

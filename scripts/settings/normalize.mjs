@@ -4,7 +4,7 @@
  * Pure; `settings.mjs` registers them with Foundry.
  */
 
-import { ABILITY_METHODS, LIMITS, STEPS } from "../contracts.mjs";
+import { ABILITY_METHODS, LIMITS, RANDOM_PARTS, STEPS } from "../contracts.mjs";
 import { CATEGORIES, NO_RESTRICTIONS, normalizeUuid } from "../catalog/filters.mjs";
 
 export const SETTINGS = Object.freeze({
@@ -17,7 +17,9 @@ export const SETTINGS = Object.freeze({
   MAX_UPLOAD_MB: "maxUploadMB",
   RING_COLORS: "ringColors",             // { ring: "#rrggbb"|null, background: "#rrggbb"|null }; null = player's color
   OPTION_ART: "optionArt",               // { [option uuid]: image path }; D24, the GM's own picture per option
-  STEP_ART: "stepArt",                   // { [wizard step]: image path }; D28, the GM's own background per step
+  STEP_ART: "stepArt",
+  HARDCORE: "hardcore",                  // { offered: boolean, free: string[] }; D31, the random character
+                   // { [wizard step]: image path }; D28, the GM's own background per step
   DISPLAY: "wizardDisplay"               // client: { mode: "fullscreen"|"window", window: position|null }; D28
 });
 
@@ -32,6 +34,7 @@ export const DEFAULTS = Object.freeze({
   [SETTINGS.RING_COLORS]: Object.freeze({ ring: null, background: null }),
   [SETTINGS.OPTION_ART]: Object.freeze({}),
   [SETTINGS.STEP_ART]: Object.freeze({}),
+  [SETTINGS.HARDCORE]: Object.freeze({ offered: true, free: Object.freeze([]) }),
   [SETTINGS.DISPLAY]: Object.freeze({ mode: "fullscreen", window: null })
 });
 
@@ -77,6 +80,15 @@ export function artPath(path) {
   if ( (typeof path !== "string") || !path.trim() || (path.length > ART_LIMITS.pathLength) ) return null;
   if ( /^[a-z][a-z0-9+.-]*:/i.test(path.trim()) ) return null;
   return path.trim();
+}
+
+/**
+ * Hardcore mode (D31): whether players may choose it, and which parts they may still choose themselves.
+ * Anything unknown is dropped, so a hand-edited setting can't hand players something that isn't a part.
+ */
+export function normalizeHardcore(v) {
+  const free = Array.isArray(v?.free) ? RANDOM_PARTS.filter(part => v.free.includes(part)) : [];
+  return { offered: typeof v?.offered === "boolean" ? v.offered : true, free };
 }
 
 /** The GM's own background per wizard step (D28): known steps only, paths as for option art. */
@@ -126,6 +138,7 @@ export function normalizeSettings(get) {
     },
     ringColors: { ring: color(ring?.ring), background: color(ring?.background) },
     optionArt: normalizeOptionArt(read(SETTINGS.OPTION_ART)),
-    stepArt: normalizeStepArt(read(SETTINGS.STEP_ART))
+    stepArt: normalizeStepArt(read(SETTINGS.STEP_ART)),
+    hardcore: normalizeHardcore(read(SETTINGS.HARDCORE))
   };
 }

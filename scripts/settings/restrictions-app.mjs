@@ -13,7 +13,8 @@ import { getCatalog, itemPacks } from "../catalog/catalog.mjs";
 import { SETTINGS, readSettings } from "./settings.mjs";
 import { arrowKeys } from "../ui/keyboard.mjs";
 import { editorState, restrictionsModel, toStored, toStoredArt, toggleEntry, allowAll, allowNone, allowThese,
-  disallowThese, togglePack, toggleMethod, setArt, setStepArt, toStoredStepArt, TABS } from "./restrictions-model.mjs";
+  disallowThese, togglePack, toggleMethod, setArt, setStepArt, toStoredStepArt, toggleHardcore, toggleRandomPart,
+  toStoredHardcore, TABS } from "./restrictions-model.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 const T = (key, data) => (data ? game.i18n.format(`CHARCREATOR.${key}`, data) : game.i18n.localize(`CHARCREATOR.${key}`));
@@ -47,6 +48,8 @@ export class RestrictionsApp extends HandlebarsApplicationMixin(ApplicationV2) {
       "allow-these": onAllowThese,
       "disallow-these": onDisallowThese,
       duplicates: onDuplicates,
+      hardcore: onHardcore,
+      "random-part": onRandomPart,
       pack: onPack,
       art: onArt,
       "art-clear": onArtClear,
@@ -91,7 +94,8 @@ export class RestrictionsApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   async #load() {
     const settings = readSettings();
-    this.#state = editorState(settings.restrictions, settings.abilityMethods, settings.optionArt, settings.stepArt);
+    this.#state = editorState(settings.restrictions, settings.abilityMethods, settings.optionArt, settings.stepArt,
+      settings.hardcore);
     // With no restrictions: the full list to choose from, including what the GM has switched off.
     const catalog = await getCatalog({ restrictions: NO_RESTRICTIONS });
     this.#everything = Object.fromEntries(CATEGORIES.map(c => [c, catalog.byCategory[c] ?? []]));
@@ -116,7 +120,9 @@ export class RestrictionsApp extends HandlebarsApplicationMixin(ApplicationV2) {
       warnings: model.warnings.map(w => ({ ...w, message: T(`Restrictions.Warning.${w.key}`,
         { category: T(`Restrictions.Tab.${w.category}`) }) })),
       methods: (model.abilities ?? []).map(m => ({ ...m, label: T(`Abilities.${m.key}`) })),
-      backdrops: model.backdrops ? model.backdrops.map(b => ({ ...b, label: T(b.labelKey) })) : null
+      backdrops: model.backdrops ? model.backdrops.map(b => ({ ...b, label: T(b.labelKey) })) : null,
+      hardcore: model.hardcore
+        ? { ...model.hardcore, parts: model.hardcore.parts.map(p => ({ ...p, label: T(`Random.${p.part}`) })) } : null
     });
   }
 
@@ -202,6 +208,7 @@ export class RestrictionsApp extends HandlebarsApplicationMixin(ApplicationV2) {
       await game.settings.set(MODULE_ID, SETTINGS.ABILITY_METHODS, [...this.#state.abilityMethods]);
       await game.settings.set(MODULE_ID, SETTINGS.OPTION_ART, toStoredArt(this.#state));
       await game.settings.set(MODULE_ID, SETTINGS.STEP_ART, toStoredStepArt(this.#state));
+      await game.settings.set(MODULE_ID, SETTINGS.HARDCORE, toStoredHardcore(this.#state));
       ui.notifications?.info(T("Restrictions.Saved"));
       await this.close();
     } catch ( err ) {
@@ -259,6 +266,15 @@ function onDisallowThese(event, target) {
 /** Show only the options that appear in more than one compendium. */
 function onDuplicates() {
   return this.toggleDuplicates();
+}
+
+/** Hardcore mode (D31): offer it at all, and which parts the player still chooses. */
+function onHardcore() {
+  return this.change(state => toggleHardcore(state));
+}
+
+function onRandomPart(event, target) {
+  return this.change(state => toggleRandomPart(state, target.dataset.part));
 }
 
 function onStepArt(event, target) {
