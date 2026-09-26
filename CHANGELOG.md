@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Random character (hardcore):** players can let the dice make a character — species, class, background, the
+  scores in the order they fall, the choices, the equipment, alignment and personality. The rolls go to chat and
+  are final, and the GM's browser checks the character against them. Spells, the portrait and the name stay the
+  player's, and the GM chooses on **Allowed content → Random characters** which parts (if any) the player still
+  picks, or turns the mode off.
 - Allowed content: each category can be narrowed to one compendium, and **Allow these** / **Disallow these** then apply
   to the whole of it at once (with a search, to what the search leaves).
 - Allowed content: every option shows which compendium it comes from, by name.

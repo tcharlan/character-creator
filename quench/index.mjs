@@ -11,6 +11,7 @@ import { registerEntryBatches } from "./entry.mjs";
 import { registerRestrictionsBatches } from "./restrictions.mjs";
 import { registerDisplayBatches } from "./display.mjs";
 import { registerGmCreateBatches } from "./gm-create.mjs";
+import { registerHardcoreBatches } from "./hardcore.mjs";
 import { registerPendingPanelBatches } from "./pending-panel.mjs";
 import { registerPortraitDialogBatches } from "./portrait-dialog.mjs";
 import { registerLimitsBatches } from "./limits.mjs";
@@ -66,6 +67,7 @@ export function registerQuenchBatches(quench) {
   registerRestrictionsBatches(quench);
   registerDisplayBatches(quench);
   registerGmCreateBatches(quench);
+  registerHardcoreBatches(quench);
   registerPendingPanelBatches(quench);
   registerPortraitDialogBatches(quench);
   registerLimitsBatches(quench);

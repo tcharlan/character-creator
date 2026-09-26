@@ -69,6 +69,17 @@ ability scores are allowed (point buy, standard array, rolled).
 | Largest portrait file (MB) | The largest image a player may choose; it is resized to 1024 px before it's sent. |
 | Default token ring colors | Used when a player doesn't choose ring colours. Unset means the player's user colour. |
 
+### Random characters
+
+Players can let the dice make a character: **Random character (hardcore)** on the creator's first page rolls
+species, class, background, the six scores in the order they fall, every choice those bring, the equipment,
+the alignment and (with 2014 backgrounds) the personality tables. Every die is posted to chat and can't be
+re-rolled, and those steps are then closed to the player. Spells, the portrait and the name stay theirs.
+
+On **Allowed content → Random characters** you can turn the mode off, or hand any part back to the player —
+letting them choose their class, say, while the dice decide everything else. When the character is sent, your
+browser replays the same rolls and refuses one that doesn't match them.
+
 ### Characters of your own
 
 GMs can use the creator too: **Create a character** is on the Actors tab for you as well. Your characters are

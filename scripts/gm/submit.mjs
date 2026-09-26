@@ -16,6 +16,7 @@ import { createCharacter, createdFor, createdFrom } from "./create.mjs";
 import { savePortrait } from "./portrait.mjs";
 import { InFlight } from "./inflight.mjs";
 import { readSettings } from "../settings/settings.mjs";
+import { checkRandomCharacter } from "./random-review.mjs";
 
 const inFlight = new InFlight();
 const isActiveGM = () => game.user.isGM && !!game.users.activeGM?.isSelf;
@@ -55,6 +56,11 @@ async function submit({ draft, image = null }, user, overrides = {}) {
   if ( existing ) return { ok: true, actorUuid: existing.uuid, duplicate: true, warnings: [] };
 
   const catalog = await getCatalog({ user });
+  // A character the dice made is checked against the rolls that made it (D31).
+  if ( draft.mode === "hardcore" ) {
+    const problems = await checkRandomCharacter(draft, { catalog, userId: user.id });
+    if ( problems.length ) return fail(problems);
+  }
   // The character limit is for players; a GM's characters are theirs to give away (D29).
   const validated = await validateDraft(draft, { catalog, userId: user.id, allowedMethods, image,
     characters: { limit: user.isGM ? null : characterLimit, existing: createdFor(user.id).length } });

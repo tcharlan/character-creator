@@ -68,7 +68,7 @@ export const LIMITS = Object.freeze({
 /** Every error code, the step the player revisits for it, and its message key in lang/en.json. */
 const CODES_BY_STEP = {
   start: ["BAD_REQUEST", "SCHEMA_TOO_NEW", "WORLD_MISMATCH", "RULES_MISMATCH", "GM_OFFLINE", "NOT_ACTIVE_GM",
-    "CHARACTER_LIMIT", "ALREADY_SUBMITTED"],
+    "CHARACTER_LIMIT", "ALREADY_SUBMITTED", "RANDOM_INVALID"],
   species: ["SPECIES_MISSING", "SPECIES_NOT_ALLOWED"],
   class: ["CLASS_MISSING", "CLASS_NOT_ALLOWED"],
   background: ["BACKGROUND_MISSING", "BACKGROUND_NOT_ALLOWED"],

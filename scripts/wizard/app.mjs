@@ -33,6 +33,7 @@ import { allowance } from "../ui/entry.mjs";
 import { arrowKeys } from "../ui/keyboard.mjs";
 import { rollAbilityScores } from "../rules/ability-roll.mjs";
 import { rollCharacter } from "../rules/random.mjs";
+import { clearRolled } from "../rules/random-check.mjs";
 import { postMadeRolls } from "../rules/roll-messages.mjs";
 import { ROLL_PURPOSE } from "../rules/roll-record.mjs";
 import { DISPLAY_MODES, displayButton, fullscreenPosition, readDisplay, windowPosition } from "./display.mjs";
@@ -375,8 +376,10 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     const made = [];
     const rolled = [];
     try {
-      // The loop runs on a copy and is written once, so a half-rolled character is never saved.
-      const working = foundry.utils.deepClone(this.draft);
+      // The loop runs on a copy and is written once, so a half-rolled character is never saved. It starts
+      // from the same cleared draft the GM replays from — anything the creator chose for the player (D4
+      // auto-select) would otherwise stand where a die should have decided.
+      const working = clearRolled(this.draft, settings.hardcore.free);
       working.mode = "hardcore";
       let build = this.#build;
       const roll = async (faces, key) => {
@@ -400,6 +403,8 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
           return item ? equipmentContext(build.actor, item, this.#catalog) : null;
         },
         wealth: async (role, context) => {
+          // 2024 gives a flat amount with no dice: there is nothing to roll or record.
+          if ( !context?.wealthOption?.number ) return;
           const result = await rollStartingWealth(working, role, context.wealth);
           setWealth(working, role, result);
         },
@@ -416,9 +421,10 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       const messageId = await postMadeRolls({ draftId: working.id, purpose: ROLL_PURPOSE.RANDOM, rolls: made,
         flavor: T("Random.Flavor") });
       working.random = { messageId, rolls: rolled };
-      await this.update(() => working, { wait: true });
+      // The whole rolled character in one write (update() keeps the draft it is handed, not what it returns).
       this.#current = "review";
       this.#visited = [];
+      await this.update(d => Object.assign(d, working), { wait: true });
     } catch ( err ) {
       console.error(`${MODULE_ID} | the random character couldn't be rolled`, err);
       ui.notifications?.error(T("Random.Failed"));

@@ -1433,6 +1433,29 @@ export function registerPortraitStepBatch(quench) {
  */
 
 /** Fill in a whole character through the wizard, leaving it on the review step with nothing to fix. */
+/** Fill every spell list the class asks for, taking the first ones offered. */
+export async function fillSpells(app) {
+  await app.goTo("spells");
+  await app.settle();
+  for ( let guard = 0; guard < 40; guard++ ) {
+    const tab = [...app.element.querySelectorAll('[data-action="spell-tab"]')].find(t => {
+      const numbers = t.textContent.trim().split(/\s+/).filter(x => /^\d+$/.test(x)).map(Number);
+      return numbers.length >= 2 && (numbers[0] < numbers[1]);
+    });
+    if ( !tab ) break;
+    if ( tab.getAttribute("aria-selected") !== "true" ) {
+      tab.click();
+      await app.settle();
+      continue;
+    }
+    const card = [...app.element.querySelectorAll(".cc-cards--spells .cc-card")]
+      .find(c => !c.disabled && (c.getAttribute("aria-pressed") !== "true"));
+    if ( !card ) break;
+    card.click();
+    await app.settle();
+  }
+}
+
 export async function walkWizard(app, { name = "Wizard Walkthrough" } = {}) {
   const rules = game.settings.get("dnd5e", "rulesVersion");
   const spec = rules === "legacy" ? { species: "Hill Dwarf", background: "Acolyte", class: "Cleric" }
@@ -1519,25 +1542,7 @@ export async function walkWizard(app, { name = "Wizard Walkthrough" } = {}) {
   }
 
   // Spells, where the class has them.
-  await app.goTo("spells");
-  await app.settle();
-  for ( let guard = 0; guard < 40; guard++ ) {
-    const tab = [...app.element.querySelectorAll('[data-action="spell-tab"]')].find(t => {
-      const numbers = t.textContent.trim().split(/\s+/).filter(x => /^\d+$/.test(x)).map(Number);
-      return numbers.length >= 2 && (numbers[0] < numbers[1]);
-    });
-    if ( !tab ) break;
-    if ( tab.getAttribute("aria-selected") !== "true" ) {
-      tab.click();
-      await app.settle();
-      continue;
-    }
-    const card = [...app.element.querySelectorAll(".cc-cards--spells .cc-card")]
-      .find(c => !c.disabled && (c.getAttribute("aria-pressed") !== "true"));
-    if ( !card ) break;
-    card.click();
-    await app.settle();
-  }
+  await fillSpells(app);
 
   // A name, no portrait, then the review.
   await app.goTo("details");

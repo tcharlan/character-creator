@@ -62,7 +62,8 @@
       "NO_ACTOR": "That character no longer exists.",
       "NOT_OWNER": "You can only change the portrait of your own character.",
       "UPLOAD_FAILED": "The portrait couldn't be saved. Your character is fine; try uploading it again later.",
-      "DETAIL_INVALID": "Check the age, height, weight and colouring: numbers where numbers belong (as large as you like, but not negative), words where words do."
+      "DETAIL_INVALID": "Check the age, height, weight and colouring: numbers where numbers belong (as large as you like, but not negative), words where words do.",
+      "RANDOM_INVALID": "This character does not match the dice that made it. Discard it and roll again."
     },
     "AbilityRoll": {
       "Flavor": "Ability scores for a new character (4d6, drop the lowest, six times)"
