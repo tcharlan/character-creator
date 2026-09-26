@@ -141,3 +141,67 @@ test("the Backgrounds tab lists every step with its emblem or the GM's picture (
   assert.equal(model.backdrops.find(b => b.step === "start").labelKey, "Nav.Start");
   assert.equal(model.tabs.find(t => t.key === "backdrops").restricted, true, "marked when the GM has set any");
 });
+
+/* Filtering a category by compendium, the source on each row, and the same option in two compendiums. */
+
+const PHB = { collection: "dnd-phb.classes", label: "Player's Handbook (2024)" };
+const TWO_PACKS = [...PACKS, PHB];
+const phbEntry = (n, name) => ({ uuid: `Compendium.dnd-phb.classes.Item.${ID(n)}`, name, img: "phb.webp",
+  pack: PHB.collection });
+const BOTH = {
+  ...EVERYTHING,
+  class: [entry("fighter"), entry("wizard"), phbEntry("phbwiz", "Item wizard"), phbEntry("phbrog", "Rogue")]
+};
+const classModel = (s, options = {}) =>
+  restrictionsModel({ state: s, everything: BOTH, packs: TWO_PACKS, tab: "class", ...options }).category;
+
+test("a category can be narrowed to one compendium, and says how much of each is allowed", () => {
+  const s = state();
+  const all = classModel(s);
+  assert.deepEqual(all.packs.map(p => [p.label, p.total, p.allowed]),
+    [["Classes", 2, 2], ["Player's Handbook (2024)", 2, 2]]);
+  assert.equal(all.filtered, false, "nothing is filtered to begin with");
+  const onlyPhb = classModel(s, { pack: PHB.collection });
+  assert.deepEqual(onlyPhb.entries.map(e => e.name), ["Item wizard", "Rogue"]);
+  assert.deepEqual([onlyPhb.shown, onlyPhb.filtered, onlyPhb.pack], [2, true, PHB.collection]);
+  assert.equal(classModel(s, { pack: "nonsense" }).shown, 4, "an unknown compendium isn't a filter");
+});
+
+test("allowing or disallowing what is shown leaves the rest of the category alone", async () => {
+  const { allowThese, disallowThese } = await import("../scripts/settings/restrictions-model.mjs");
+  const all = BOTH.class.map(e => e.uuid);
+  const s = state();
+  const phb = classModel(s, { pack: PHB.collection }).entries.map(e => e.uuid);
+  disallowThese(s, "class", phb, all);
+  assert.deepEqual(s.categories.class.sort(), [U("fighter"), U("wizard")].sort(), "only the other compendium is left");
+  assert.equal(classModel(s).packs.find(p => p.collection === PHB.collection).allowed, 0);
+  allowThese(s, "class", [phb[0]], all);
+  assert.equal(s.categories.class.length, 3, "one of them back, the rest untouched");
+  allowThese(s, "class", phb, all);
+  assert.equal(s.categories.class, null, "everything allowed again stores nothing");
+});
+
+test("each option says which compendium it came from", () => {
+  const rows = classModel(state()).entries;
+  assert.deepEqual(rows.find(e => e.name === "Rogue").packLabel, PHB.label);
+  assert.equal(rows.find(e => e.name === "Rogue").pack, PHB.collection, "the id is kept for the tooltip");
+});
+
+test("the same option in two compendiums is flagged, and can be filtered to", async () => {
+  const { duplicatesOf } = await import("../scripts/settings/restrictions-model.mjs");
+  assert.deepEqual([...duplicatesOf(BOTH.class).keys()], ["item wizard"], "by name, whatever the case");
+  const s = state();
+  const model = classModel(s);
+  assert.equal(model.duplicates, 1);
+  const wizards = model.entries.filter(e => e.duplicate);
+  assert.equal(wizards.length, 2, "both copies are marked");
+  assert.deepEqual(wizards[0].alsoIn, [PHB.label], "each says where the other one is");
+  assert.equal(wizards.every(e => e.bothAllowed), true, "allowed twice: worth the GM's attention");
+  assert.deepEqual(classModel(s, { onlyDuplicates: true }).entries.map(e => e.name), ["Item wizard", "Item wizard"]);
+
+  // Allowing only one copy is a decision made: still marked, no longer a clash.
+  toggleEntry(s, "class", wizards[1].uuid, BOTH.class.map(e => e.uuid));
+  const after = classModel(s).entries.filter(e => e.duplicate);
+  assert.equal(after.every(e => e.duplicate), true);
+  assert.equal(after.some(e => e.bothAllowed), false, "one of each is not a clash");
+});

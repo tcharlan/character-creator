@@ -22,21 +22,44 @@
           {{else}}{{localize "CHARCREATOR.Restrictions.SomeAllowed"}} {{category.allowed}} / {{category.total}}
           {{/if}}
         </p>
+        {{#if category.duplicates}}
+        <p class="cc-problem cc-problem--note cc-restrict__dupes">
+          {{duplicateWarning}}
+          <button type="button" class="cc-link" data-action="duplicates">
+            {{#if category.onlyDuplicates}}{{localize "CHARCREATOR.Restrictions.ShowAll"}}
+            {{else}}{{localize "CHARCREATOR.Restrictions.ShowDuplicates"}}{{/if}}
+          </button>
+        </p>
+        {{/if}}
       </div>
       <div class="cc-restrict__tools">
         <label class="cc-search">
           <span class="cc-visually-hidden">{{localize "CHARCREATOR.Options.Search"}}</span>
           <input type="search" value="{{search}}" placeholder="{{localize 'CHARCREATOR.Options.Search'}}">
         </label>
+        {{#if category.packs.length}}
+        <label class="cc-pack-choice">
+          <span class="cc-visually-hidden">{{localize "CHARCREATOR.Restrictions.FromPack"}}</span>
+          <select class="cc-pack-filter cc-input cc-select">
+            <option value="">{{localize "CHARCREATOR.Restrictions.AllPacks"}} ({{category.total}})</option>
+            {{#each category.packs as |p|}}
+            <option value="{{p.collection}}" {{#if p.selected}}selected{{/if}}>{{p.label}} ({{p.allowed}} / {{p.total}})</option>
+            {{/each}}
+          </select>
+        </label>
+        {{/if}}
         <button type="button" class="cc-button" data-action="allow-all" data-category="{{category.key}}">
           {{localize "CHARCREATOR.Restrictions.AllowAll"}}
         </button>
         <button type="button" class="cc-button" data-action="allow-none" data-category="{{category.key}}">
           {{localize "CHARCREATOR.Restrictions.AllowNone"}}
         </button>
-        {{#if search}}
-        <button type="button" class="cc-button" data-action="allow-shown" data-category="{{category.key}}">
-          {{localize "CHARCREATOR.Restrictions.AllowShown"}}
+        {{#if category.filtered}}
+        <button type="button" class="cc-button" data-action="allow-these" data-category="{{category.key}}">
+          {{localize "CHARCREATOR.Restrictions.AllowThese"}} ({{category.shown}})
+        </button>
+        <button type="button" class="cc-button" data-action="disallow-these" data-category="{{category.key}}">
+          {{localize "CHARCREATOR.Restrictions.DisallowThese"}} ({{category.shown}})
         </button>
         {{/if}}
       </div>
@@ -44,12 +67,18 @@
 
     <ul class="cc-list">
       {{#each category.entries as |e|}}
-      <li class="cc-entry-row">
+      <li class="cc-entry-row{{#if e.bothAllowed}} cc-entry-row--clash{{/if}}">
         <button type="button" class="cc-entry{{#if e.allowed}} cc-entry--allowed{{/if}}" data-action="entry"
                 data-category="{{../category.key}}" data-uuid="{{e.uuid}}" aria-pressed="{{e.allowed}}">
           {{#if e.img}}<img src="{{e.img}}" alt="">{{/if}}
           <span class="cc-entry__name">{{e.name}}</span>
-          <span class="cc-entry__pack">{{e.pack}}</span>
+          {{#if e.duplicate}}
+          <span class="cc-entry__clash{{#unless e.bothAllowed}} cc-entry__clash--quiet{{/unless}}"
+                data-tooltip="{{e.alsoInText}}" aria-label="{{e.alsoInText}}" role="img">
+            <i class="fa-solid fa-triangle-exclamation" inert></i>
+          </span>
+          {{/if}}
+          <span class="cc-entry__pack" data-tooltip="{{e.pack}}">{{e.packLabel}}</span>
         </button>
         <button type="button" class="cc-entry__art{{#if e.art}} cc-entry__art--own{{/if}}" data-action="art"
                 data-uuid="{{e.uuid}}" data-art="{{e.art}}"

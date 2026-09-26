@@ -113,6 +113,49 @@ export function allowOnly(state, category, uuids) {
   return state;
 }
 
+/** What is allowed in a category right now, as a set (`null` = everything). */
+function allowedSet(state, category, all) {
+  const stored = state.categories?.[category];
+  return new Set(Array.isArray(stored) ? stored.map(normalizeUuid) : all.map(normalizeUuid));
+}
+
+/**
+ * Allow everything listed, leaving the rest as it is — the whole of one compendium, say, or one search.
+ * @param {string[]} uuids   What to allow.
+ * @param {string[]} all     Every UUID in the category, so "all of them" can collapse back to null.
+ */
+export function allowThese(state, category, uuids, all) {
+  const set = allowedSet(state, category, all);
+  for ( const uuid of uuids ) set.add(normalizeUuid(uuid));
+  state.categories[category] = (set.size >= all.length) ? null : [...set];
+  return state;
+}
+
+/** Disallow everything listed, leaving the rest as it is. */
+export function disallowThese(state, category, uuids, all) {
+  const set = allowedSet(state, category, all);
+  for ( const uuid of uuids ) set.delete(normalizeUuid(uuid));
+  state.categories[category] = [...set];
+  return state;
+}
+
+/**
+ * Options of the same name in more than one compendium (the SRD's Wizard and the Player's Handbook's): the GM
+ * should know, since players would see both. Keyed by the name, lowercased and trimmed.
+ * @returns {Map<string, { uuid: string, pack: string }[]>}   Only the names that appear more than once.
+ */
+export function duplicatesOf(entries) {
+  const byName = new Map();
+  for ( const e of entries ?? [] ) {
+    const key = String(e.name ?? "").trim().toLowerCase();
+    if ( !key ) continue;
+    if ( !byName.has(key) ) byName.set(key, []);
+    byName.get(key).push({ uuid: normalizeUuid(e.uuid), pack: e.pack });
+  }
+  for ( const [key, list] of byName ) if ( list.length < 2 ) byName.delete(key);
+  return byName;
+}
+
 /** Turn a pack on or off, the same way: `null` means every pack the world already enables. */
 export function togglePack(state, collection, everything) {
   const all = [...everything];
@@ -163,7 +206,7 @@ export function warnings(state, everything) {
  * @param {string} options.tab
  * @param {string} [options.search]
  */
-export function restrictionsModel({ state, everything, packs, tab, search = "" }) {
+export function restrictionsModel({ state, everything, packs, tab, search = "", pack = "", onlyDuplicates = false }) {
   const open = TABS.includes(tab) ? tab : TABS[0];
   const needle = search.trim().toLowerCase();
   const tabs = TABS.map(key => {
@@ -181,17 +224,43 @@ export function restrictionsModel({ state, everything, packs, tab, search = "" }
 
   if ( CATEGORIES.includes(open) ) {
     const all = everything?.[open] ?? [];
-    const shown = all.filter(e => !needle || String(e.name).toLowerCase().includes(needle));
+    const label = collection => packs?.find(p => p.collection === collection)?.label ?? collection;
+    const duplicates = duplicatesOf(all);
+    const duplicateUuids = new Set([...duplicates.values()].flat().map(d => d.uuid));
+    // The compendiums this category actually comes from, each with how much of it is allowed.
+    const fromPacks = [...new Set(all.map(e => e.pack))].map(collection => {
+      const mine = all.filter(e => e.pack === collection);
+      return { collection, label: label(collection), total: mine.length,
+        allowed: mine.filter(e => isEntryAllowed(state, open, e.uuid)).length, selected: collection === pack };
+    }).sort((a, b) => a.label.localeCompare(b.label));
+    const chosenPack = fromPacks.some(p => p.collection === pack) ? pack : "";
+    const shown = all.filter(e => (!needle || String(e.name).toLowerCase().includes(needle))
+      && (!chosenPack || (e.pack === chosenPack))
+      && (!onlyDuplicates || duplicateUuids.has(normalizeUuid(e.uuid))));
     model.category = {
       key: open,
       total: all.length,
       allowed: all.filter(e => isEntryAllowed(state, open, e.uuid)).length,
       unrestricted: !Array.isArray(state.categories[open]),
       shown: shown.length,
+      packs: fromPacks,
+      pack: chosenPack,
+      onlyDuplicates: !!onlyDuplicates,
+      // A filter is on, so "allow these" and "disallow these" act on what the GM can see.
+      filtered: !!needle || !!chosenPack || !!onlyDuplicates,
+      duplicates: duplicates.size,
       entries: shown.map(e => {
-        const own = state.art?.[normalizeUuid(e.uuid)] ?? null;
-        return { uuid: normalizeUuid(e.uuid), name: e.name, img: own ?? e.img ?? null, pack: e.pack,
-          art: own, allowed: isEntryAllowed(state, open, e.uuid) };
+        const uuid = normalizeUuid(e.uuid);
+        const own = state.art?.[uuid] ?? null;
+        const copies = duplicates.get(String(e.name ?? "").trim().toLowerCase()) ?? [];
+        return { uuid, name: e.name, img: own ?? e.img ?? null, pack: e.pack, packLabel: label(e.pack),
+          art: own, allowed: isEntryAllowed(state, open, e.uuid),
+          duplicate: copies.length > 1,
+          // The other compendiums the same name is in, for the warning on the row.
+          alsoIn: copies.filter(c => c.uuid !== uuid).map(c => label(c.pack)),
+          // Both copies allowed is what the GM should look at; one of each is a choice already made.
+          bothAllowed: (copies.length > 1) && copies.every(c => isEntryAllowed(state, open, c.uuid))
+        };
       })
     };
   } else if ( open === "packs" ) {

@@ -1015,3 +1015,24 @@ li.notification button.cc-entry-prompt {
 /* Full width in the centred side column, like the Create button under it; the field looks as on Details. */
 .cc-owner { width: 100%; }
 .cc-owner-pick { width: 100%; }
+
+/* Allowed content: the compendium filter, the source on each row, and options that are in more than one
+   compendium (the SRD's Wizard and a book's Wizard). Both allowed at once is what the GM should look at. */
+.cc-pack-choice { display: flex; min-width: 0; }
+.cc-pack-filter { min-height: 36px; padding: 0 10px; max-width: 200px; }
+.cc-restrict__tools .cc-search { flex: 1 1 140px; min-width: 0; }
+.cc-restrict__dupes { margin: 6px 0 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.cc-entry__clash {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--cc-warn);
+  border-radius: 50%;
+  color: var(--cc-warn);
+  font-size: 11px;
+}
+.cc-entry__clash--quiet { border-color: var(--cc-line); color: var(--cc-faint); }
+.cc-entry-row--clash .cc-entry { border-color: var(--cc-warn); }

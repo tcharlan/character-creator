@@ -45,8 +45,12 @@ ability scores are allowed (point buy, standard array, rolled).
 
 ![Allowed content](docs/images/10-gm-allowed-content.png)
 
-- Tick what's allowed, or use **Allow all** / **Allow none** / **Allow only these** on a filtered list.
+- Tick what's allowed, or use **Allow all** / **Allow none** for the whole list.
 - Turning a compendium off hides everything in it, whatever the lists say.
+- Narrow a list to one compendium, then use **Allow these** / **Disallow these** to take the whole of it in or out
+  at once. Every option says which compendium it came from.
+- An option that exists in more than one compendium (the SRD Wizard and a book's Wizard) is marked, and the warning
+  above the list can show you just those. You can still allow both copies if you mean to.
 - When only one option (or one ability score method) is left, the creator chooses it for the player; the
   screen warns you when a choice would leave players unable to make a character.
 - **Use a picture of your own** sets your own image for a species, class, background or subclass, shown in

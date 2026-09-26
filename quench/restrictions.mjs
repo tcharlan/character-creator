@@ -179,6 +179,39 @@ export function registerRestrictionsBatches(quench) {
         assert.equal(new Set(labels).size, labels.length, `two tabs share a name: ${labels.join(", ")}`);
       });
 
+      it("a category can be narrowed to one compendium, and the whole of it allowed or disallowed at once", async function() {
+        this.timeout(180_000);
+        app = await RestrictionsApp.open();
+        await app.show("spell");
+        const filter = el().querySelector(".cc-pack-filter");
+        assert.exists(filter, "no compendium filter");
+        const pack = [...filter.options].map(o => o.value).filter(Boolean)[0];
+        assert.exists(pack, "no compendium to filter by");
+        filter.value = pack;
+        filter.dispatchEvent(new Event("change"));
+        // The filter redraws the list; wait for the buttons it brings, not for the value we just set.
+        for ( let i = 0; i < 100 && !el().querySelector(String.raw`[data-action="allow-these"]`); i++ ) {
+          await new Promise(r => setTimeout(r, 100));
+        }
+        assert.exists(el().querySelector(String.raw`[data-action="allow-these"]`), "the filtered list offers Allow these");
+        const shown = app.shownUuids();
+        assert.isAbove(shown.length, 0, "the compendium has entries");
+        const all = app.everything.spell.map(e => e.uuid);
+        const several = [...filter.options].filter(o => o.value).length > 1;
+        if ( several ) assert.isBelow(shown.length, all.length, "and it is a narrower list than the whole category");
+        else assert.equal(shown.length, all.length, "this world's spells are all in one compendium");
+        for ( const row of el().querySelectorAll(".cc-entry__pack") ) assert.isNotEmpty(row.textContent.trim());
+
+        el().querySelector('[data-action="disallow-these"]').click();
+        await new Promise(r => setTimeout(r, 200));
+        assert.isFalse(shown.some(uuid => app.state.categories.spell.includes(uuid)), "the compendium is off");
+        // What the filter left out keeps whatever it had: with one compendium, nothing is left.
+        assert.equal(app.state.categories.spell.length, all.length - shown.length, "the rest is untouched");
+        el().querySelector('[data-action="allow-these"]').click();
+        await new Promise(r => setTimeout(r, 200));
+        assert.isNull(app.state.categories.spell, "everything allowed again stores nothing");
+      });
+
       it("the Backgrounds tab shows each step's emblem, and a picture of the GM's own is saved (D28)", async function() {
         this.timeout(120_000);
         const { setStepArt } = await import("../scripts/settings/restrictions-model.mjs");

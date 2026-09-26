@@ -442,7 +442,6 @@
       "SomeAllowed": "Allowed:",
       "AllowAll": "Allow all",
       "AllowNone": "Allow none",
-      "AllowShown": "Allow only these",
       "NothingHere": "Nothing here in this world.",
       "PacksHint": "Which compendiums the creator draws on. Turning one off hides everything in it, whatever the lists above say.",
       "AbilitiesHint": "How players may set their ability scores. With one method left, the creator chooses it for them.",
@@ -471,7 +470,15 @@
       "BackdropsHint": "What shows behind each step of the creator. By default, the step's emblem over a blurred picture of what the player chose; a picture of your own replaces both.",
       "BackdropDefault": "The step's emblem",
       "BackdropClear": "Back to the step's emblem",
-      "OpenFailed": "The allowed content screen couldn't open. The browser console (F12) says why — please include it if you report this."
+      "OpenFailed": "The allowed content screen couldn't open. The browser console (F12) says why — please include it if you report this.",
+      "AllPacks": "All compendiums",
+      "FromPack": "Compendium",
+      "AllowThese": "Allow these",
+      "DisallowThese": "Disallow these",
+      "Duplicates": "{count} of these are in more than one compendium. Players see each copy separately, so allow the one you want.",
+      "ShowDuplicates": "Show only those",
+      "ShowAll": "Show everything again",
+      "AlsoIn": "Also in {packs}"
     },
     "Pending": {
       "Title": "Pending characters",

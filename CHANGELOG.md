@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Allowed content: each category can be narrowed to one compendium, and **Allow these** / **Disallow these** then apply
+  to the whole of it at once (with a search, to what the search leaves).
+- Allowed content: every option shows which compendium it comes from, by name.
+- Allowed content: an option that appears in more than one compendium is marked, with a warning above the list and a way
+  to show only those. Allowing both copies is still allowed — the mark just makes it obvious.
+
 ## 0.3.2
 
 - Choices: languages or skills you already get (Common, say) are shown ticked and greyed out, and the count is only

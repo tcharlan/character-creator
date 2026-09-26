@@ -12,8 +12,8 @@ import { CATEGORIES, NO_RESTRICTIONS } from "../catalog/filters.mjs";
 import { getCatalog, itemPacks } from "../catalog/catalog.mjs";
 import { SETTINGS, readSettings } from "./settings.mjs";
 import { arrowKeys } from "../ui/keyboard.mjs";
-import { editorState, restrictionsModel, toStored, toStoredArt, toggleEntry, allowAll, allowNone, allowOnly,
-  togglePack, toggleMethod, setArt, setStepArt, toStoredStepArt, TABS } from "./restrictions-model.mjs";
+import { editorState, restrictionsModel, toStored, toStoredArt, toggleEntry, allowAll, allowNone, allowThese,
+  disallowThese, togglePack, toggleMethod, setArt, setStepArt, toStoredStepArt, TABS } from "./restrictions-model.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 const T = (key, data) => (data ? game.i18n.format(`CHARCREATOR.${key}`, data) : game.i18n.localize(`CHARCREATOR.${key}`));
@@ -27,6 +27,9 @@ export class RestrictionsApp extends HandlebarsApplicationMixin(ApplicationV2) {
   #packs = [];
   #tab = TABS[0];
   #search = "";
+  /** The compendium the open category is narrowed to ("" = all of them), and the duplicates-only filter. */
+  #pack = "";
+  #onlyDuplicates = false;
   #saving = false;
 
   static DEFAULT_OPTIONS = {
@@ -41,7 +44,9 @@ export class RestrictionsApp extends HandlebarsApplicationMixin(ApplicationV2) {
       entry: onEntry,
       "allow-all": onAllowAll,
       "allow-none": onAllowNone,
-      "allow-shown": onAllowShown,
+      "allow-these": onAllowThese,
+      "disallow-these": onDisallowThese,
+      duplicates: onDuplicates,
       pack: onPack,
       art: onArt,
       "art-clear": onArtClear,
@@ -97,14 +102,17 @@ export class RestrictionsApp extends HandlebarsApplicationMixin(ApplicationV2) {
   async _prepareContext(options) {
     const context = await super._prepareContext(options);
     const model = restrictionsModel({ state: this.#state, everything: this.#everything, packs: this.#packs,
-      tab: this.#tab, search: this.#search });
+      tab: this.#tab, search: this.#search, pack: this.#pack, onlyDuplicates: this.#onlyDuplicates });
     return Object.assign(context, {
       moduleId: MODULE_ID,
       saving: this.#saving,
       ...model,
       tabs: model.tabs.map(t => ({ ...t, label: T(`Restrictions.Tab.${t.key}`) })),
       category: model.category ? { ...model.category, entries: model.category.entries.map(e => ({ ...e,
-        artTooltip: T(e.art ? "Restrictions.ArtChange" : "Restrictions.ArtSet") })) } : null,
+        artTooltip: T(e.art ? "Restrictions.ArtChange" : "Restrictions.ArtSet"),
+        alsoInText: e.duplicate ? T("Restrictions.AlsoIn", { packs: e.alsoIn.join(", ") }) : "" })) } : null,
+      duplicateWarning: model.category?.duplicates
+        ? T("Restrictions.Duplicates", { count: model.category.duplicates }) : "",
       warnings: model.warnings.map(w => ({ ...w, message: T(`Restrictions.Warning.${w.key}`,
         { category: T(`Restrictions.Tab.${w.category}`) }) })),
       methods: (model.abilities ?? []).map(m => ({ ...m, label: T(`Abilities.${m.key}`) })),
@@ -116,6 +124,10 @@ export class RestrictionsApp extends HandlebarsApplicationMixin(ApplicationV2) {
   _onRender(context, options) {
     super._onRender(context, options);
     arrowKeys(this.element.querySelector(".cc-restrict__tabs"), '[role="tab"]');
+    this.element.querySelector(".cc-pack-filter")?.addEventListener("change", event => {
+      this.#pack = event.target.value;
+      this.render({ parts: ["body"] });
+    });
     const search = this.element.querySelector(".cc-search input");
     if ( search ) {
       search.addEventListener("input", foundry.utils.debounce(event => {
@@ -125,12 +137,21 @@ export class RestrictionsApp extends HandlebarsApplicationMixin(ApplicationV2) {
     }
   }
 
-  /** Show a tab; the search box starts empty on each one. */
+  /** Show a tab; the filters start clear on each one. */
   async show(tab) {
     if ( !TABS.includes(tab) ) return;
     this.#tab = tab;
     this.#search = "";
+    this.#pack = "";
+    this.#onlyDuplicates = false;
     await this.render({ parts: ["body"] });
+  }
+
+  /** Show only the options that appear in more than one compendium, or all of them again. */
+  async toggleDuplicates() {
+    this.#onlyDuplicates = !this.#onlyDuplicates;
+    await this.render({ parts: ["body"] });
+    return this.#onlyDuplicates;
   }
 
   /** Change the state and redraw. */
@@ -220,9 +241,24 @@ function onAllowNone(event, target) {
   return this.change(state => allowNone(state, target.dataset.category));
 }
 
-function onAllowShown(event, target) {
+/** Allow (or disallow) everything the filters leave on screen — a whole compendium, say. */
+function onAllowThese(event, target) {
   const shown = this.shownUuids();
-  return this.change(state => allowOnly(state, target.dataset.category, shown));
+  const category = target.dataset.category;
+  const all = (this.everything[category] ?? []).map(e => e.uuid);
+  return this.change(state => allowThese(state, category, shown, all));
+}
+
+function onDisallowThese(event, target) {
+  const shown = this.shownUuids();
+  const category = target.dataset.category;
+  const all = (this.everything[category] ?? []).map(e => e.uuid);
+  return this.change(state => disallowThese(state, category, shown, all));
+}
+
+/** Show only the options that appear in more than one compendium. */
+function onDuplicates() {
+  return this.toggleDuplicates();
 }
 
 function onStepArt(event, target) {
