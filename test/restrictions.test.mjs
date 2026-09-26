@@ -205,3 +205,32 @@ test("the same option in two compendiums is flagged, and can be filtered to", as
   assert.equal(after.every(e => e.duplicate), true);
   assert.equal(after.some(e => e.bothAllowed), false, "one of each is not a clash");
 });
+
+test("two compendiums with the same label are told apart by where they came from", async () => {
+  const { packNames } = await import("../scripts/settings/restrictions-model.mjs");
+  const packs = [
+    { collection: "dnd5e.origins24", label: "Character Origins", source: "Dungeons & Dragons Fifth Edition" },
+    { collection: "dnd-players-handbook.origins", label: "Character Origins", source: "Player's Handbook (2024)" },
+    { collection: "dnd5e.spells", label: "Spells (SRD)", source: "Dungeons & Dragons Fifth Edition" }
+  ];
+  const names = packNames(packs);
+  assert.equal(names.get("dnd5e.origins24"), "Character Origins — Dungeons & Dragons Fifth Edition");
+  assert.equal(names.get("dnd-players-handbook.origins"), "Character Origins — Player's Handbook (2024)");
+  assert.equal(names.get("dnd5e.spells"), "Spells (SRD)", "a label of its own is left alone");
+  assert.equal(packNames([{ collection: "a.b", label: "Same" }, { collection: "c.d", label: "Same" }]).get("a.b"),
+    "Same", "with nowhere to point at, the label stands");
+});
+
+test("the compendium each option comes from is named the same way, in the list and the filter", () => {
+  const packs = [
+    { collection: "dnd5e.classes", label: "Classes", source: "Dungeons & Dragons Fifth Edition" },
+    { collection: "dnd-phb.classes", label: "Classes", source: "Player's Handbook (2024)" }
+  ];
+  const everything = { ...EVERYTHING, class: [entry("fighter"),
+    { uuid: `Compendium.dnd-phb.classes.Item.${ID("phbfig")}`, name: "Item fighter", img: "x.webp", pack: "dnd-phb.classes" }] };
+  const model = restrictionsModel({ state: state(), everything, packs, tab: "class" }).category;
+  assert.deepEqual(model.packs.map(p => p.label),
+    ["Classes — Dungeons & Dragons Fifth Edition", "Classes — Player's Handbook (2024)"]);
+  assert.deepEqual([...new Set(model.entries.map(e => e.packLabel))].sort(),
+    ["Classes — Dungeons & Dragons Fifth Edition", "Classes — Player's Handbook (2024)"]);
+});

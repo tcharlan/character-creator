@@ -114,12 +114,19 @@ export async function proficiencyChecker(actor, uuids) {
  * @param {Actor} actor       The built (scratch) character.
  * @param {Item} item         Its class or background item.
  * @param {object} catalog
+ * @param {object} [options]
+ * @param {object} [options.standard]   The catalog with no restrictions: where the GM allows nothing of a
+ *   kind the kit asks for ("any simple weapon"), the standard items are offered instead, so a character can
+ *   still be equipped rather than being stuck.
  */
-export async function equipmentContext(actor, item, catalog) {
+export async function equipmentContext(actor, item, catalog, { standard = null } = {}) {
   const tree = buildTree(item?.system.toObject().startingEquipment ?? []);
   const linked = [...tree.nodes.values()].filter(n => n.type === "linked").map(n => n.key);
   const isProficient = await proficiencyChecker(actor, linked);
-  const candidates = node => candidatesFor(node, catalog);
+  const candidates = node => {
+    const allowed = candidatesFor(node, catalog);
+    return allowed.length || !standard ? allowed : candidatesFor(node, standard);
+  };
   return {
     tree,
     wealth: item?.system.wealth ?? null,
@@ -135,8 +142,8 @@ export async function equipmentContext(actor, item, catalog) {
  * What the wizard shows for one source: decisions reachable from the choices so far (with category
  * candidates), linked entries with proficiency, the wealth option, and a default selection (D4 model).
  */
-export async function equipmentOptions(actor, item, catalog, choices = {}) {
-  const ctx = await equipmentContext(actor, item, catalog);
+export async function equipmentOptions(actor, item, catalog, choices = {}, { standard = null } = {}) {
+  const ctx = await equipmentContext(actor, item, catalog, { standard });
   const decisions = listDecisions(ctx.tree, choices).map(d => (d.kind === "category" ? { ...d, candidates: ctx.candidates(d) } : d));
   const linked = [...ctx.tree.nodes.values()].filter(n => n.type === "linked")
     .map(n => ({ id: n._id, uuid: norm(n.key), requiresProficiency: !!n.requiresProficiency, proficient: ctx.isProficient(n.key),
@@ -193,9 +200,10 @@ export function checkWealthRoll(draft, source, selection, wealth, { userId }) {
  * @param {object} options
  * @param {object} options.catalog
  * @param {string} [options.userId]   The draft's owner; when given, rolled wealth is checked against chat (GM).
+ * @param {object} [options.standard]  The unrestricted catalog, for a kit the GM's allowed list can't fill.
  * @returns {Promise<{ items: {uuid, count, source}[], currency: object, errors: object[] }>}
  */
-export async function resolveDraftEquipment({ actor, roots }, draft, { catalog, userId }) {
+export async function resolveDraftEquipment({ actor, roots }, draft, { catalog, userId, standard = null }) {
   const items = [];
   const currency = {};
   const errors = [];
@@ -203,7 +211,7 @@ export async function resolveDraftEquipment({ actor, roots }, draft, { catalog, 
     const item = actor.items.get(roots?.[source]);
     if ( !item ) continue;   // missing picks are reported by buildCharacter
     const selection = draft.equipment?.[source] ?? {};
-    const ctx = await equipmentContext(actor, item, catalog);
+    const ctx = await equipmentContext(actor, item, catalog, { standard });
     const res = resolveSelection(ctx.tree, ctx.wealth, selection, ctx);
     errors.push(...res.errors.map(e => ({ ...e, detail: { source, ...e.detail } })));
     if ( userId ) errors.push(...checkWealthRoll(draft, source, selection, ctx.wealth, { userId }));

@@ -19,6 +19,23 @@ export const REQUIRED = Object.freeze(["species", "background", "class"]);
 const list = value => (Array.isArray(value) ? value.map(normalizeUuid) : null);
 
 /**
+ * A name for each compendium that says which one it is. A book and the system often use the same label
+ * ("Character Origins"), so where a label is shared the package it came from is added.
+ * @param {{ collection: string, label: string, source?: string }[]} packs
+ * @returns {Map<string, string>}  collection → the name to show
+ */
+export function packNames(packs = []) {
+  const seen = new Map();
+  for ( const pack of packs ) seen.set(pack.label, (seen.get(pack.label) ?? 0) + 1);
+  const names = new Map();
+  for ( const pack of packs ) {
+    const shared = (seen.get(pack.label) ?? 0) > 1;
+    names.set(pack.collection, (shared && pack.source) ? `${pack.label} — ${pack.source}` : pack.label);
+  }
+  return names;
+}
+
+/**
  * The state the screen edits: the stored restrictions plus the allowed methods, as plain arrays.
  * @param {object} restrictions   From the setting (normalised).
  * @param {string[]} abilityMethods
@@ -245,7 +262,8 @@ export function restrictionsModel({ state, everything, packs, tab, search = "", 
 
   if ( CATEGORIES.includes(open) ) {
     const all = everything?.[open] ?? [];
-    const label = collection => packs?.find(p => p.collection === collection)?.label ?? collection;
+    const names = packNames(packs ?? []);
+    const label = collection => names.get(collection) ?? collection;
     const duplicates = duplicatesOf(all);
     const duplicateUuids = new Set([...duplicates.values()].flat().map(d => d.uuid));
     // The compendiums this category actually comes from, each with how much of it is allowed.
@@ -285,9 +303,12 @@ export function restrictionsModel({ state, everything, packs, tab, search = "", 
       })
     };
   } else if ( open === "packs" ) {
+    // The same naming as the lists: two "Character Origins" are told apart by where they came from.
+    const names = packNames(packs ?? []);
     model.packs = {
       unrestricted: !Array.isArray(state.packs),
-      entries: packs.map(p => ({ ...p, allowed: !Array.isArray(state.packs) || state.packs.includes(p.collection) }))
+      entries: (packs ?? []).map(p => ({ ...p, label: names.get(p.collection) ?? p.label,
+        allowed: !Array.isArray(state.packs) || state.packs.includes(p.collection) }))
     };
   } else if ( open === "hardcore" ) {
     model.hardcore = {

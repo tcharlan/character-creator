@@ -8,7 +8,8 @@
 import { ABILITIES, MODULE_ID, STATUS } from "../contracts.mjs";
 import { DraftStore } from "../draft/store.mjs";
 import { isEditable } from "../draft/state.mjs";
-import { getCatalog } from "../catalog/catalog.mjs";
+import { getCatalog, itemName } from "../catalog/catalog.mjs";
+import { NO_RESTRICTIONS } from "../catalog/filters.mjs";
 import { checkBuilt } from "../rules/validate.mjs";
 import { buildCharacter } from "../rules/build.mjs";
 import { readSettings, SETTINGS } from "../settings/settings.mjs";
@@ -82,6 +83,8 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
 
   #store = new DraftStore();
   #catalog = null;
+  /** The catalog with nothing narrowed away, for a kit the GM's allowed list can't fill (standard items). */
+  #standard = null;
   #current = BANNER_STEPS[0];
   #visited = [];
   #validation = null;
@@ -262,6 +265,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       }
     }
     this.#catalog = await getCatalog();
+    this.#standard = await getCatalog({ restrictions: NO_RESTRICTIONS });
     await this.#rebuild();
     warmTraitLists();
     return true;
@@ -404,7 +408,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
         },
         equipmentContext: async role => {
           const item = build?.actor?.items?.get(build.roots?.[role]);
-          return item ? equipmentContext(build.actor, item, this.#catalog) : null;
+          return item ? equipmentContext(build.actor, item, this.#catalog, { standard: this.#standard }) : null;
         },
         abilities: async () => {
           working.abilities.method = "rolled";
@@ -789,7 +793,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       this.#brokeDown = false;
       this.#bonuses = abilityBonuses(this.#build, this.draft.abilities.base);
       const { errors, equipment } = await checkBuilt(this.draft, this.#build, { catalog: this.#catalog,
-        userId: game.user.id, allowedMethods: readSettings().abilityMethods });
+        standard: this.#standard, userId: game.user.id, allowedMethods: readSettings().abilityMethods });
       this.#validation = { ok: !errors.length, errors, built: this.#build, equipment };
       await this.#equipmentContexts();
     } catch ( err ) {
@@ -841,7 +845,8 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     for ( const role of EQUIPMENT_SOURCES ) {
       const item = this.#build?.actor?.items?.get(this.#build.roots?.[role]);
       if ( !item ) continue;
-      contexts[role] = { name: item.name, ...await equipmentContext(this.#build.actor, item, this.#catalog) };
+      contexts[role] = { name: item.name,
+        ...await equipmentContext(this.#build.actor, item, this.#catalog, { standard: this.#standard }) };
     }
     this.#equipment = contexts;
   }
@@ -911,7 +916,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     if ( this.#current === "equipment" ) return { equipment: this.#equipmentModel() };
     if ( this.#current === "review" ) {
       const equipment = { items: (this.#validation?.equipment?.items ?? []).map(i => ({
-        ...i, name: this.#catalog?.get(i.uuid)?.name ?? i.uuid })), currency: this.#validation?.equipment?.currency ?? {} };
+        ...i, name: itemName(i.uuid, this.#catalog) })), currency: this.#validation?.equipment?.currency ?? {} };
       const limit = game.user.isGM ? null : readSettings().characterLimit;
       const made = createdFor(game.user.id).length;
       const model = reviewModel({ built: this.#build, validation: this.#validation, draft: this.draft, equipment,
@@ -1060,7 +1065,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       sources.push({ ...model, fixedText: model.fixed.join(", ") });
     }
     const resolved = this.#validation?.equipment;
-    const items = (resolved?.items ?? []).map(i => ({ name: this.#catalog?.get(i.uuid)?.name ?? i.uuid, count: i.count > 1 ? i.count : null }));
+    const items = (resolved?.items ?? []).map(i => ({ name: itemName(i.uuid, this.#catalog), count: i.count > 1 ? i.count : null }));
     const currency = Object.entries(resolved?.currency ?? {}).map(([k, v]) => `${v} ${k.toUpperCase()}`).join(", ");
     return { sources, items, currencyText: currency,
       errors: countedErrors(this.#validation?.errors, "equipment") };

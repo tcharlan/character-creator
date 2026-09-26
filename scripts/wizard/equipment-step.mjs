@@ -9,7 +9,9 @@ import { EQUIPMENT_SOURCES, CATEGORY_TYPES, unitCount, listDecisions } from "../
 
 export { EQUIPMENT_SOURCES };
 
-const catalogName = (catalog, uuid) => catalog?.get?.(uuid)?.name ?? uuid?.split(".").pop() ?? "";
+import { itemName } from "../catalog/names.mjs";
+
+const catalogName = (catalog, uuid) => itemName(uuid, catalog);
 
 /**
  * A readable label for a category entry. dnd5e names the category alone ("Simple", "Martial"), which on its

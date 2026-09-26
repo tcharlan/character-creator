@@ -6,6 +6,7 @@
 
 import { readSettings } from "../settings/settings.mjs";
 import { MODULE_ID } from "../contracts.mjs";
+export { itemName } from "./names.mjs";
 import { buildCatalogData, isAllowed, shortfall, normalizeUuid, packExclusion, NO_RESTRICTIONS } from "./filters.mjs";
 
 /**
@@ -78,17 +79,27 @@ export async function buildCatalog({ rules = game.settings.get("dnd5e", "rulesVe
   });
 }
 
+/** Which module, system or world a compendium comes from, by name. */
+function packSource(pack) {
+  const { packageType, packageName } = pack.metadata ?? {};
+  if ( packageType === "module" ) return game.modules.get(packageName)?.title ?? packageName ?? "";
+  if ( packageType === "system" ) return game.system?.title ?? packageName ?? "";
+  if ( packageType === "world" ) return game.world?.title ?? "";
+  return packageName ?? "";
+}
+
 /**
  * The Item packs this world can draw on, for the GM's allowed-content screen (PLAN 4.1): the ones dnd5e and the
- * world already enable, whether or not the module narrows them further.
- * @returns {{ collection: string, label: string }[]}
+ * world already enable, whether or not the module narrows them further. Books and the system name their packs
+ * alike ("Character Origins" twice over), so each one carries where it came from as well.
+ * @returns {{ collection: string, label: string, source: string }[]}
  */
 export function itemPacks() {
   const sourceConfig = game.settings.get("dnd5e", "packSourceConfiguration") ?? {};
   return game.packs.contents
     .filter(p => !packExclusion(describePack(p, sourceConfig, game.user), NO_RESTRICTIONS))
-    .map(p => ({ collection: p.collection, label: p.metadata.label ?? p.collection }))
-    .sort((a, b) => a.label.localeCompare(b.label));
+    .map(p => ({ collection: p.collection, label: p.metadata.label ?? p.collection, source: packSource(p) }))
+    .sort((a, b) => a.label.localeCompare(b.label) || a.source.localeCompare(b.source));
 }
 
 /* -------------------------------------------- */

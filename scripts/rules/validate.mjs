@@ -44,7 +44,7 @@ export function actorSummary(actor) {
  * @returns {Promise<{ ok: boolean, errors: object[], byStep: object[], draft: object|null, built: object|null,
  *   equipment: object|null }>}   `built` / `equipment` are reused to create the actor (PLAN 2.7).
  */
-export async function validateDraft(draft, { catalog, userId, worldId = game.world.id,
+export async function validateDraft(draft, { catalog, standard = null, userId, worldId = game.world.id,
   rules = game.settings.get("dnd5e", "rulesVersion"), allowedMethods, image = null, characters = {} } = {}) {
   const done = (errors, extra = {}) => ({ ok: !errors.length, errors, byStep: errorsByStep(errors), draft: null, built: null,
     equipment: null, ...extra });
@@ -55,7 +55,7 @@ export async function validateDraft(draft, { catalog, userId, worldId = game.wor
 
   // Choices: strict replay — every step must be in the recipe (fill: false).
   const built = await buildCharacter({ picks: d.picks, base: d.abilities.base, steps: d.recipe.steps }, { catalog, fill: false });
-  const { errors, equipment } = await checkBuilt(d, built, { catalog, userId, allowedMethods, image, characters });
+  const { errors, equipment } = await checkBuilt(d, built, { catalog, standard, userId, allowedMethods, image, characters });
   return done(errors, { draft: d, built, equipment });
 }
 
@@ -68,7 +68,8 @@ export async function validateDraft(draft, { catalog, userId, worldId = game.wor
  * @param {object} built                    From buildCharacter().
  * @returns {Promise<{ errors: object[], equipment: object|null }>}
  */
-export async function checkBuilt(draft, built, { catalog, userId, allowedMethods, image = null, characters = {} } = {}) {
+export async function checkBuilt(draft, built, { catalog, standard = null, userId, allowedMethods, image = null,
+  characters = {} } = {}) {
   const errors = [...built.errors];
   const blocked = built.summary.blocked.length || !built.roots.class;
   if ( !blocked ) errors.push(...checkBuiltStructure(actorSummary(built.actor), catalog));
@@ -77,7 +78,7 @@ export async function checkBuilt(draft, built, { catalog, userId, allowedMethods
 
   let equipment = null;
   if ( built.roots.class || built.roots.background ) {
-    equipment = await resolveDraftEquipment(built, draft, { catalog, userId });
+    equipment = await resolveDraftEquipment(built, draft, { catalog, userId, standard });
     errors.push(...equipment.errors);
   }
   if ( built.roots.class ) errors.push(...checkDraftSpells(built, draft, { catalog }));

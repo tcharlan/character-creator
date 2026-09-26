@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.1
+
+- Equipment: where your allowed content can't fill part of a starting kit ("any simple weapon" with no weapons
+  allowed, say), the standard items are offered instead, so a character can always be equipped — a random
+  character could otherwise be left with nothing.
+- Review: items from a compendium outside your allowed content are named properly instead of showing their raw id.
+- Allowed content: two compendiums with the same name (the system's "Character Origins" and a book's) are told
+  apart by where they came from, in the filter, on each row and on the Compendiums tab.
+
 ## 0.4.0
 
 - **Random character (hardcore):** players can let the dice make a character — species, class, background, the

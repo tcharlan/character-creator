@@ -11,6 +11,7 @@
 
 import { QUERIES, makeError, checkSubmitPayload, checkUploadPayload } from "../contracts.mjs";
 import { getCatalog } from "../catalog/catalog.mjs";
+import { NO_RESTRICTIONS } from "../catalog/filters.mjs";
 import { validateDraft } from "../rules/validate.mjs";
 import { createCharacter, createdFor, createdFrom } from "./create.mjs";
 import { savePortrait } from "./portrait.mjs";
@@ -56,13 +57,15 @@ async function submit({ draft, image = null }, user, overrides = {}) {
   if ( existing ) return { ok: true, actorUuid: existing.uuid, duplicate: true, warnings: [] };
 
   const catalog = await getCatalog({ user });
+  // The standard items, for a kit the GM's allowed list can't fill: the same fallback the player was offered.
+  const standard = await getCatalog({ user, restrictions: NO_RESTRICTIONS });
   // A character the dice made is checked against the rolls that made it (D31).
   if ( draft.mode === "hardcore" ) {
     const problems = await checkRandomCharacter(draft, { catalog, userId: user.id });
     if ( problems.length ) return fail(problems);
   }
   // The character limit is for players; a GM's characters are theirs to give away (D29).
-  const validated = await validateDraft(draft, { catalog, userId: user.id, allowedMethods, image,
+  const validated = await validateDraft(draft, { catalog, standard, userId: user.id, allowedMethods, image,
     characters: { limit: user.isGM ? null : characterLimit, existing: createdFor(user.id).length } });
   if ( !validated.ok ) return fail(validated.errors, { byStep: validated.byStep });
 
