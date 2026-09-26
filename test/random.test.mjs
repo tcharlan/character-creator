@@ -92,6 +92,37 @@ test("the same totals always make the same character", async () => {
   assert.deepEqual(second.rolled, first.rolled, "and asks for the same dice, in the same order");
 });
 
+test("run again after the player's own choice, and only what it opened is rolled", async () => {
+  // The GM leaves the class to the player: the first run has no class to bring choices with it, so the
+  // character comes out of it unfinished. Picking one opens a skill choice that the dice have to settle.
+  const draft = createDraft({ id: ID("d"), worldId: "w", rules: "legacy", now: 1 });
+  const rolled = [];
+  const roll = async (faces, key) => {
+    rolled.push({ key, faces, total: 1 });
+    return 1;
+  };
+  const loop = () => rollCharacter({
+    draft, catalog: CATALOG, free: ["class"], roll,
+    // Only a class has advancements to answer, and only until the recipe answers them.
+    rebuild: async d => ({ roots: {}, actor: null,
+      results: (d.picks.class && !(d.recipe.steps ?? []).length) ? [traitResult] : [] }),
+    equipmentContext: async () => null,
+    alignments: ["Lawful Good"]
+  });
+
+  await loop();
+  const first = rolled.map(r => r.key);
+  assert.equal(draft.picks.class, null, "the player's to make");
+  assert.deepEqual(first, ["species", "background", "details:alignment"], "nothing else was open");
+
+  draft.picks.class = U("classes", "wizard");
+  await loop();
+  assert.deepEqual(rolled.map(r => r.key).slice(first.length), ["choice:class>skills:0", "choice:class>skills:1"],
+    "the choice the class brought with it, and nothing that was already decided");
+  assert.equal(draft.picks.species, U("species", "dwarf"), "the first run's picks stand");
+  assert.equal(draft.details.alignment, "Lawful Good");
+});
+
 test("a die result outside the list still lands on a real option", () => {
   assert.equal(at(["a", "b", "c"], 1), "a");
   assert.equal(at(["a", "b", "c"], 3), "c");

@@ -77,10 +77,10 @@ export function registerHardcoreBatches(quench) {
           const chosen = draft.equipment[role];
           if ( chosen ) assert.equal(chosen.mode, "items", role + ": the gear, not the gold");
         }
-        const message = game.messages.get(draft.random.messageId);
-        assert.exists(message, "the rolls should be in chat");
-        assert.equal(message.rolls.length, draft.random.rolls.length);
-        assert.isEmpty(message.whisper, "and public");
+        const messages = draft.random.messageIds.map(id => game.messages.get(id));
+        assert.notInclude(messages, undefined, "the rolls should be in chat");
+        assert.equal(messages.reduce((n, m) => n + m.rolls.length, 0), draft.random.rolls.length);
+        for ( const message of messages ) assert.isEmpty(message.whisper, "and public");
         assert.equal(app.step, "review", "it drops the player at the end");
       });
 
@@ -171,6 +171,25 @@ export function registerHardcoreBatches(quench) {
         await app.pick(pick);
         await app.settle();
         assert.ok(app.draft.picks.class, "the player can pick one");
+
+        // What that class brought with it — its own choices, its kit — is the dice's, not the player's, so it
+        // is rolled as soon as it appears and posted as another message.
+        for ( let i = 0; i < 300 && (app.draft.random.messageIds.length < 2); i++ ) await wait(200);
+        assert.lengthOf(app.draft.random.messageIds, 2, "the new decisions were never rolled");
+        const added = app.draft.random.rolls.slice(draft.random.rolls.length);
+        assert.isNotEmpty(added, "and their dice were recorded");
+        assert.isEmpty(app.build.results.filter(r => r.status === "needsInput"),
+          "the class's own choices are settled: " + JSON.stringify(app.build.results
+            .filter(r => r.status === "needsInput").map(r => r.title)));
+        assert.equal(app.draft.equipment.class?.mode, "items", "and it starts with the class's gear");
+        const message = game.messages.get(app.draft.random.messageIds.at(-1));
+        assert.equal(message.rolls.length, added.length, "the message holds exactly the new dice");
+        await app.goTo("review");
+        await app.settle();
+        for ( const part of ["choices", "equipment"] ) {
+          assert.isEmpty(app.validation.errors.filter(e => e.step === part),
+            part + " should be settled: " + JSON.stringify(app.validation.errors).slice(0, 200));
+        }
         await setHardcore([]);
       });
     });

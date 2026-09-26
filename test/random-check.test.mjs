@@ -42,7 +42,7 @@ const replay = {
 function submitted(over = {}) {
   const draft = createDraft({ id: ID("d"), worldId: "w", rules: "legacy", now: 1 });
   draft.mode = "hardcore";
-  draft.random = { messageId: MESSAGE_ID, rolls: ROLLS.map(r => ({ ...r })) };
+  draft.random = { messageIds: [MESSAGE_ID], rolls: ROLLS.map(r => ({ ...r })) };
   draft.picks = { species: U("species", "elf"), class: U("classes", "cleric"), background: U("backgrounds", "acolyte") };
   draft.abilities = { method: "rolled", base: { str: 15, dex: 14, con: 13, int: 12, wis: 10, cha: 8 },
     roll: { messageId: ID("abil"), results: [15, 14, 13, 12, 10, 8] } };
@@ -50,7 +50,7 @@ function submitted(over = {}) {
   return { ...draft, ...over };
 }
 
-const check = (draft, over = {}) => checkRandomDraft(draft, { record: record(), userId: USER, replay, ...over });
+const check = (draft, over = {}) => checkRandomDraft(draft, { records: [record()], userId: USER, replay, ...over });
 
 test("a character that matches its rolls passes", async () => {
   assert.deepEqual(await check(submitted()), []);
@@ -58,13 +58,14 @@ test("a character that matches its rolls passes", async () => {
 
 test("the dice have to be the ones in chat, posted by the player, unedited and only once", async () => {
   const reason = async over => (await check(submitted(), over))[0]?.detail?.message;
-  assert.equal(await reason({ record: null }), "noMessage");
+  assert.equal(await reason({ records: [] }), "noMessage");
   assert.equal(await reason({ userId: ID("other") }), "wrongAuthor");
-  assert.equal(await reason({ record: record({ public: false }) }), "notPublic");
-  assert.equal(await reason({ record: record({ modified: 9999 }) }), "edited");
-  assert.equal(await reason({ otherMessages: [ID("another")] }), "rerolled");
-  assert.equal(await reason({ record: record({ id: ID("elsewhere") }) }), "wrongMessage");
-  assert.equal(await reason({ record: record({ flag: { draftId: ID("x"), purpose: "random" } }) }), "wrongDraft");
+  assert.equal(await reason({ records: [record({ public: false })] }), "notPublic");
+  assert.equal(await reason({ records: [record({ modified: 9999 })] }), "edited");
+  assert.equal(await reason({ records: [record(), record({ id: ID("another") })] }), "messageCount",
+    "a message the draft doesn't name is a roll from somewhere else");
+  assert.equal(await reason({ records: [record({ id: ID("elsewhere") })] }), "wrongMessage");
+  assert.equal(await reason({ records: [record({ flag: { draftId: ID("x"), purpose: "random" } })] }), "wrongDraft");
 });
 
 test("the totals in the draft have to be the totals that were rolled", async () => {
@@ -107,7 +108,28 @@ test("the parts the GM leaves to the player are not replayed", async () => {
   draft.random.rolls = ROLLS.filter(r => r.key !== "class").map(r => ({ ...r }));
   const message = record({ rolls: draft.random.rolls.map(r => ({ formula: `1d${r.faces}`, total: r.total,
     dice: [{ number: 1, faces: r.faces, results: [{ result: r.total, active: true }] }] })) });
-  assert.deepEqual(await check(draft, { free, record: message }), []);
+  assert.deepEqual(await check(draft, { free, records: [message] }), []);
+});
+
+test("rolls posted later, in another message, still count for the decision they were for", async () => {
+  // The player's own choice opened more to roll, so the dice came in two goes and in an order the replay
+  // doesn't ask for: each roll is taken by what it was for, not by its place in the line.
+  const draft = submitted();
+  const [species, klass, background, alignment] = ROLLS;
+  draft.random = { messageIds: [MESSAGE_ID, ID("later")],
+    rolls: [alignment, background, species, klass].map(r => ({ ...r })) };
+  const dice = rolls => rolls.map(r => ({ formula: `1d${r.faces}`, total: r.total,
+    dice: [{ number: 1, faces: r.faces, results: [{ result: r.total, active: true }] }] }));
+  const records = [record({ rolls: dice([alignment, background]) }),
+    record({ id: ID("later"), rolls: dice([species, klass]) })];
+  assert.deepEqual(await check(draft, { records }), []);
+
+  // A die of the wrong size for that decision is still caught.
+  const wrong = submitted();
+  wrong.random = { messageIds: [MESSAGE_ID], rolls: ROLLS.map(r => (r.key === "species" ? { ...r, faces: 3 } : { ...r })) };
+  const [error] = await check(wrong, { records: [record({ rolls: dice(wrong.random.rolls) })] });
+  assert.equal(error.detail.message, "wrongDie");
+  assert.equal(error.detail.key, "species");
 });
 
 test("clearRolled keeps what the player owns and empties what the dice decided", () => {

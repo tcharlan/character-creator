@@ -67,9 +67,10 @@
 
     <ul class="cc-list">
       {{#each category.entries as |e|}}
-      <li class="cc-entry-row{{#if e.bothAllowed}} cc-entry-row--clash{{/if}}">
+      <li class="cc-entry-row{{#if e.bothAllowed}} cc-entry-row--clash{{/if}}{{#if e.packOff}} cc-entry-row--off{{/if}}">
         <button type="button" class="cc-entry{{#if e.allowed}} cc-entry--allowed{{/if}}" data-action="entry"
-                data-category="{{../category.key}}" data-uuid="{{e.uuid}}" aria-pressed="{{e.allowed}}">
+                data-category="{{../category.key}}" data-uuid="{{e.uuid}}" aria-pressed="{{e.allowed}}"
+                data-tooltip="{{e.tooltip}}" {{#if e.packOff}}disabled{{/if}}>
           {{#if e.img}}<img src="{{e.img}}" alt="">{{/if}}
           <span class="cc-entry__name">{{e.name}}</span>
           {{#if e.duplicate}}
@@ -78,7 +79,7 @@
             <i class="fa-solid fa-triangle-exclamation" inert></i>
           </span>
           {{/if}}
-          <span class="cc-entry__pack" data-tooltip="{{e.pack}}">{{e.packLabel}}</span>
+          <span class="cc-entry__pack">{{#if e.packOff}}{{localize "CHARCREATOR.Restrictions.PackOff"}}{{else}}{{e.packLabel}}{{/if}}</span>
         </button>
         <button type="button" class="cc-entry__art{{#if e.art}} cc-entry__art--own{{/if}}" data-action="art"
                 data-uuid="{{e.uuid}}" data-art="{{e.art}}"
@@ -125,26 +126,29 @@
         <p class="cc-hint">{{localize "CHARCREATOR.Restrictions.HardcoreHint"}}</p>
       </div>
     </header>
-    <ul class="cc-list">
-      <li>
-        <button type="button" class="cc-entry{{#if hardcore.offered}} cc-entry--allowed{{/if}}" data-action="hardcore"
-                aria-pressed="{{hardcore.offered}}">
-          <span class="cc-entry__name">{{localize "CHARCREATOR.Restrictions.HardcoreOffered"}}</span>
-        </button>
-      </li>
+    <div class="cc-switches">
+      <button type="button" class="cc-switch cc-switch--main{{#if hardcore.offered}} cc-switch--on{{/if}}"
+              data-action="hardcore" role="switch" aria-checked="{{hardcore.offered}}">
+        <span class="cc-switch__track" aria-hidden="true"><span class="cc-switch__knob"></span></span>
+        <span class="cc-switch__label">{{localize "CHARCREATOR.Restrictions.HardcoreOffered"}}</span>
+      </button>
+    </div>
+    <p class="cc-hint cc-switches__lead">{{localize "CHARCREATOR.Restrictions.HardcoreParts"}}</p>
+    {{!-- Off: the choices are kept and shown, but greyed until the mode is switched on again. --}}
+    <div class="cc-switches cc-switches--grid{{#unless hardcore.offered}} cc-switches--off{{/unless}}">
       {{#each hardcore.parts as |p|}}
-      <li>
-        <button type="button" class="cc-entry{{#if p.free}} cc-entry--allowed{{/if}}" data-action="random-part"
-                data-part="{{p.part}}" aria-pressed="{{p.free}}">
-          <span class="cc-entry__name">{{p.label}}</span>
-          <span class="cc-entry__pack">
-            {{#if p.free}}{{localize "CHARCREATOR.Restrictions.HardcoreFree"}}
-            {{else}}{{localize "CHARCREATOR.Restrictions.HardcoreRolled"}}{{/if}}
-          </span>
-        </button>
-      </li>
+      <button type="button" class="cc-switch{{#unless p.free}} cc-switch--on{{/unless}}" data-action="random-part"
+              data-part="{{p.part}}" role="switch" aria-checked="{{#unless p.free}}true{{else}}false{{/unless}}"
+              {{#unless ../hardcore.offered}}disabled{{/unless}}>
+        <span class="cc-switch__track" aria-hidden="true"><span class="cc-switch__knob"></span></span>
+        <span class="cc-switch__label">{{p.label}}</span>
+        <span class="cc-switch__state">
+          {{#if p.free}}{{localize "CHARCREATOR.Restrictions.HardcoreFree"}}
+          {{else}}{{localize "CHARCREATOR.Restrictions.HardcoreRolled"}}{{/if}}
+        </span>
+      </button>
       {{/each}}
-    </ul>
+    </div>
 
     {{else if backdrops}}
     <header class="cc-restrict__head">

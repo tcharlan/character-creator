@@ -114,7 +114,12 @@ export class RestrictionsApp extends HandlebarsApplicationMixin(ApplicationV2) {
       tabs: model.tabs.map(t => ({ ...t, label: T(`Restrictions.Tab.${t.key}`) })),
       category: model.category ? { ...model.category, entries: model.category.entries.map(e => ({ ...e,
         artTooltip: T(e.art ? "Restrictions.ArtChange" : "Restrictions.ArtSet"),
-        alsoInText: e.duplicate ? T("Restrictions.AlsoIn", { packs: e.alsoIn.join(", ") }) : "" })) } : null,
+        alsoInText: e.duplicate ? T("Restrictions.AlsoIn", { packs: e.alsoIn.join(", ") }) : "",
+        // Hovering a row says which one it is: the name, its compendium, its id, and any copy elsewhere.
+        tooltip: [T(e.packOff ? "Restrictions.RowTooltipOff" : "Restrictions.RowTooltip",
+          { name: e.name, pack: e.packLabel }), e.id,
+        e.duplicate ? T("Restrictions.AlsoIn", { packs: e.alsoIn.join(", ") }) : ""].filter(Boolean).join(" · ")
+        })) } : null,
       duplicateWarning: model.category?.duplicates
         ? T("Restrictions.Duplicates", { count: model.category.duplicates }) : "",
       warnings: model.warnings.map(w => ({ ...w, message: T(`Restrictions.Warning.${w.key}`,

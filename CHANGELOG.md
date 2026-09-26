@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.3
+
+- Allowed content: turning a compendium off now shows through in the lists above it — its options are greyed out,
+  marked "Its compendium is turned off", and no longer counted as allowed.
+- Allowed content: hovering an option shows its name, its compendium and its id, so two of a name can be told apart.
+- Fixed: options of the same name inside **one** compendium (dnd5e's 2024 classes each bring an "Epic Boon") were
+  wrongly flagged as duplicates. Only the same name in two different compendiums is flagged now.
+- The GM's "Random characters" tab is now **Hardcore mode**, with switches: turning the mode off greys out the rest
+  but keeps your choices, and turning it back on lights them up again.
+- Fixed: in hardcore mode, a part the GM leaves to the player could leave the character stuck — picking your own
+  class opened choices and equipment that the dice had never seen and you weren't allowed to make. Those are now
+  rolled as soon as they appear, and posted to chat like the rest.
+
 ## 0.4.2
 
 - Faster creator: typing a name or filling in details is instant, and choosing equipment, spells or a portrait no

@@ -189,7 +189,12 @@ export function duplicatesOf(entries) {
     if ( !byName.has(key) ) byName.set(key, []);
     byName.get(key).push({ uuid: normalizeUuid(e.uuid), pack: e.pack });
   }
-  for ( const [key, list] of byName ) if ( list.length < 2 ) byName.delete(key);
+  // Only the same name in **different** compendiums is a clash. One compendium may hold many items of the
+  // same name on purpose — dnd5e's 2024 classes each bring their own "Epic Boon" — and those are not copies
+  // of one another.
+  for ( const [key, list] of byName ) {
+    if ( new Set(list.map(d => d.pack)).size < 2 ) byName.delete(key);
+  }
   return byName;
 }
 
@@ -246,9 +251,12 @@ export function warnings(state, everything) {
 export function restrictionsModel({ state, everything, packs, tab, search = "", pack = "", onlyDuplicates = false }) {
   const open = TABS.includes(tab) ? tab : TABS[0];
   const needle = search.trim().toLowerCase();
+  const packOff = collection => Array.isArray(state.packs) && !state.packs.includes(collection);
   const tabs = TABS.map(key => {
     const all = everything?.[key] ?? [];
-    const allowed = CATEGORIES.includes(key) ? all.filter(e => isEntryAllowed(state, key, e.uuid)).length : null;
+    // Turning a compendium off takes its entries with it, whatever the category's own list says.
+    const allowed = CATEGORIES.includes(key)
+      ? all.filter(e => isEntryAllowed(state, key, e.uuid) && !packOff(e.pack)).length : null;
     return { key, open: key === open, total: all.length, allowed,
       restricted: (key === "packs") ? Array.isArray(state.packs)
         : (key === "abilities") ? (state.abilityMethods.length < ABILITY_METHODS.length)
@@ -269,8 +277,9 @@ export function restrictionsModel({ state, everything, packs, tab, search = "", 
     // The compendiums this category actually comes from, each with how much of it is allowed.
     const fromPacks = [...new Set(all.map(e => e.pack))].map(collection => {
       const mine = all.filter(e => e.pack === collection);
-      return { collection, label: label(collection), total: mine.length,
-        allowed: mine.filter(e => isEntryAllowed(state, open, e.uuid)).length, selected: collection === pack };
+      return { collection, label: label(collection), total: mine.length, off: packOff(collection),
+        allowed: packOff(collection) ? 0 : mine.filter(e => isEntryAllowed(state, open, e.uuid)).length,
+        selected: collection === pack };
     }).sort((a, b) => a.label.localeCompare(b.label));
     const chosenPack = fromPacks.some(p => p.collection === pack) ? pack : "";
     const shown = all.filter(e => (!needle || String(e.name).toLowerCase().includes(needle))
@@ -279,8 +288,10 @@ export function restrictionsModel({ state, everything, packs, tab, search = "", 
     model.category = {
       key: open,
       total: all.length,
-      allowed: all.filter(e => isEntryAllowed(state, open, e.uuid)).length,
-      unrestricted: !Array.isArray(state.categories[open]),
+      // A compendium the GM turned off takes its entries with it, whatever the category list says.
+      allowed: all.filter(e => isEntryAllowed(state, open, e.uuid) && !packOff(e.pack)).length,
+      // "Everything here is allowed" only when nothing narrows it — the category's list or a compendium.
+      unrestricted: !Array.isArray(state.categories[open]) && !all.some(e => packOff(e.pack)),
       shown: shown.length,
       packs: fromPacks,
       pack: chosenPack,
@@ -292,13 +303,17 @@ export function restrictionsModel({ state, everything, packs, tab, search = "", 
         const uuid = normalizeUuid(e.uuid);
         const own = state.art?.[uuid] ?? null;
         const copies = duplicates.get(String(e.name ?? "").trim().toLowerCase()) ?? [];
+        const off = packOff(e.pack);
         return { uuid, name: e.name, img: own ?? e.img ?? null, pack: e.pack, packLabel: label(e.pack),
-          art: own, allowed: isEntryAllowed(state, open, e.uuid),
+          art: own, allowed: isEntryAllowed(state, open, e.uuid) && !off,
+          // Off with its compendium: shown, so the GM can see what turning it back on would bring.
+          packOff: off,
+          id: uuid.split(".").pop(),
           duplicate: copies.length > 1,
           // The other compendiums the same name is in, for the warning on the row.
           alsoIn: copies.filter(c => c.uuid !== uuid).map(c => label(c.pack)),
           // Both copies allowed is what the GM should look at; one of each is a choice already made.
-          bothAllowed: (copies.length > 1) && copies.every(c => isEntryAllowed(state, open, c.uuid))
+          bothAllowed: (copies.length > 1) && copies.every(c => isEntryAllowed(state, open, c.uuid) && !packOff(c.pack))
         };
       })
     };

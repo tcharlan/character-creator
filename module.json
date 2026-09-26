@@ -2,7 +2,7 @@
   "id": "character-creator",
   "title": "Character Creator",
   "description": "A guided wizard that lets players create their own level-1 dnd5e characters, using only the compendiums and options the GM allows, in both 2014 and 2024 rules.",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "authors": [
     {
       "name": "tcharlan",
@@ -11,7 +11,7 @@
   ],
   "url": "https://github.com/tcharlan/character-creator",
   "manifest": "https://github.com/tcharlan/character-creator/releases/latest/download/module.json",
-  "download": "https://github.com/tcharlan/character-creator/releases/download/v0.4.2/module.zip",
+  "download": "https://github.com/tcharlan/character-creator/releases/download/v0.4.3/module.zip",
   "bugs": "https://github.com/tcharlan/character-creator/issues",
   "readme": "https://github.com/tcharlan/character-creator/blob/main/README.md",
   "changelog": "https://github.com/tcharlan/character-creator/blob/main/CHANGELOG.md",

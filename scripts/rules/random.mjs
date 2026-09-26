@@ -134,7 +134,7 @@ async function rollChoice(draft, result, { roll }) {
 }
 
 /** The open choices the loop can answer, in the order the replay lists them. */
-function openChoices(build) {
+export function openChoices(build) {
   return (build?.results ?? []).filter(r => (r.status === "needsInput") && ANSWERABLE.includes(r.type));
 }
 

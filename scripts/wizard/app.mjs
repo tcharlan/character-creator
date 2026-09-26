@@ -33,7 +33,7 @@ import { givablePlayers, giveAndTell, giveDialog } from "../gm/assign.mjs";
 import { allowance } from "../ui/entry.mjs";
 import { arrowKeys } from "../ui/keyboard.mjs";
 import { rollAbilityScores } from "../rules/ability-roll.mjs";
-import { rollCharacter } from "../rules/random.mjs";
+import { rollCharacter, openChoices } from "../rules/random.mjs";
 import { clearRolled } from "../rules/random-check.mjs";
 import { ROLLED_DETAILS } from "../rules/random.mjs";
 import { postMadeRolls } from "../rules/roll-messages.mjs";
@@ -109,6 +109,10 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   #refreshWanted = false;
   /** A GM's character: the player it goes to when created ("" = the GM keeps it; D29). */
   #assignTo = "";
+  /** Rolling what a later choice opened (D31), so a rebuild inside it can't start another one. */
+  #toppingUp = false;
+  /** The state of the draft the last top-up was tried for, so an unsettleable decision isn't retried. */
+  #toppedUpAt = null;
   /** The player the created character went to, for the outcome. */
   #givenTo = null;
   /** Fullscreen or a window (D28); null until set, when the options decide. */
@@ -379,6 +383,38 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   async rollRandomCharacter() {
     const settings = readSettings();
     if ( this.#busy || (this.draft?.mode === "hardcore") || !settings.hardcore.offered ) return;
+    // The loop runs on a copy and is written once, so a half-rolled character is never saved. It starts
+    // from the same cleared draft the GM replays from — anything the creator chose for the player (D4
+    // auto-select) would otherwise stand where a die should have decided.
+    const working = clearRolled(this.draft, settings.hardcore.free);
+    working.mode = "hardcore";
+    await this.#roll(working, settings.hardcore.free, { first: true });
+  }
+
+  /**
+   * Roll whatever a choice the player was left has opened (D31). Picking your own class brings its own
+   * choices and its own kit; the dice never saw them, and they aren't the player's to make, so they are
+   * rolled now and posted like the rest.
+   */
+  async #topUpRandom() {
+    if ( (this.draft?.mode !== "hardcore") || this.#busy || this.#toppingUp ) return false;
+    // Once it is submitted the draft is the GM's to read, never ours to roll into.
+    if ( !isEditable(this.draft) ) return false;
+    const { free } = readSettings().hardcore;
+    this.#toppingUp = true;
+    try {
+      return await this.#roll(foundry.utils.deepClone(this.draft), free, { first: false });
+    } finally {
+      this.#toppingUp = false;
+    }
+  }
+
+  /**
+   * The dice, on a copy of the draft: roll what is still open in the parts the GM hasn't freed, post them in
+   * one message, and write the draft once.
+   * @returns {Promise<boolean>} whether anything was rolled
+   */
+  async #roll(working, free, { first }) {
     this.#busy = true;
     await this.render({ parts: ["body", "footer"] });
     const made = [];
@@ -386,11 +422,6 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     // The last replay of the loop: the finished character, so the settle afterwards doesn't repeat it.
     let lastBuild = null;
     try {
-      // The loop runs on a copy and is written once, so a half-rolled character is never saved. It starts
-      // from the same cleared draft the GM replays from — anything the creator chose for the player (D4
-      // auto-select) would otherwise stand where a die should have decided.
-      const working = clearRolled(this.draft, settings.hardcore.free);
-      working.mode = "hardcore";
       let build = this.#build;
       const roll = async (faces, key) => {
         const die = await new Roll(`1d${faces}`).evaluate();
@@ -401,7 +432,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       await rollCharacter({
         draft: working,
         catalog: this.#catalog,
-        free: settings.hardcore.free,
+        free,
         roll,
         rebuild: async draft => {
           build = await buildCharacter({ picks: draft.picks, base: draft.abilities.base, steps: draft.recipe.steps },
@@ -414,6 +445,8 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
           return item ? equipmentContext(build.actor, item, this.#catalog, { standard: this.#standard }) : null;
         },
         abilities: async () => {
+          // Only ever once: a later top-up leaves the scores that were rolled at the start.
+          if ( working.abilities?.roll ) return;
           working.abilities.method = "rolled";
           const { messageId, results } = await rollAbilityScores(working);
           working.abilities.roll = { messageId, results };
@@ -423,23 +456,42 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
         alignments: alignmentOptions(),
         tables: field => this.#personalityEntries(field)
       });
+      if ( !made.length ) return false;
       const messageId = await postMadeRolls({ draftId: working.id, purpose: ROLL_PURPOSE.RANDOM, rolls: made,
-        flavor: T("Random.Flavor") });
-      working.random = { messageId, rolls: rolled };
+        flavor: T(first ? "Random.Flavor" : "Random.FlavorMore") });
+      const before = this.draft?.random;
+      working.random = { messageIds: [...(before?.messageIds ?? []), messageId],
+        rolls: [...(before?.rolls ?? []), ...rolled] };
       // The whole rolled character in one write (update() keeps the draft it is handed, not what it returns).
-      this.#current = "review";
-      this.#visited = [];
+      if ( first ) {
+        this.#current = "review";
+        this.#visited = [];
+      }
       // Written at once rather than on the autosave's own time: the player is waiting on it.
-      const saved = this.update(d => Object.assign(d, working), { rebuild: false });
+      const saved = this.update(d => {
+        if ( first ) Object.assign(d, working);
+        // A top-up writes only what the dice touch. The player can have been typing a name while they fell,
+        // and the whole draft going back a couple of seconds would take that with it.
+        else {
+          for ( const key of ["picks", "recipe", "equipment", "abilities", "random"] ) d[key] = working[key];
+          for ( const field of ROLLED_DETAILS ) d.details[field] = working.details[field];
+        }
+      }, { rebuild: false });
       await this.#store.flush();
       await saved;
+      if ( !first ) ui.notifications?.info(T("Random.ToppedUp", { count: rolled.length }));
     } catch ( err ) {
       console.error(`${MODULE_ID} | the random character couldn't be rolled`, err);
       ui.notifications?.error(T("Random.Failed"));
+      return false;
     } finally {
       this.#busy = false;
+      // Nothing was rolled and nothing was written (a top-up that found everything already decided): the
+      // screen only has to come back from "rolling", so it isn't worth replaying the character for.
+      if ( first || rolled.length ) await this.settleWith(lastBuild);
+      else if ( this.rendered ) await this.render({ parts: ["body", "footer"] });
     }
-    await this.settleWith(lastBuild);
+    return true;
   }
 
   /** A personality table's entries, in the order the table lists them (D31 rolls one of them). */
@@ -813,6 +865,44 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     } finally {
       this.#busy = false;
     }
+    // A choice the GM left to the player can open decisions the first handful of dice never saw — the class
+    // they picked brings its own choices and its own kit (D31). Those are the dice's, not the player's, so
+    // they are rolled now, from the replay this rebuild just made. Only after a real replay: a check-only
+    // pass reuses an older one, which wouldn't know what the answer opened.
+    if ( !reuse && this.#pendingRolled() ) {
+      // Once per state of the draft: a decision the dice can't settle (a slot with nothing allowed in it)
+      // would otherwise have the loop run again on every rebuild.
+      const decided = JSON.stringify([this.draft.picks, this.draft.recipe.steps.length, this.draft.equipment]);
+      if ( decided !== this.#toppedUpAt ) {
+        this.#toppedUpAt = decided;
+        await this.#topUpRandom();
+      }
+    }
+  }
+
+  /**
+   * In hardcore mode: is something the dice were supposed to decide still open? Read from the replay and the
+   * equipment contexts this rebuild already has, so asking costs nothing.
+   */
+  #pendingRolled() {
+    if ( (this.draft?.mode !== "hardcore") || !this.#build ) return false;
+    if ( this.#locked("choices") && openChoices(this.#build).length ) return true;
+    if ( this.#locked("equipment") ) {
+      for ( const role of EQUIPMENT_SOURCES ) {
+        const ctx = this.#equipment?.[role];
+        if ( !ctx ) continue;
+        // A new class or background clears its old kit (picks.mjs), so there is nothing selected at all.
+        const selection = this.draft.equipment[role];
+        if ( !selection ) return true;
+        if ( selection.mode !== "items" ) continue;
+        const { decisions } = sourceModel({ role, name: ctx.name, tree: ctx.tree, wealthOption: ctx.wealthOption,
+          candidates: ctx.candidates, isProficient: ctx.isProficient }, selection, this.#catalog);
+        const open = d => (d.kind === "or") ? !d.options.some(o => o.selected) : d.slots.some(s => !s.uuid);
+        if ( decisions.some(open) ) return true;
+      }
+    }
+    if ( this.#locked("details") && !this.draft.details.alignment ) return true;
+    return false;
   }
 
   /**

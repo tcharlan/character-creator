@@ -84,28 +84,35 @@ function firstDifference(expected, actual) {
  * Check a submitted random character.
  * @param {object} draft                      A migrated, well-formed draft with `mode: "hardcore"`.
  * @param {object} options
- * @param {object|null} options.record         The roll message, from readRollRecord().
+ * @param {object[]} options.records           The roll messages, in the order they were posted
+ *   (readRollRecord()). A character is rolled in more than one go when a choice the player was left opens
+ *   decisions the first dice never saw.
  * @param {string} options.userId              The draft's owner.
  * @param {string[]} [options.free]            The parts the GM leaves to the player.
- * @param {string[]} [options.otherMessages]   Other random-roll messages for this draft (re-rolls).
  * @param {object} options.replay              The callbacks rollCharacter() needs (catalog, rebuild, …), plus
  *   `finish`: the creator writes the automatic steps into the draft as well, so the replay is finished the
  *   same way before the two are compared.
  * @returns {Promise<object[]>} makeError() objects
  */
-export async function checkRandomDraft(draft, { record, userId, free = [], otherMessages = [], replay } = {}) {
+export async function checkRandomDraft(draft, { records = [], userId, free = [], replay } = {}) {
   const random = draft.random;
   if ( !random ) return fail({ message: "missing" });
-  if ( !record ) return fail({ message: "noMessage" });
-  if ( record.id !== random.messageId ) return fail({ message: "wrongMessage" });
-  if ( record.authorId !== userId ) return fail({ message: "wrongAuthor" });
-  if ( record.flag?.draftId !== draft.id ) return fail({ message: "wrongDraft" });
-  if ( !record.public ) return fail({ message: "notPublic" });
-  if ( !(Math.abs((record.modified ?? NaN) - (record.created ?? NaN)) <= 1000) ) return fail({ message: "edited" });
-  if ( otherMessages.length ) return fail({ message: "rerolled", others: [...otherMessages] });
-
-  const posted = messageRolls(record);
-  if ( !posted ) return fail({ message: "notSingleDice" });
+  if ( !records.length ) return fail({ message: "noMessage" });
+  // Every message the draft names, in its order, and nothing else: no borrowed or extra rolls.
+  if ( records.length !== random.messageIds.length ) {
+    return fail({ message: "messageCount", posted: records.length, draft: random.messageIds.length });
+  }
+  const posted = [];
+  for ( const [i, record] of records.entries() ) {
+    if ( record.id !== random.messageIds[i] ) return fail({ message: "wrongMessage" });
+    if ( record.authorId !== userId ) return fail({ message: "wrongAuthor" });
+    if ( record.flag?.draftId !== draft.id ) return fail({ message: "wrongDraft" });
+    if ( !record.public ) return fail({ message: "notPublic" });
+    if ( !(Math.abs((record.modified ?? NaN) - (record.created ?? NaN)) <= 1000) ) return fail({ message: "edited" });
+    const rolls = messageRolls(record);
+    if ( !rolls ) return fail({ message: "notSingleDice" });
+    posted.push(...rolls);
+  }
   if ( posted.length !== random.rolls.length ) {
     return fail({ message: "rollCount", posted: posted.length, draft: random.rolls.length });
   }
@@ -124,16 +131,23 @@ export async function checkRandomDraft(draft, { record, userId, free = [], other
   }
 
   // Replay: the same loop, the same totals — it must make the same character.
-  const queue = [...random.rolls];
-  const used = [];
+  //
+  // Each roll is taken by **what it was for**, not by its place in the line. The player's own choices can be
+  // made at any time, so a decision that depended on one (the class's equipment) may have been rolled after
+  // it rather than with the first handful; the decision's key is the same either way.
+  const left = new Map();
+  for ( const entry of random.rolls ) {
+    if ( !left.has(entry.key) ) left.set(entry.key, []);
+    left.get(entry.key).push(entry);
+  }
   const roll = async (faces, key) => {
-    const next = queue.shift();
+    const forKey = left.get(key) ?? [];
+    const next = forKey.shift();
     if ( !next ) throw Object.assign(new Error("out of rolls"), { detail: { message: "tooFewRolls", key } });
-    if ( (next.key !== key) || (next.faces !== faces) ) {
-      throw Object.assign(new Error("wrong roll"), { detail: { message: "rollsOutOfOrder", expected: { key, faces },
-        recorded: { key: next.key, faces: next.faces } } });
+    if ( next.faces !== faces ) {
+      throw Object.assign(new Error("wrong roll"), { detail: { message: "wrongDie", key,
+        expected: faces, recorded: next.faces } });
     }
-    used.push(next);
     return next.total;
   };
   let replayed;
@@ -143,7 +157,8 @@ export async function checkRandomDraft(draft, { record, userId, free = [], other
   } catch ( err ) {
     return fail(err.detail ?? { message: "replayFailed", error: String(err?.message ?? err) });
   }
-  if ( queue.length ) return fail({ message: "tooManyRolls", left: queue.length });
+  const unused = [...left.values()].flat();
+  if ( unused.length ) return fail({ message: "tooManyRolls", left: unused.length, first: unused[0]?.key });
 
   const difference = firstDifference(comparable(draft, free), comparable(replayed, free));
   if ( difference ) return fail({ message: "doesNotMatch", part: PARTS.includes(difference) ? difference : "choices" });

@@ -234,3 +234,52 @@ test("the compendium each option comes from is named the same way, in the list a
   assert.deepEqual([...new Set(model.entries.map(e => e.packLabel))].sort(),
     ["Classes — Dungeons & Dragons Fifth Edition", "Classes — Player's Handbook (2024)"]);
 });
+
+test("the same name twice in one compendium is not a clash", async () => {
+  const { duplicatesOf } = await import("../scripts/settings/restrictions-model.mjs");
+  // dnd5e's 2024 classes each bring an "Epic Boon" of their own, all in the same compendium.
+  const boons = Array.from({ length: 5 }, (_, i) => ({ uuid: U(`boon${i}`), name: "Epic Boon", pack: "dnd5e.classes24" }));
+  assert.deepEqual([...duplicatesOf(boons).keys()], [], "one compendium, however many of them");
+  const across = [...boons, { uuid: `Compendium.dnd-phb.feats.Item.${ID("phbboon")}`, name: "Epic Boon", pack: "dnd-phb.feats" }];
+  assert.deepEqual([...duplicatesOf(across).keys()], ["epic boon"], "the same name in a second compendium is");
+});
+
+test("turning a compendium off takes its content with it, in the lists above", () => {
+  const packs = [{ collection: "dnd5e.classes", label: "Classes" }, { collection: "extra.classes", label: "Extra" }];
+  const extra = { uuid: `Compendium.extra.classes.Item.${ID("extrafig")}`, name: "Extra Fighter", img: "x.webp",
+    pack: "extra.classes" };
+  const everything = { ...EVERYTHING, class: [...EVERYTHING.class, extra] };
+  const s = state();
+  const model = () => restrictionsModel({ state: s, everything, packs, tab: "class" }).category;
+  assert.equal(model().allowed, 3, "everything to begin with");
+
+  togglePack(s, "extra.classes", packs.map(p => p.collection));
+  const after = model();
+  assert.equal(after.allowed, 2, "the extra compendium's class no longer counts as allowed");
+  const row = after.entries.find(e => e.uuid === extra.uuid);
+  assert.deepEqual([row.allowed, row.packOff], [false, true], "and its row says why");
+  assert.equal(after.packs.find(p => p.collection === "extra.classes").allowed, 0);
+  assert.equal(after.entries.find(e => e.name === "Item fighter").packOff, false, "the rest is untouched");
+});
+
+test("each row carries what it needs to be told apart on hover", () => {
+  const packs = [{ collection: "dnd5e.classes", label: "Classes" }];
+  const model = restrictionsModel({ state: state(), everything: EVERYTHING, packs, tab: "class" }).category;
+  const row = model.entries[0];
+  assert.equal(row.packLabel, "Classes");
+  assert.equal(row.id, row.uuid.split(".").pop(), "the item's own id, so two of a name can be told apart");
+});
+
+test("a turned-off compendium shows in the tab count and stops 'everything is allowed'", () => {
+  const packs = [{ collection: "dnd5e.classes", label: "Classes" }];
+  const s = state();
+  const before = restrictionsModel({ state: s, everything: EVERYTHING, packs, tab: "class" });
+  assert.equal(before.category.unrestricted, true);
+  assert.equal(before.tabs.find(t => t.key === "class").allowed, 2);
+
+  togglePack(s, "dnd5e.classes", ["dnd5e.classes"]);
+  const after = restrictionsModel({ state: s, everything: EVERYTHING, packs, tab: "class" });
+  assert.equal(after.tabs.find(t => t.key === "class").allowed, 0, "0 / 2 in the sidebar");
+  assert.equal(after.category.unrestricted, false, "and it no longer claims everything is allowed");
+  assert.equal(after.category.allowed, 0);
+});

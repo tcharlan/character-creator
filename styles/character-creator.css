@@ -1059,3 +1059,59 @@ li.notification button.cc-entry-prompt {
 .cc-pane--rolled .cc-decision { pointer-events: none; opacity: 0.85; }
 /* The details step only closes the fields the dice settled (the name and the writing stay the player's). */
 .cc-field--rolled .cc-input, .cc-field--rolled .cc-select { opacity: 0.8; }
+
+/* Switches on the GM's screens (hardcore mode): a track, a knob, and a label that says what it means. */
+.cc-switches { display: flex; flex-direction: column; gap: 10px; }
+.cc-switches--grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.cc-switches__lead { margin: 16px 0 8px; }
+.cc-switch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 6px 12px;
+  background: var(--cc-panel);
+  border: 1px solid var(--cc-line-soft);
+  border-radius: var(--cc-radius);
+  color: var(--cc-text);
+  font-family: var(--cc-body);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.cc-switch:hover:not(:disabled) { border-color: var(--cc-line); }
+.cc-switch__track {
+  position: relative;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 22px;
+  background: var(--cc-base);
+  border: 1px solid var(--cc-line);
+  border-radius: 999px;
+}
+.cc-switch__knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: var(--cc-faint);
+  border-radius: 50%;
+}
+.cc-switch--on .cc-switch__track { background: var(--cc-gold-dim); border-color: var(--cc-gold-deep); }
+.cc-switch--on .cc-switch__knob { left: auto; right: 2px; background: var(--cc-gold); }
+.cc-switch__label { flex: 1 1 auto; min-width: 0; }
+.cc-switch__state { flex: 0 0 auto; font-size: 12px; color: var(--cc-faint); }
+.cc-switch--on .cc-switch__state { color: var(--cc-gold); }
+.cc-switch--main { font-family: var(--cc-display); letter-spacing: 0.04em; }
+/* The mode is off: the choices are kept, and shown as the settings they still are. */
+.cc-switches--off { opacity: 0.45; }
+.cc-switch:disabled { cursor: default; }
+@media (prefers-reduced-motion: no-preference) {
+  .cc-switch__knob, .cc-switch__track { transition: background-color 120ms ease, left 120ms ease, right 120ms ease; }
+}
+
+/* An option whose compendium the GM turned off: shown, so it can be seen, but not something to tick. */
+.cc-entry-row--off { opacity: 0.55; }
+.cc-entry-row--off .cc-entry { border-style: dashed; }

@@ -37,12 +37,12 @@ async function personalityEntries(backgroundName, field) {
  */
 export async function checkRandomCharacter(draft, { catalog, userId }) {
   const free = readSettings().hardcore.free;
+  // Every message this draft's rolls were posted in, oldest first (rollMessagesFor sorts by creation).
   const onRecord = rollMessagesFor(draft.id, userId, ROLL_PURPOSE.RANDOM);
-  const record = readRollRecord(game.messages.get(draft.random?.messageId));
+  const records = onRecord.map(id => readRollRecord(game.messages.get(id))).filter(Boolean);
   let build = null;
   return checkRandomDraft(draft, {
-    record, userId, free,
-    otherMessages: onRecord.filter(id => id !== draft.random?.messageId),
+    records, userId, free,
     replay: {
       catalog,
       rebuild: async d => {

@@ -9,7 +9,7 @@
 export const MODULE_ID = "character-creator";
 
 /** Bump when the draft shape changes, and add a migration below. */
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 /** Where the draft lives: `user.flags[MODULE_ID][DRAFT_FLAG]` (players may write their own flags). */
 export const DRAFT_FLAG = "draft";
@@ -132,7 +132,9 @@ export function createDraft({ id, worldId, rules, now = Date.now() }) {
     step: "start",
     updatedAt: now,
     mode: "normal",
-    // Set when the dice made this character (D31): the chat message with the rolls, and each roll in order.
+    // Set when the dice made this character (D31): the chat messages the rolls were posted in, and every
+    // roll in the order it was made. A choice the player was left (their class, say) can open decisions the
+    // first handful of dice never saw, so more are rolled and posted as they appear.
     random: null,
     picks: { species: null, background: null, class: null },
     abilities: { method: null, base: null, roll: null },
@@ -252,8 +254,9 @@ export function checkDraftShape(draft) {
   c.oneOf("draft.step", d.step, STEPS);
   c.int("draft.updatedAt", d.updatedAt, 0, Number.MAX_SAFE_INTEGER);
   c.oneOf("draft.mode", d.mode, DRAFT_MODES);
-  if ( d.random !== null && c.object("draft.random", d.random, ["messageId", "rolls"]) ) {
-    c.test("draft.random.messageId", d.random.messageId, isId, "a message id");
+  if ( d.random !== null && c.object("draft.random", d.random, ["messageIds", "rolls"]) ) {
+    c.list("draft.random.messageIds", d.random.messageIds,
+      (path, v) => c.test(path, v, isId, "a message id"), { max: LIMITS.maxListLength });
     c.list("draft.random.rolls", d.random.rolls, (path, v) => {
       if ( !c.object(path, v, ["key", "faces", "total"]) ) return;
       c.string(`${path}.key`, v.key, LIMITS.shortTextMaxLength);
@@ -348,7 +351,11 @@ export function checkDraftShape(draft) {
  */
 export const MIGRATIONS = Object.freeze({
   // 1 → 2: the draft says how it was made, and keeps the rolls when the dice made it (D31).
-  1: draft => ({ ...draft, mode: draft.mode ?? "normal", random: draft.random ?? null })
+  1: draft => ({ ...draft, mode: draft.mode ?? "normal", random: draft.random ?? null }),
+  // 2 → 3: the rolls can come in more than one message, as later choices open more of them.
+  2: draft => ({ ...draft, random: draft.random
+    ? { messageIds: draft.random.messageIds ?? [draft.random.messageId].filter(Boolean), rolls: draft.random.rolls }
+    : null })
 });
 
 /**
