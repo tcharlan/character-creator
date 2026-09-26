@@ -13,6 +13,8 @@ const FIXED = {
   modern: { species: "Human", background: "Sage", class: "Cleric" }
 };
 const OPEN_BUDGET_MS = 1000;
+/** A whole character, rolled and replayed: generous, to catch a real regression rather than a slow machine. */
+const ROLL_BUDGET_MS = 8000;
 
 export function registerPerformanceBatches(quench) {
   const rules = () => game.settings.get("dnd5e", "rulesVersion");
@@ -91,6 +93,20 @@ export function registerPerformanceBatches(quench) {
         numbers.replay = settled.ms;
         assert.equal(app.step, "review");
         assert.deepEqual(app.validation.errors, [], "and the replay still finds it complete");
+      });
+
+      it(`rolls a whole random character in under ${ROLL_BUDGET_MS} ms (D31)`, async function() {
+        this.timeout(300_000);
+        await game.user.unsetFlag(MODULE_ID, DRAFT_FLAG);
+        app = await CharacterWizard.open();
+        await app.settle();
+        // The dice themselves are quick; the cost is replaying the character, which only a choice that brings
+        // new items with it needs (see rules/random.mjs).
+        const rolled = await time(() => app.rollRandomCharacter());
+        numbers.randomCharacter = rolled.ms;
+        numbers.randomRolls = app.draft.random?.rolls?.length ?? 0;
+        assert.equal(app.draft.mode, "hardcore", "nothing was rolled");
+        assert.isBelow(rolled.ms, ROLL_BUDGET_MS);
       });
     });
   }, { displayName: "Character Creator: Performance" });

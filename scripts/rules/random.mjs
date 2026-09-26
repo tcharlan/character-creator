@@ -20,8 +20,14 @@ import { setDetail, PERSONALITY } from "../wizard/details-step.mjs";
 export const PART_ORDER = Object.freeze(["species", "class", "background", "abilities", "choices", "equipment",
   "details"]);
 
+/** The details the dice settle (D31). The rest — the name, age, hair, the writing — stays the player's. */
+export const ROLLED_DETAILS = Object.freeze(["alignment", "traits", "ideals", "bonds", "flaws"]);
+
 /** The three picks, in the order the dice go in. */
 const ROLE_ORDER = Object.freeze(["species", "class", "background"]);
+
+/** Answering these brings new items or advancements with them, so the character has to be replayed after. */
+const STRUCTURAL = Object.freeze(["ItemChoice", "ItemGrant", "Subclass"]);
 
 /** Advancement types the loop can answer. Anything else is left for the player (the wizard flags it). */
 const ANSWERABLE = Object.freeze(["Trait", "ItemChoice", "ItemGrant", "AbilityScoreImprovement", "Size", "Subclass"]);
@@ -127,29 +133,22 @@ async function rollChoice(draft, result, { roll }) {
   return true;
 }
 
-/** The next open choice the loop can answer, in the order the replay lists them. */
-function openChoice(build) {
-  return (build?.results ?? []).find(r => (r.status === "needsInput") && ANSWERABLE.includes(r.type)) ?? null;
+/** The open choices the loop can answer, in the order the replay lists them. */
+function openChoices(build) {
+  return (build?.results ?? []).filter(r => (r.status === "needsInput") && ANSWERABLE.includes(r.type));
 }
 
 /**
- * One source's equipment: items or the flat gold (where the rules offer it), then each either/or and each
+ * One source's equipment: the gear it offers (never the gold instead), then each either/or and each
  * "any simple weapon" slot.
  */
-async function rollEquipment(draft, role, context, { catalog, roll, wealth }) {
+async function rollEquipment(draft, role, context, { catalog, roll }) {
   const key = `equipment:${role}`;
   const selection = draft.equipment[role];
   const model = () => sourceModel({ role, name: "", ...context }, draft.equipment[role], catalog);
   if ( !selection ) {
-    // Gold or gear, where both are on offer; otherwise gear.
-    if ( context.wealthOption ) {
-      const total = await roll(2, `${key}:mode`);
-      if ( total === 2 ) {
-        setMode(draft, role, "wealth");
-        await wealth(role, context);
-        return true;
-      }
-    }
+    // The gear the class and background offer, as an ordinary character takes it — never the bag of gold
+    // instead: a character starting with nothing but coins has nothing to play with.
     setMode(draft, role, "items");
     return true;
   }
@@ -205,7 +204,6 @@ async function rollDetails(draft, { alignments, tables, roll }) {
  * @param {(faces: number, key: string) => Promise<number>} options.roll   A die: 1…faces.
  * @param {(draft: object) => Promise<object>} options.rebuild             Replay the draft so far.
  * @param {(role: string) => Promise<object>} options.equipmentContext     The source's starting equipment.
- * @param {(role: string) => Promise<void>} [options.wealth]               Roll the flat starting gold.
  * @param {() => Promise<void>} [options.abilities]                        Roll the six scores (D15).
  * @param {string[]} [options.alignments]
  * @param {(field: string) => Promise<string[]>} [options.tables]          A personality table's entries.
@@ -213,8 +211,7 @@ async function rollDetails(draft, { alignments, tables, roll }) {
  * @returns {Promise<object>} the draft
  */
 export async function rollCharacter({ draft, catalog, free = [], roll, rebuild, equipmentContext,
-  wealth = async () => {}, abilities = async () => {}, alignments = [], tables = async () => [],
-  maxDecisions = 200 } = {}) {
+  abilities = async () => {}, alignments = [], tables = async () => [], maxDecisions = 200 } = {}) {
   const rolls = part => !free.includes(part);
   // The three picks first: every other decision depends on them.
   for ( const role of ROLE_ORDER ) {
@@ -222,24 +219,42 @@ export async function rollCharacter({ draft, catalog, free = [], roll, rebuild, 
   }
   if ( rolls("abilities") ) await abilities();
 
+  // Replaying the character is the slow part, so it happens as rarely as it can: only a choice that brings
+  // new items or new advancements with it (a feat, a subclass) changes what is still open, so the others are
+  // all answered from one replay. Equipment and the details change nothing that is replayed at all.
   let build = await rebuild(draft);
-  for ( let guard = 0; guard < maxDecisions; guard++ ) {
-    let decided = false;
-    if ( rolls("choices") ) {
-      const choice = openChoice(build);
-      if ( choice ) decided = await rollChoice(draft, choice, { roll });
+  if ( rolls("choices") ) {
+    for ( let guard = 0; guard < maxDecisions; guard++ ) {
+      let answered = false;
+      let structural = false;
+      for ( const result of openChoices(build) ) {
+        if ( !await rollChoice(draft, result, { roll }) ) continue;
+        answered = true;
+        if ( STRUCTURAL.includes(result.type) ) {
+          structural = true;
+          break;
+        }
+      }
+      if ( !answered ) break;
+      build = await rebuild(draft);
+      if ( !structural && !openChoices(build).length ) break;
     }
-    if ( !decided && rolls("equipment") ) {
-      for ( const role of EQUIPMENT_SOURCES ) {
-        const context = await equipmentContext(role);
-        if ( !context ) continue;
-        decided = await rollEquipment(draft, role, context, { catalog, roll, wealth });
-        if ( decided ) break;
+  }
+  if ( rolls("equipment") ) {
+    // Both sources are read at once (each one checks proficiencies); the rolling itself stays in order.
+    const contexts = await Promise.all(EQUIPMENT_SOURCES.map(role => equipmentContext(role)));
+    for ( const [i, role] of EQUIPMENT_SOURCES.entries() ) {
+      const context = contexts[i];
+      if ( !context ) continue;
+      for ( let guard = 0; guard < maxDecisions; guard++ ) {
+        if ( !await rollEquipment(draft, role, context, { catalog, roll }) ) break;
       }
     }
-    if ( !decided && rolls("details") ) decided = await rollDetails(draft, { alignments, tables, roll });
-    if ( !decided ) break;
-    build = await rebuild(draft);
+  }
+  if ( rolls("details") ) {
+    for ( let guard = 0; guard < maxDecisions; guard++ ) {
+      if ( !await rollDetails(draft, { alignments, tables, roll }) ) break;
+    }
   }
   return draft;
 }

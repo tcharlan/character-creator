@@ -73,11 +73,37 @@ export function registerHardcoreBatches(quench) {
         assert.deepEqual(ABILITIES.map(k => draft.abilities.base[k]), draft.abilities.roll.results,
           "the scores are the ones that fell, in order");
         assert.isAbove(draft.random.rolls.length, 3, "a die for each decision");
+        for ( const role of ["class", "background"] ) {
+          const chosen = draft.equipment[role];
+          if ( chosen ) assert.equal(chosen.mode, "items", role + ": the gear, not the gold");
+        }
         const message = game.messages.get(draft.random.messageId);
         assert.exists(message, "the rolls should be in chat");
         assert.equal(message.rolls.length, draft.random.rolls.length);
         assert.isEmpty(message.whisper, "and public");
         assert.equal(app.step, "review", "it drops the player at the end");
+      });
+
+      it("the name and the rest of the details are still the player's", async function() {
+        this.timeout(600_000);
+        const draft = await rollOne();
+        await app.goTo("details");
+        await app.settle();
+        await app.setDetail("name", "Named By Hand");
+        await app.settle();
+        assert.equal(app.draft.details.name, "Named By Hand", "a rolled character can still be named");
+        await app.setDetail("eyes", "grey");
+        await app.settle();
+        assert.equal(app.draft.details.eyes, "grey", "and described");
+        const alignment = draft.details.alignment;
+        await app.setDetail("alignment", "Lawful Good");
+        await app.settle();
+        assert.equal(app.draft.details.alignment, alignment, "but the alignment is the dice's");
+        const name = app.element.querySelector('[data-detail="name"]');
+        assert.exists(name);
+        assert.isFalse(name.readOnly, "the name field can be typed in");
+        const field = app.element.querySelector('[data-detail="alignment"]');
+        if ( field ) assert.isTrue(field.disabled || field.readOnly, "the alignment field is closed");
       });
 
       it("a rolled step is closed to the player", async function() {

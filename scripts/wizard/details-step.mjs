@@ -1,7 +1,8 @@
 /**
  * The Details step (PLAN 3.7): the character's name and the rest of what makes them a person. Only the name is
- * required; everything else is optional. 2014 characters also fill in personality traits, ideals, bonds and
- * flaws, which the background's tables can roll for them (flavour, rolled locally — never validated).
+ * required; everything else is optional. Personality traits, ideals, bonds and flaws are there in both rule
+ * sets, and where the world has a table for that background they can be rolled (flavour, rolled locally —
+ * never validated).
  *
  * Each field is asked for in the way it is answered (PLAN 3.11): the alignment as a list, the age as a number,
  * the height as feet and inches, the weight with its unit. What the draft stores is still plain text, because
@@ -33,10 +34,13 @@ const FALLBACK_ALIGNMENTS = Object.freeze(["Lawful Good", "Neutral Good", "Chaot
 export const maxLength = field => (field === "name" ? LIMITS.nameMaxLength
   : LONG.includes(field) ? LIMITS.longTextMaxLength : LIMITS.shortTextMaxLength);
 
-/** Which fields this rules version shows, in order. */
-export function fieldsFor(rules) {
-  const personality = Object.keys(PERSONALITY);
-  return DETAIL_FIELDS.filter(f => (rules === "legacy") || !personality.includes(f));
+/**
+ * The fields the step shows, in order — the same in both rule sets. The 2024 rules dropped the personality
+ * tables from backgrounds, but a character still has a trait, an ideal, a bond and a flaw, and the sheet has
+ * somewhere to put them; where the world holds a table for that background, they can still be rolled.
+ */
+export function fieldsFor() {
+  return [...DETAIL_FIELDS];
 }
 
 /** The alignments offered, as labels (what the sheet stores). */
@@ -98,9 +102,9 @@ export function setAmount(draft, field, value, unit) {
  * @param {string} options.rules
  * @param {Record<string, string>} [options.tables]   Field → the name of the table that rolls it.
  */
-export function detailsModel(draft, { rules, tables = {} } = {}) {
+export function detailsModel(draft, { tables = {}, locked = [] } = {}) {
   const details = draft?.details ?? {};
-  const fields = fieldsFor(rules).map(key => {
+  const fields = fieldsFor().map(key => {
     const value = details[key] ?? "";
     const problem = detailProblem(key, value);
     const kind = KINDS[key] ?? (LONG.includes(key) ? "long" : "text");
@@ -112,6 +116,8 @@ export function detailsModel(draft, { rules, tables = {} } = {}) {
       required: key === "name",
       max: maxLength(key),
       table: tables[key] ?? null,
+      // Settled by the dice (D31): shown, not changed.
+      locked: locked.includes(key),
       problem: problem ? `CHARCREATOR.Details.Problem.${problem}` : null
     };
     if ( kind === "choice" ) {
@@ -129,8 +135,9 @@ export function detailsModel(draft, { rules, tables = {} } = {}) {
   });
   return {
     fields,
+    anyLocked: fields.some(f => f.locked),
     name: details.name ?? "",
     hasName: !!String(details.name ?? "").trim(),
-    personality: rules === "legacy"
+    personality: fields.some(f => Object.keys(PERSONALITY).includes(f.key))
   };
 }

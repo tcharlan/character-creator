@@ -34,6 +34,7 @@ import { arrowKeys } from "../ui/keyboard.mjs";
 import { rollAbilityScores } from "../rules/ability-roll.mjs";
 import { rollCharacter } from "../rules/random.mjs";
 import { clearRolled } from "../rules/random-check.mjs";
+import { ROLLED_DETAILS } from "../rules/random.mjs";
 import { postMadeRolls } from "../rules/roll-messages.mjs";
 import { ROLL_PURPOSE } from "../rules/roll-record.mjs";
 import { DISPLAY_MODES, displayButton, fullscreenPosition, readDisplay, windowPosition } from "./display.mjs";
@@ -375,6 +376,8 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     await this.render({ parts: ["body", "footer"] });
     const made = [];
     const rolled = [];
+    // The last replay of the loop: the finished character, so the settle afterwards doesn't repeat it.
+    let lastBuild = null;
     try {
       // The loop runs on a copy and is written once, so a half-rolled character is never saved. It starts
       // from the same cleared draft the GM replays from — anything the creator chose for the player (D4
@@ -396,17 +399,12 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
         rebuild: async draft => {
           build = await buildCharacter({ picks: draft.picks, base: draft.abilities.base, steps: draft.recipe.steps },
             { catalog: this.#catalog, fill: true, withOptions: true });
+          lastBuild = build;
           return build;
         },
         equipmentContext: async role => {
           const item = build?.actor?.items?.get(build.roots?.[role]);
           return item ? equipmentContext(build.actor, item, this.#catalog) : null;
-        },
-        wealth: async (role, context) => {
-          // 2024 gives a flat amount with no dice: there is nothing to roll or record.
-          if ( !context?.wealthOption?.number ) return;
-          const result = await rollStartingWealth(working, role, context.wealth);
-          setWealth(working, role, result);
         },
         abilities: async () => {
           working.abilities.method = "rolled";
@@ -424,14 +422,17 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       // The whole rolled character in one write (update() keeps the draft it is handed, not what it returns).
       this.#current = "review";
       this.#visited = [];
-      await this.update(d => Object.assign(d, working), { wait: true });
+      // Written at once rather than on the autosave's own time: the player is waiting on it.
+      const saved = this.update(d => Object.assign(d, working), { rebuild: false });
+      await this.#store.flush();
+      await saved;
     } catch ( err ) {
       console.error(`${MODULE_ID} | the random character couldn't be rolled`, err);
       ui.notifications?.error(T("Random.Failed"));
     } finally {
       this.#busy = false;
     }
-    await this.settle();
+    await this.settleWith(lastBuild);
   }
 
   /** A personality table's entries, in the order the table lists them (D31 rolls one of them). */
@@ -553,7 +554,8 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
    * an amount is stored with (the weight), so what the draft keeps is the sentence a character sheet shows.
    */
   async setDetail(field, value, { part = null, unit = null } = {}) {
-    if ( (field !== "name") && this.#locked("details") ) return;
+    // Only what the dice settled is closed; the name and the rest of the writing stay the player's (D31).
+    if ( ROLLED_DETAILS.includes(field) && this.#locked("details") ) return;
     await this.update(d => {
       if ( part ) return setHeightPart(d, part, value);
       if ( unit ) return setAmount(d, field, value, unit);
@@ -724,13 +726,21 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
    * (The tests use it; so does anything that must show the result at once.)
    */
   async settle() {
+    return this.settleWith(null);
+  }
+
+  /**
+   * Settle, reusing a replay the caller already has. The random character has just replayed the finished
+   * character (D31), and nothing it decided afterwards — the equipment, the alignment — changes a replay.
+   */
+  async settleWith(build) {
     this.#deferred = false;
     await this.#store.flush();
     if ( this.#timer ) {
       clearTimeout(this.#timer);
       this.#timer = null;
     }
-    await this.#rebuild();
+    await this.#rebuild({ reuse: build });
     if ( this.rendered ) await this.render({ parts: ["banner", "body", "footer"] });
   }
 
@@ -757,7 +767,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   /** Replay the recipe and validate; the result drives the banner, the pane and the footer. */
-  async #rebuild() {
+  async #rebuild({ reuse = null } = {}) {
     if ( !this.draft ) return;
     this.#busy = true;
     try {
@@ -765,7 +775,9 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       // Rebuild with automatic steps filled in (D18). Its recipe is what the draft keeps: it carries the
       // automatic answers, and leaves out answers that no longer fit (a changed pick, or content the GM
       // stopped allowing — A6).
-      this.#build = await buildCharacter({ picks: this.draft.picks, base: this.draft.abilities.base,
+      // A replay the caller already has (the random character just made one): the draft has not changed
+      // in any way that changes it, so it is used as it is.
+      this.#build = reuse ?? await buildCharacter({ picks: this.draft.picks, base: this.draft.abilities.base,
         steps: this.draft.recipe.steps }, { catalog: this.#catalog, fill: true, withOptions: true });
       // Once the draft is submitted or created it belongs to the GM's side: read it, never write it.
       if ( isEditable(this.draft) ) {
@@ -927,7 +939,8 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     }
     if ( this.#current === "details" ) {
       const tables = this.draft.rules === "legacy" ? await this.#personalityTables() : {};
-      return { details: detailsModel(this.draft, { rules: this.draft.rules, tables }) };
+      return { details: detailsModel(this.draft, { rules: this.draft.rules, tables,
+        locked: this.#locked("details") ? ROLLED_DETAILS : [] }) };
     }
     if ( this.#current === "spells" ) {
       const context = spellContext(this.#build, this.#catalog);

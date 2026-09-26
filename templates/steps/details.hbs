@@ -8,7 +8,7 @@
 
     <div class="cc-fields">
       {{#each details.fields as |f|}}
-      <div class="cc-field{{#if f.long}} cc-field--long{{/if}}">
+      <div class="cc-field{{#if f.long}} cc-field--long{{/if}}{{#if f.locked}} cc-field--rolled{{/if}}">
         <label class="cc-field__label" for="cc-detail-{{f.key}}">
           {{localize (concat "CHARCREATOR.Details." f.key)}}
           {{#if f.required}}<span class="cc-field__required">{{localize "CHARCREATOR.Details.Required"}}</span>{{/if}}
@@ -16,10 +16,10 @@
 
         {{#if (eq f.kind "long")}}
         <textarea id="cc-detail-{{f.key}}" class="cc-input cc-input--long" data-detail="{{f.key}}" rows="3"
-                  maxlength="{{f.max}}">{{f.value}}</textarea>
+                  maxlength="{{f.max}}" {{#if f.locked}}readonly{{/if}}>{{f.value}}</textarea>
 
         {{else if (eq f.kind "choice")}}
-        <select id="cc-detail-{{f.key}}" class="cc-input cc-select" data-detail="{{f.key}}">
+        <select id="cc-detail-{{f.key}}" class="cc-input cc-select" data-detail="{{f.key}}" {{#if f.locked}}disabled{{/if}}>
           <option value="">{{localize "CHARCREATOR.Details.NotSaid"}}</option>
           {{#each f.options as |o|}}
           <option value="{{o.value}}" {{#if o.selected}}selected{{/if}}>{{o.value}}</option>
@@ -52,13 +52,15 @@
 
         {{else}}
         <input id="cc-detail-{{f.key}}" class="cc-input" type="text" data-detail="{{f.key}}" value="{{f.value}}"
-               maxlength="{{f.max}}" {{#if f.required}}required{{/if}}>
+               maxlength="{{f.max}}" {{#if f.required}}required{{/if}} {{#if f.locked}}readonly{{/if}}>
         {{/if}}
 
         {{#if f.table}}
+        {{#unless f.locked}}
         <button type="button" class="cc-button cc-field__roll" data-action="detail-roll" data-detail="{{f.key}}">
           {{localize "CHARCREATOR.Details.Roll"}}
         </button>
+        {{/unless}}
         {{/if}}
         {{#if f.problem}}<p class="cc-field__problem">{{localize f.problem}}</p>{{/if}}
       </div>
@@ -70,9 +72,6 @@
     <dl class="cc-facts">
       <div><dt>{{localize "CHARCREATOR.Details.name"}}</dt><dd>{{#if details.hasName}}{{details.name}}{{else}}—{{/if}}</dd></div>
     </dl>
-    {{#if details.personality}}
-    <p class="cc-hint">{{localize "CHARCREATOR.Details.PersonalityHint"}}</p>
-    {{/if}}
     {{#if errors.length}}
     <ul class="cc-problems">{{#each errors as |e|}}<li class="cc-problem">{{localize e.key}}</li>{{/each}}</ul>
     {{/if}}

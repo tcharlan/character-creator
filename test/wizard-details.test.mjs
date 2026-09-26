@@ -7,15 +7,17 @@ import { detailsModel, setDetail, fieldsFor, maxLength, PERSONALITY, setHeightPa
 const ID = n => String(n).padEnd(16, "0");
 const draft = (rules = "legacy") => createDraft({ id: ID("d"), worldId: "w", rules, now: 1 });
 
-test("2014 characters get the personality fields; 2024 ones don't", () => {
-  const legacy = fieldsFor("legacy");
-  const modern = fieldsFor("modern");
+test("both rule sets ask for the personality fields", () => {
+  // The 2024 rules dropped the tables from backgrounds, but a character still has a trait, ideal, bond and flaw.
+  const fields = fieldsFor();
   assert.deepEqual(Object.keys(PERSONALITY), ["traits", "ideals", "bonds", "flaws"]);
-  for ( const key of Object.keys(PERSONALITY) ) {
-    assert.ok(legacy.includes(key), key);
-    assert.ok(!modern.includes(key), key);
+  for ( const key of Object.keys(PERSONALITY) ) assert.ok(fields.includes(key), key);
+  assert.ok(fields.includes("name") && fields.includes("appearance"));
+  for ( const rules of ["legacy", "modern"] ) {
+    const model = detailsModel(draft(rules), { rules });
+    assert.equal(model.personality, true, rules);
+    assert.ok(model.fields.some(f => f.key === "flaws"), rules);
   }
-  assert.ok(modern.includes("name") && modern.includes("appearance"));
 });
 
 test("only the name is required", () => {
@@ -61,7 +63,8 @@ test("the model marks which fields are long, and which can be rolled", () => {
   assert.deepEqual([traits.long, traits.value, !!traits.table], [true, "Curious", true]);
   assert.equal(model.fields.find(f => f.key === "ideals").table, null, "no table, no roll button");
   assert.equal(model.fields.find(f => f.key === "pronouns").long, false);
-  assert.equal(detailsModel(d, { rules: "modern" }).personality, false);
+  const modern = detailsModel(d, { rules: "modern", tables: { flaws: "Compendium.dnd5e.tables.RollTable.y" } });
+  assert.ok(modern.fields.find(f => f.key === "flaws").table, "a 2024 world with a table can roll it too");
 });
 
 test("the numeric details are checked, but only just: no negatives, and an age is a number", () => {
@@ -113,4 +116,18 @@ test("colours are words, not numbers", () => {
   assert.equal(problem({ hair: "salt-and-pepper" }, "hair"), null);
   assert.equal(problem({ skin: "#00ff00" }, "skin"), "CHARCREATOR.Details.Problem.notWords");
   assert.equal(problem({ eyes: "" }, "eyes"), null);
+});
+
+test("on a rolled character only the details the dice settled are closed (D31)", async () => {
+  const { ROLLED_DETAILS } = await import("../scripts/rules/random.mjs");
+  const d = draft();
+  d.details.alignment = "Chaotic Evil";
+  const model = detailsModel(d, { rules: "legacy", locked: ROLLED_DETAILS });
+  const locked = model.fields.filter(f => f.locked).map(f => f.key).sort();
+  assert.deepEqual(locked, ["alignment", "bonds", "flaws", "ideals", "traits"]);
+  assert.equal(model.anyLocked, true);
+  for ( const key of ["name", "age", "height", "weight", "eyes", "hair", "skin", "appearance", "biography"] ) {
+    assert.equal(model.fields.find(f => f.key === key)?.locked, false, `${key} stays the player's`);
+  }
+  assert.equal(detailsModel(d, { rules: "legacy" }).anyLocked, false, "nothing is closed in an ordinary character");
 });

@@ -98,3 +98,28 @@ test("a die result outside the list still lands on a real option", () => {
   assert.equal(at(["a", "b", "c"], 9), "c");
   assert.equal(at(["a", "b", "c"], 0), "a");
 });
+
+test("the gear is taken, never the bag of gold, and each either/or is rolled", async () => {
+  // One source, offering gold as well as gear, with an "a or b" and one "any simple weapon" slot.
+  const tree = { nodes: new Map() };
+  const context = {
+    tree,
+    wealth: "5d4 * 10",
+    wealthOption: { number: 5, faces: 4, multiplier: 10 },
+    candidates: () => [],
+    isProficient: () => true
+  };
+  const draft = createDraft({ id: ID("d"), worldId: "w", rules: "legacy", now: 1 });
+  const rolled = [];
+  const roll = async (faces, key) => {
+    rolled.push({ key, faces });
+    return 1;
+  };
+  await rollCharacter({
+    draft, catalog: CATALOG, free: ["species", "class", "background", "abilities", "choices", "details"], roll,
+    rebuild: async () => ({ results: [], roots: { class: "id" }, actor: null }),
+    equipmentContext: async role => (role === "class" ? context : null)
+  });
+  assert.equal(draft.equipment.class.mode, "items", "the gear, as an ordinary character takes it");
+  assert.equal(rolled.some(r => r.key.endsWith(":mode")), false, "no die decides gold over gear");
+});

@@ -72,8 +72,8 @@ ability scores are allowed (point buy, standard array, rolled).
 ### Random characters
 
 Players can let the dice make a character: **Random character (hardcore)** on the creator's first page rolls
-species, class, background, the six scores in the order they fall, every choice those bring, the equipment,
-the alignment and (with 2014 backgrounds) the personality tables. Every die is posted to chat and can't be
+species, class, background, the six scores in the order they fall, every choice those bring, the starting gear
+(the packs and kits, not the bag of gold), the alignment and (with 2014 backgrounds) the personality tables. Every die is posted to chat and can't be
 re-rolled, and those steps are then closed to the player. Spells, the portrait and the name stay theirs.
 
 On **Allowed content → Random characters** you can turn the mode off, or hand any part back to the player —

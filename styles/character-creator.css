@@ -1055,5 +1055,7 @@ li.notification button.cc-entry-prompt {
 }
 /* Nothing on a rolled step answers to a click; the panes still show what the dice chose. */
 .cc-pane--rolled .cc-options, .cc-pane--rolled .cc-keys, .cc-pane--rolled .cc-cards,
-.cc-pane--rolled .cc-scores, .cc-pane--rolled .cc-methods, .cc-pane--rolled .cc-decision,
-.cc-pane--rolled .cc-fields { pointer-events: none; opacity: 0.85; }
+.cc-pane--rolled .cc-scores, .cc-pane--rolled .cc-methods,
+.cc-pane--rolled .cc-decision { pointer-events: none; opacity: 0.85; }
+/* The details step only closes the fields the dice settled (the name and the writing stay the player's). */
+.cc-field--rolled .cc-input, .cc-field--rolled .cc-select { opacity: 0.8; }

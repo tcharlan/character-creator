@@ -8,11 +8,11 @@
  */
 
 import { ABILITIES, makeError } from "../contracts.mjs";
-import { rollCharacter } from "./random.mjs";
+import { rollCharacter, ROLLED_DETAILS } from "./random.mjs";
 
 /** The parts the loop rolls, and what each one settles in the draft. */
 const PARTS = Object.freeze(["species", "class", "background", "abilities", "choices", "equipment", "details"]);
-const PERSONALITY_FIELDS = Object.freeze(["traits", "ideals", "bonds", "flaws"]);
+const PERSONALITY_FIELDS = ROLLED_DETAILS.filter(f => f !== "alignment");
 
 const fail = detail => [makeError("RANDOM_INVALID", detail)];
 

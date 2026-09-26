@@ -393,7 +393,6 @@
       "flaws": "Flaws",
       "Required": "needed",
       "Roll": "Roll one",
-      "PersonalityHint": "Personality traits, ideals, bonds and flaws are yours to write — or roll from your background's tables.",
       "Problem": {
         "negative": "That can't be a negative number.",
         "notANumber": "Give this as a number — 300, or 1,000 if you like.",

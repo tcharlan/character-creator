@@ -1291,13 +1291,16 @@ export function registerDetailsStepBatch(quench) {
         console.log(`${MODULE_ID} | rolled ${key}: ${app.draft.details[key].slice(0, 60)}`);
       });
 
-      it("2024: there are no personality fields", async function() {
+      it("2024: the personality fields are there too, and can be written in", async function() {
         if ( rules() !== "modern" ) this.skip();
         this.timeout(180_000);
         await open("Sage");
-        assert.notExists(field("traits"), "2024 characters don't have personality traits here");
+        // The 2024 backgrounds have no tables, but the character still has a trait, an ideal, a bond and a flaw.
+        for ( const key of ["traits", "ideals", "bonds", "flaws"] ) assert.exists(field(key), key);
         assert.exists(field("appearance"));
-        assert.lengthOf(query('[data-action="detail-roll"]'), 0);
+        await app.setDetail("flaws", "Never refuses a wager");
+        await app.settle();
+        assert.equal(app.draft.details.flaws, "Never refuses a wager");
       });
     });
   }, { displayName: "Character Creator: Wizard details" });

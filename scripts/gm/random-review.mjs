@@ -54,9 +54,6 @@ export async function checkRandomCharacter(draft, { catalog, userId }) {
         const item = build?.actor?.items?.get(build.roots?.[role]);
         return item ? equipmentContext(build.actor, item, catalog) : null;
       },
-      // The gold itself has its own recorded roll, checked with the rest of the equipment: here only the
-      // choice of gold over gear is replayed, so the amount is taken as submitted.
-      wealth: async () => null,
       // The creator keeps the automatic answers in the recipe too (D18), so the replay does the same before
       // the two recipes are compared.
       finish: async replayed => {
