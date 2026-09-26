@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.2
+
+- Faster creator: typing a name or filling in details is instant, and choosing equipment, spells or a portrait no
+  longer replays the whole character (about 130 ms instead of 385 ms). The character is only replayed when
+  something it is built from changes — a pick, an answer or an ability score.
+
 ## 0.4.1
 
 - Equipment: where your allowed content can't fill part of a starting kit ("any simple weapon" with no weapons

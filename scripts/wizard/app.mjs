@@ -73,6 +73,9 @@ const T = (key, data) => (data ? game.i18n.format(`CHARCREATOR.${key}`, data) : 
  */
 const REBUILD_DELAY = 800;
 
+/** The same, for a change that only has to be checked again (no replay): quick enough to answer sooner. */
+const CHECK_DELAY = 250;
+
 /** The part of a random character each step settles (D31); the steps not listed are always the player's. */
 const STEP_PART = Object.freeze({ species: "species", class: "class", background: "background",
   abilities: "abilities", choices: "choices", equipment: "equipment", details: "details" });
@@ -282,7 +285,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
    * @param {{ wait?: boolean, rebuild?: boolean }} [options]   `wait: true` waits for the save;
    *   `rebuild: false` holds the replay back until the player leaves the step (the ability scores).
    */
-  async update(change, { wait = false, rebuild = true } = {}) {
+  async update(change, { wait = false, rebuild = true, build = true } = {}) {
     const saved = this.#store.update(d => {
       change(d);
       d.step = this.#current;
@@ -291,7 +294,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       ui.notifications?.error(game.i18n.localize(err?.error?.key ?? "CHARCREATOR.Error.BAD_REQUEST"));
     });
     if ( wait ) await saved;
-    if ( rebuild ) this.#schedule();
+    if ( rebuild ) this.#schedule({ build });
     else this.#deferred = true;
   }
 
@@ -504,23 +507,23 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   /** Take a source's items or its starting wealth (D23: the two sources are separate). */
   async setEquipmentMode(role, mode) {
     if ( this.#locked("equipment") ) return;
-    await this.update(d => setMode(d, role, mode));
-    await this.settle();
+    await this.update(d => setMode(d, role, mode), { build: false });
+    await this.settleWith(this.#build);
   }
 
   /** Choose one branch of an "a or b" group. */
   async chooseEquipmentBranch(role, entryId, optionId) {
     const tree = this.#equipment?.[role]?.tree;
     if ( !tree ) return;
-    await this.update(d => chooseBranch(d, role, entryId, optionId, tree));
-    await this.settle();
+    await this.update(d => chooseBranch(d, role, entryId, optionId, tree), { build: false });
+    await this.settleWith(this.#build);
   }
 
   /** Put an item in one slot of a category pick. */
   async setEquipmentPick(role, entryId, index, uuid) {
     if ( this.#locked("equipment") ) return;
-    await this.update(d => setPick(d, role, entryId, index, uuid));
-    await this.settle();
+    await this.update(d => setPick(d, role, entryId, index, uuid), { build: false });
+    await this.settleWith(this.#build);
   }
 
   /** Roll 2014 starting wealth for a source; the dice go to chat (D15) and the total locks in (A10). */
@@ -529,12 +532,12 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     if ( !wealth ) return;
     try {
       const rolled = await rollStartingWealth(this.draft, role, wealth);
-      await this.update(d => setWealth(d, role, rolled), { wait: true });
+      await this.update(d => setWealth(d, role, rolled), { wait: true, build: false });
     } catch ( err ) {
       console.error(`${MODULE_ID} | the wealth roll failed`, err);
       ui.notifications?.error(game.i18n.localize(err?.key ?? "CHARCREATOR.Error.WEALTH_ROLL_INVALID"));
     }
-    await this.settle();
+    await this.settleWith(this.#build);
   }
 
   /** Show one of the spell lists (cantrips, spellbook, prepared). */
@@ -549,8 +552,8 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     let changed = false;
     await this.update(d => {
       changed = !!toggleSpell(d, kind, uuid, context.req, context.owned);
-    });
-    if ( changed ) await this.settle();
+    }, { build: false });
+    if ( changed ) await this.settleWith(this.#build);
   }
 
   /**
@@ -564,7 +567,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       if ( part ) return setHeightPart(d, part, value);
       if ( unit ) return setAmount(d, field, value, unit);
       return setDetail(d, field, value);
-    });
+    }, { build: false });
     if ( field === "name" ) await this.render({ parts: ["banner", "footer"] });
   }
 
@@ -616,7 +619,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     if ( !file ) return;
     try {
       const image = await preparePortrait(file);
-      await this.update(d => setImage(d, image), { wait: true });
+      await this.update(d => setImage(d, image), { wait: true, build: false });
     } catch ( err ) {
       const key = err?.error?.key ?? "CHARCREATOR.Error.BAD_IMAGE";
       console.warn(`${MODULE_ID} | the portrait couldn't be used`, err);
@@ -627,7 +630,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** Remove the chosen picture, skip the step, or reset the ring colours. */
   async setPortrait(change) {
-    await this.update(change, { wait: true });
+    await this.update(change, { wait: true, build: false });
     await this.render({ parts: ["banner", "body", "footer"] });
   }
 
@@ -749,13 +752,17 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   /** Rebuild and revalidate after a short pause, so quick clicking stays smooth. */
-  #schedule() {
+  #schedule({ build = true } = {}) {
     this.#deferred = false;
     if ( this.#timer ) clearTimeout(this.#timer);
+    // The character is only replayed for a change the replay depends on — the picks, the answers, the scores.
+    // Equipment, spells, the details and the portrait aren't part of it, so those only need checking again,
+    // which is a third of the work and can therefore answer sooner.
+    const reuse = build ? null : this.#build;
     this.#timer = setTimeout(() => {
       this.#timer = null;
-      this.#rebuild().then(() => this.rendered && this.render({ parts: ["banner", "body", "footer"] }));
-    }, REBUILD_DELAY);
+      this.#rebuild({ reuse }).then(() => this.rendered && this.render({ parts: ["banner", "body", "footer"] }));
+    }, build ? REBUILD_DELAY : CHECK_DELAY);
   }
 
   /**
@@ -795,7 +802,8 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       const { errors, equipment } = await checkBuilt(this.draft, this.#build, { catalog: this.#catalog,
         standard: this.#standard, userId: game.user.id, allowedMethods: readSettings().abilityMethods });
       this.#validation = { ok: !errors.length, errors, built: this.#build, equipment };
-      await this.#equipmentContexts();
+      // The starting-equipment trees and proficiencies come from the replay: with the same replay they stand.
+      if ( !reuse || !this.#equipment ) await this.#equipmentContexts();
     } catch ( err ) {
       console.error(`${MODULE_ID} | rebuild failed`, err);
       this.#validation = null;
