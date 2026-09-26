@@ -7,6 +7,8 @@
   are final, and the GM's browser checks the character against them. Spells, the portrait and the name stay the
   player's, and the GM chooses on **Allowed content → Random characters** which parts (if any) the player still
   picks, or turns the mode off.
+- Details: personality traits, ideals, bonds and flaws are asked for in both rule sets now, not only 2014 ones,
+  and can still be rolled wherever the world has a table for that background.
 - Allowed content: each category can be narrowed to one compendium, and **Allow these** / **Disallow these** then apply
   to the whole of it at once (with a search, to what the search leaves).
 - Allowed content: every option shows which compendium it comes from, by name.
