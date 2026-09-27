@@ -184,12 +184,14 @@ test("a draft written before hardcore mode gains its fields (schema 1 → 2, D31
 test("a rolled draft keeps its rolls, and only well-formed ones pass", () => {
   const d = fullDraft();
   d.mode = "hardcore";
-  d.random = { messageIds: [ID("msg")], rolls: [{ key: "species", faces: 9, total: 4 }, { key: "class", faces: 12, total: 11 }] };
+  d.random = { attempt: 1, messageIds: [ID("msg")],
+    rolls: [{ key: "species", faces: 9, total: 4 }, { key: "class", faces: 12, total: 11 }] };
   assert.deepEqual(checkDraftShape(d), []);
   assert.deepEqual(checkDraftShape({ ...d, mode: "cheating" }).map(p => p.path), ["draft.mode"]);
-  assert.ok(checkDraftShape({ ...d, random: { messageIds: ["nope"], rolls: [] } }).length, "a bad message id is refused");
-  assert.ok(checkDraftShape({ ...d, random: { messageIds: [ID("msg")], rolls: [{ key: "species", faces: 0, total: 1 }] } }).length,
+  assert.ok(checkDraftShape({ ...d, random: { ...d.random, messageIds: ["nope"] } }).length, "a bad message id is refused");
+  assert.ok(checkDraftShape({ ...d, random: { ...d.random, rolls: [{ key: "species", faces: 0, total: 1 }] } }).length,
     "a die with no faces is refused");
+  assert.ok(checkDraftShape({ ...d, random: { ...d.random, attempt: 0 } }).length, "a go is counted from one");
 });
 
 test("rolls posted in more than one message are carried over (schema 2 → 3, D31)", () => {
@@ -198,5 +200,6 @@ test("rolls posted in more than one message are carried over (schema 2 → 3, D3
   const { draft, migrated } = migrateDraft(before);
   assert.ok(migrated);
   assert.deepEqual(draft.random.messageIds, [ID("msg")], "the one message becomes the first of the series");
+  assert.equal(draft.random.attempt, 1, "and it was the first go at the character (schema 3 → 4)");
   assert.deepEqual(checkDraftShape(draft), []);
 });

@@ -133,6 +133,14 @@
         <span class="cc-switch__label">{{localize "CHARCREATOR.Restrictions.HardcoreOffered"}}</span>
       </button>
     </div>
+    {{!-- How many goes a player gets (D31). The left end is no limit; one means the first roll is final. --}}
+    <div class="cc-attempts{{#unless hardcore.offered}} cc-switches--off{{/unless}}">
+      <label class="cc-attempts__label" for="cc-attempts">{{localize "CHARCREATOR.Restrictions.Attempts"}}</label>
+      <input type="range" id="cc-attempts" class="cc-attempts__range" min="0" max="{{hardcore.attempts.max}}"
+             step="1" value="{{hardcore.attempts.value}}" {{#unless hardcore.offered}}disabled{{/unless}}>
+      <output class="cc-attempts__value" for="cc-attempts">{{attemptsText}}</output>
+    </div>
+    <p class="cc-hint cc-attempts__hint">{{localize "CHARCREATOR.Restrictions.AttemptsHint"}}</p>
     <p class="cc-hint cc-switches__lead">{{localize "CHARCREATOR.Restrictions.HardcoreParts"}}</p>
     {{!-- Off: the choices are kept and shown, but greyed until the mode is switched on again. --}}
     <div class="cc-switches cc-switches--grid{{#unless hardcore.offered}} cc-switches--off{{/unless}}">

@@ -16,7 +16,7 @@ test("defaults (DESIGN.md → Settings)", () => {
     ringColors: { ring: null, background: null },
     optionArt: {},
     stepArt: {},
-    hardcore: { offered: true, free: [] }
+    hardcore: { offered: true, free: [], attempts: 1 }
   });
 });
 

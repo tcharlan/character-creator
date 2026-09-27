@@ -4,7 +4,7 @@
  * Pure; `settings.mjs` registers them with Foundry.
  */
 
-import { ABILITY_METHODS, LIMITS, RANDOM_PARTS, STEPS } from "../contracts.mjs";
+import { ABILITY_METHODS, LIMITS, MAX_ATTEMPTS, RANDOM_PARTS, STEPS } from "../contracts.mjs";
 import { CATEGORIES, NO_RESTRICTIONS, normalizeUuid } from "../catalog/filters.mjs";
 
 export const SETTINGS = Object.freeze({
@@ -18,7 +18,7 @@ export const SETTINGS = Object.freeze({
   RING_COLORS: "ringColors",             // { ring: "#rrggbb"|null, background: "#rrggbb"|null }; null = player's color
   OPTION_ART: "optionArt",               // { [option uuid]: image path }; D24, the GM's own picture per option
   STEP_ART: "stepArt",
-  HARDCORE: "hardcore",                  // { offered: boolean, free: string[] }; D31, the random character
+  HARDCORE: "hardcore",                  // { offered, free, attempts }; D31, the random character
                    // { [wizard step]: image path }; D28, the GM's own background per step
   DISPLAY: "wizardDisplay"               // client: { mode: "fullscreen"|"window", window: position|null }; D28
 });
@@ -88,7 +88,17 @@ export function artPath(path) {
  */
 export function normalizeHardcore(v) {
   const free = Array.isArray(v?.free) ? RANDOM_PARTS.filter(part => v.free.includes(part)) : [];
-  return { offered: typeof v?.offered === "boolean" ? v.offered : true, free };
+  return { offered: typeof v?.offered === "boolean" ? v.offered : true, free, attempts: rollAttempts(v?.attempts) };
+}
+
+/**
+ * How many times a player may roll a character (D31): 1, the default, means the first roll is the character;
+ * 0 means as often as they like. Anything else reads as the default, so a broken setting hands out no rolls.
+ */
+export function rollAttempts(v) {
+  const n = Number(v);
+  if ( !Number.isInteger(n) || (n < 0) ) return 1;
+  return Math.min(n, MAX_ATTEMPTS);
 }
 
 /** The GM's own background per wizard step (D28): known steps only, paths as for option art. */

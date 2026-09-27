@@ -41,6 +41,13 @@ export function answerStep(draft, { path, advancementId, level }, data) {
   return draft;
 }
 
+/** Drop the answer for one step, so it is open again (D31: a rolled answer a later grant made impossible). */
+export function clearStep(draft, { path, advancementId, level }) {
+  const same = s => s.advancementId === advancementId && s.level === level && s.path.join(">") === path.join(">");
+  draft.recipe.steps = draft.recipe.steps.filter(s => !same(s));
+  return draft;
+}
+
 /**
  * The recipe to keep after a rebuild.
  *

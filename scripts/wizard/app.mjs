@@ -33,7 +33,7 @@ import { givablePlayers, giveAndTell, giveDialog } from "../gm/assign.mjs";
 import { allowance } from "../ui/entry.mjs";
 import { arrowKeys } from "../ui/keyboard.mjs";
 import { rollAbilityScores } from "../rules/ability-roll.mjs";
-import { rollCharacter, openChoices } from "../rules/random.mjs";
+import { rollCharacter, openChoices, staleChoices } from "../rules/random.mjs";
 import { clearRolled } from "../rules/random-check.mjs";
 import { ROLLED_DETAILS } from "../rules/random.mjs";
 import { postMadeRolls } from "../rules/roll-messages.mjs";
@@ -133,6 +133,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       back: onBack,
       next: onNext,
       discard: onDiscard,
+      reroll: onReroll,
       display: onDisplay,
       give: onGive,
       begin: onBegin,
@@ -388,7 +389,42 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     // auto-select) would otherwise stand where a die should have decided.
     const working = clearRolled(this.draft, settings.hardcore.free);
     working.mode = "hardcore";
-    await this.#roll(working, settings.hardcore.free, { first: true });
+    await this.#roll(working, settings.hardcore.free, { first: true, attempt: 1 });
+  }
+
+  /**
+   * Roll the whole character again (D31). The GM says how many goes a player gets — one by default, which is
+   * no rerolls at all — and a rolled character can't be discarded, so this is the only way out of one. Each go
+   * is numbered and posted to chat, so the GM's copy can hold the player to the count.
+   */
+  async rerollRandomCharacter() {
+    const { free, attempts } = readSettings().hardcore;
+    const left = this.#attempts();
+    if ( this.#busy || !left.canReroll ) return;
+    const next = left.used + 1;
+    const confirmed = await confirmDialog(T("Random.RerollTitle"),
+      attempts ? T("Random.RerollBody", { attempt: next, of: attempts }) : T("Random.RerollBodyUnlimited"),
+      T("Random.RerollConfirm"));
+    if ( !confirmed ) return;
+    // A fresh go at everything the dice decide, the scores included; what is the player's own is kept.
+    const working = clearRolled(this.draft, free, { abilities: true });
+    working.mode = "hardcore";
+    working.random = null;
+    this.#toppedUpAt = null;
+    await this.#roll(working, free, { first: true, attempt: next });
+  }
+
+  /**
+   * How many goes at a rolled character the player has had and has left (D31). `limit` 0 is the GM's "no
+   * limit", and a character that hasn't been rolled yet has used nothing.
+   */
+  #attempts() {
+    const { offered, attempts } = readSettings().hardcore;
+    const used = this.draft?.random?.attempt ?? 0;
+    const unlimited = attempts === 0;
+    const left = unlimited ? Infinity : Math.max(0, attempts - used);
+    return { limit: attempts, unlimited, used, left,
+      canReroll: offered && (this.draft?.mode === "hardcore") && isEditable(this.draft) && (left > 0) };
   }
 
   /**
@@ -403,7 +439,8 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     const { free } = readSettings().hardcore;
     this.#toppingUp = true;
     try {
-      return await this.#roll(foundry.utils.deepClone(this.draft), free, { first: false });
+      return await this.#roll(foundry.utils.deepClone(this.draft), free,
+        { first: false, attempt: this.draft.random?.attempt ?? 1 });
     } finally {
       this.#toppingUp = false;
     }
@@ -414,7 +451,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
    * one message, and write the draft once.
    * @returns {Promise<boolean>} whether anything was rolled
    */
-  async #roll(working, free, { first }) {
+  async #roll(working, free, { first, attempt }) {
     this.#busy = true;
     await this.render({ parts: ["body", "footer"] });
     const made = [];
@@ -458,9 +495,10 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       });
       if ( !made.length ) return false;
       const messageId = await postMadeRolls({ draftId: working.id, purpose: ROLL_PURPOSE.RANDOM, rolls: made,
-        flavor: T(first ? "Random.Flavor" : "Random.FlavorMore") });
-      const before = this.draft?.random;
-      working.random = { messageIds: [...(before?.messageIds ?? []), messageId],
+        attempt, flavor: T(first ? (attempt > 1 ? "Random.FlavorAgain" : "Random.Flavor") : "Random.FlavorMore") });
+      // A fresh go starts the record over; a top-up adds to the go it belongs to.
+      const before = first ? null : working.random;
+      working.random = { attempt, messageIds: [...(before?.messageIds ?? []), messageId],
         rolls: [...(before?.rolls ?? []), ...rolled] };
       // The whole rolled character in one write (update() keeps the draft it is handed, not what it returns).
       if ( first ) {
@@ -886,7 +924,8 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
    */
   #pendingRolled() {
     if ( (this.draft?.mode !== "hardcore") || !this.#build ) return false;
-    if ( this.#locked("choices") && openChoices(this.#build).length ) return true;
+    // Something still to answer, or an answer the character has outgrown: either way the dice owe a roll.
+    if ( this.#locked("choices") && (openChoices(this.#build).length || staleChoices(this.#build).length) ) return true;
     if ( this.#locked("equipment") ) {
       for ( const role of EQUIPMENT_SOURCES ) {
         const ctx = this.#equipment?.[role];
@@ -1207,8 +1246,20 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     const { offered, free } = readSettings().hardcore;
     const rolled = this.draft?.mode === "hardcore";
     const part = STEP_PART[this.#current] ?? null;
+    const attempts = this.#attempts();
     return { offered: offered && !rolled && !this.#started(), rolled,
-      locked: rolled && !!part && !free.includes(part) };
+      locked: rolled && !!part && !free.includes(part),
+      // How many goes the player has left, and whether this draft can be thrown away at all (D31).
+      canReroll: attempts.canReroll, canDiscard: this.#canDiscard(),
+      rerollLabel: attempts.unlimited ? T("Random.Reroll") : T("Random.RerollLeft", { count: attempts.left }),
+      attemptsText: this.#attemptsText(attempts, rolled) };
+  }
+
+  /** What the creator tells the player about their goes at a rolled character (D31). */
+  #attemptsText({ limit, unlimited, left }, rolled) {
+    if ( unlimited ) return T("Random.AttemptsUnlimited");
+    if ( !rolled ) return (limit === 1) ? T("Random.AttemptsOnly") : T("Random.AttemptsOffered", { count: limit });
+    return left ? T("Random.AttemptsLeft", { count: left }) : T("Random.AttemptsNone");
   }
 
   /** Has the draft settled this part by dice, so the player doesn't get to change it (D31)? */
@@ -1347,10 +1398,23 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     return super.close(options);
   }
 
-  /** Discard the draft and close (used by the footer's "Start over"). */
+  /**
+   * Discard the draft and close (used by the footer's "Start over"). A rolled character can't be thrown away
+   * (D31): discarding it and starting again would be a reroll by another name, and the GM decides how many of
+   * those there are. Rerolling is the way out, when the GM allows any.
+   */
   async discardAndClose() {
+    if ( !this.#canDiscard() ) {
+      ui.notifications?.warn(T("Random.NoDiscard"));
+      return;
+    }
     await this.#store.discard();
     return this.close();
+  }
+
+  /** May this draft be thrown away? Anything but a character the dice made (D31). */
+  #canDiscard() {
+    return this.draft?.mode !== "hardcore";
   }
 }
 
@@ -1524,6 +1588,11 @@ function onGive() {
 /** The start screen: let the dice make the whole character (D31). */
 function onRollCharacter() {
   return this.rollRandomCharacter();
+}
+
+/** Roll the whole character again, where the GM allows it (D31). */
+function onReroll() {
+  return this.rerollRandomCharacter();
 }
 
 async function onDiscard() {

@@ -10,7 +10,15 @@
     {{else}}{{localize "CHARCREATOR.Nav.Attention" }} {{attention.errors}}
     {{/if}}
   </span>
+  {{!-- A rolled character can't be discarded (D31); where the GM allows it, it can be rolled again. --}}
+  {{#if hardcore.canDiscard}}
   <button type="button" class="cc-button cc-button--quiet" data-action="discard">{{localize "CHARCREATOR.Nav.Discard"}}</button>
+  {{else if hardcore.canReroll}}
+  <button type="button" class="cc-button cc-button--quiet" data-action="reroll" data-tooltip="{{hardcore.attemptsText}}"
+          {{#if busy}}disabled{{/if}}>
+    <i class="fa-solid fa-dice-d20" inert></i>{{hardcore.rerollLabel}}
+  </button>
+  {{/if}}
   <button type="button" class="cc-button cc-button--primary" data-action="next" {{#unless canNext}}disabled{{/unless}}>
     {{nextLabel}}<i class="fa-solid fa-chevron-right"></i>
   </button>

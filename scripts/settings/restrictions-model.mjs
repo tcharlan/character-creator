@@ -7,7 +7,7 @@
  */
 
 import { CATEGORIES, normalizeUuid } from "../catalog/filters.mjs";
-import { ABILITY_METHODS, RANDOM_PARTS, STEPS } from "../contracts.mjs";
+import { ABILITY_METHODS, MAX_ATTEMPTS, RANDOM_PARTS, STEPS } from "../contracts.mjs";
 import { sigilPath } from "../wizard/splash.mjs";
 
 /** The tabs, in order: one per category, then the packs, the ability-score methods and the backgrounds (D28). */
@@ -46,7 +46,8 @@ export function editorState(restrictions, abilityMethods, art = {}, stepArt = {}
   const pictures = {};
   for ( const [uuid, path] of Object.entries(art ?? {}) ) pictures[normalizeUuid(uuid)] = path;
   return { packs: list(restrictions?.packs), categories, art: pictures, stepArt: { ...(stepArt ?? {}) },
-    hardcore: { offered: hardcore?.offered !== false, free: RANDOM_PARTS.filter(p => (hardcore?.free ?? []).includes(p)) },
+    hardcore: { offered: hardcore?.offered !== false, free: RANDOM_PARTS.filter(p => (hardcore?.free ?? []).includes(p)),
+      attempts: rollAttempts(hardcore?.attempts) },
     abilityMethods: ABILITY_METHODS.filter(m => (abilityMethods ?? ABILITY_METHODS).includes(m)) };
 }
 
@@ -76,6 +77,22 @@ export function toggleHardcore(state) {
   return state;
 }
 
+/**
+ * How many goes at a rolled character a player gets (D31). 1 is the default and means the roll is final; 0
+ * means as many as they like. The slider can't go outside 0…MAX_ATTEMPTS, and anything odd reads as 1.
+ */
+export function setRollAttempts(state, value) {
+  state.hardcore = { ...state.hardcore, attempts: rollAttempts(value) };
+  return state;
+}
+
+/** The setting's own reading of the number, kept here so the editor and the stored value can't disagree. */
+function rollAttempts(v) {
+  const n = Number(v);
+  if ( !Number.isInteger(n) || (n < 0) ) return 1;
+  return Math.min(n, MAX_ATTEMPTS);
+}
+
 export function toggleRandomPart(state, part) {
   if ( !RANDOM_PARTS.includes(part) ) return state;
   const free = state.hardcore.free.includes(part)
@@ -86,7 +103,8 @@ export function toggleRandomPart(state, part) {
 
 /** What to store for hardcore mode. */
 export function toStoredHardcore(state) {
-  return { offered: state?.hardcore?.offered !== false, free: [...(state?.hardcore?.free ?? [])] };
+  return { offered: state?.hardcore?.offered !== false, free: [...(state?.hardcore?.free ?? [])],
+    attempts: rollAttempts(state?.hardcore?.attempts) };
 }
 
 /** The step backgrounds to store. */
@@ -262,6 +280,7 @@ export function restrictionsModel({ state, everything, packs, tab, search = "", 
         : (key === "abilities") ? (state.abilityMethods.length < ABILITY_METHODS.length)
           : (key === "backdrops") ? Object.keys(state.stepArt ?? {}).length > 0
             : (key === "hardcore") ? (state.hardcore.free.length > 0) || !state.hardcore.offered
+              || (state.hardcore.attempts !== 1)
               : Array.isArray(state.categories[key]) };
   });
 
@@ -329,7 +348,10 @@ export function restrictionsModel({ state, everything, packs, tab, search = "", 
     model.hardcore = {
       offered: state.hardcore.offered,
       // Everything is rolled unless the GM hands it back; the order is the order the dice go in.
-      parts: RANDOM_PARTS.map(part => ({ part, free: state.hardcore.free.includes(part) }))
+      parts: RANDOM_PARTS.map(part => ({ part, free: state.hardcore.free.includes(part) })),
+      // How many goes the player gets. 0 is the slider's left end and means no limit.
+      attempts: { value: state.hardcore.attempts, max: MAX_ATTEMPTS,
+        unlimited: state.hardcore.attempts === 0, final: state.hardcore.attempts === 1 }
     };
   } else if ( open === "backdrops" ) {
     model.backdrops = STEPS.map(step => {

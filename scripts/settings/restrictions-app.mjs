@@ -14,7 +14,7 @@ import { SETTINGS, readSettings } from "./settings.mjs";
 import { arrowKeys } from "../ui/keyboard.mjs";
 import { editorState, restrictionsModel, toStored, toStoredArt, toggleEntry, allowAll, allowNone, allowThese,
   disallowThese, togglePack, toggleMethod, setArt, setStepArt, toStoredStepArt, toggleHardcore, toggleRandomPart,
-  toStoredHardcore, TABS } from "./restrictions-model.mjs";
+  setRollAttempts, toStoredHardcore, TABS } from "./restrictions-model.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 const T = (key, data) => (data ? game.i18n.format(`CHARCREATOR.${key}`, data) : game.i18n.localize(`CHARCREATOR.${key}`));
@@ -127,7 +127,8 @@ export class RestrictionsApp extends HandlebarsApplicationMixin(ApplicationV2) {
       methods: (model.abilities ?? []).map(m => ({ ...m, label: T(`Abilities.${m.key}`) })),
       backdrops: model.backdrops ? model.backdrops.map(b => ({ ...b, label: T(b.labelKey) })) : null,
       hardcore: model.hardcore
-        ? { ...model.hardcore, parts: model.hardcore.parts.map(p => ({ ...p, label: T(`Random.${p.part}`) })) } : null
+        ? { ...model.hardcore, parts: model.hardcore.parts.map(p => ({ ...p, label: T(`Random.${p.part}`) })) } : null,
+      attemptsText: model.hardcore ? attemptsText(model.hardcore.attempts.value) : ""
     });
   }
 
@@ -139,6 +140,16 @@ export class RestrictionsApp extends HandlebarsApplicationMixin(ApplicationV2) {
       this.#pack = event.target.value;
       this.render({ parts: ["body"] });
     });
+    // The rolls-per-character slider (D31): the number keeps up while it is dragged, the state is written
+    // when it is let go, since every change redraws the tab.
+    const attempts = this.element.querySelector(".cc-attempts__range");
+    if ( attempts ) {
+      const value = this.element.querySelector(".cc-attempts__value");
+      attempts.addEventListener("input", event => {
+        if ( value ) value.textContent = attemptsText(Number(event.target.value));
+      });
+      attempts.addEventListener("change", event => this.change(state => setRollAttempts(state, Number(event.target.value))));
+    }
     const search = this.element.querySelector(".cc-search input");
     if ( search ) {
       search.addEventListener("input", foundry.utils.debounce(event => {
@@ -337,4 +348,11 @@ class RestrictionsMenu extends foundry.applications.api.ApplicationV2 {
       return null;
     });
   }
+}
+
+/** What the rolls-per-character slider says at each stop (D31): no limit, a final roll, or so many rolls. */
+function attemptsText(n) {
+  if ( n === 0 ) return T("Restrictions.AttemptsUnlimited");
+  if ( n === 1 ) return T("Restrictions.AttemptsFinal");
+  return T("Restrictions.AttemptsMany", { count: n, rerolls: n - 1 });
 }

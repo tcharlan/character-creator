@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.4
+
+- **Hardcore mode: rerolls are the GM's to hand out.** A rolled character can no longer be discarded and rolled
+  again from a fresh draft. **Allowed content → Hardcore mode → Rolls per character** sets how many goes a player
+  gets: one by default (what the dice give you is your character), up to ten, or the left end of the slider for as
+  many as they like. Where a go is left, the creator offers **Roll again** in place of Discard and says how many
+  remain; rolling again rerolls everything the dice decide, the scores included, and posts its own message. The
+  GM's browser counts the goes in chat and refuses a character rolled more often than allowed.
+- Fixed: a rolled character could be refused over a choice the dice made that something granted later made
+  impossible (the same skill twice, say). In hardcore mode that step is closed to the player, so the character
+  was stuck; those answers are now rolled again from what is on offer, and the new dice go to chat like the rest.
+
 ## 0.4.3
 
 - Allowed content: turning a compendium off now shows through in the lists above it — its options are greyed out,

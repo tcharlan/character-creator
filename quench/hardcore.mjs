@@ -20,8 +20,13 @@ export function registerHardcoreBatches(quench) {
       let saved;
       const made = [];
       const gm = () => game.users.activeGM;
-      const setHardcore = free => gm().query(SETTINGS_TEST_QUERIES.SET,
-        { key: "hardcore", value: { offered: true, free } }, { timeout: 60_000 });
+      const setHardcore = (free, attempts = 1) => gm().query(SETTINGS_TEST_QUERIES.SET,
+        { key: "hardcore", value: { offered: true, free, attempts } }, { timeout: 60_000 });
+      // The setting is the GM's; wait for this client's copy of it to arrive.
+      const awaitSetting = async test => {
+        for ( let i = 0; i < 100 && !test(game.settings.get(MODULE_ID, "hardcore")); i++ ) await wait(100);
+        assert.isTrue(test(game.settings.get(MODULE_ID, "hardcore")), "the setting never reached the player");
+      };
       const open = async () => {
         await game.user.unsetFlag(MODULE_ID, DRAFT_FLAG);
         app = await CharacterWizard.open();
@@ -154,6 +159,45 @@ export function registerHardcoreBatches(quench) {
         assert.exists(actor, "the character was never made");
         made.push(actor.id);
         assert.equal(actor.name, "Fate's Own");
+      });
+
+      it("a rolled character can't be discarded, and a reroll is the GM's to allow", async function() {
+        this.timeout(900_000);
+        // The default: one roll, which is the character.
+        const first = await rollOne();
+        assert.equal(first.random.attempt, 1);
+        assert.notExists(app.element.querySelector('[data-action="discard"]'),
+          "a rolled character can't be thrown away and rolled again from a new draft");
+        assert.notExists(app.element.querySelector('[data-action="reroll"]'), "and no reroll is on offer");
+        await app.discardAndClose();
+        assert.exists(app.draft, "discarding does nothing");
+        assert.equal(app.draft.mode, "hardcore");
+
+        // Two goes: the reroll appears, rolls everything again and says so in chat.
+        await setHardcore([], 2);
+        await awaitSetting(s => s.attempts === 2);
+        await app.render({ parts: ["body", "footer"] });
+        assert.exists(app.element.querySelector('[data-action="reroll"]'), "the reroll should be offered");
+        const hook = Hooks.on("renderDialogV2", dialog => dialog.element.querySelector('[data-action="yes"]')?.click());
+        try {
+          await app.rerollRandomCharacter();
+        } finally {
+          Hooks.off("renderDialogV2", hook);
+        }
+        for ( let i = 0; i < 600 && (app.draft.random?.attempt !== 2); i++ ) await wait(200);
+        assert.equal(app.draft.random.attempt, 2, "the second go was never rolled");
+        assert.notDeepEqual(app.draft.random.messageIds, first.random.messageIds, "its rolls are its own");
+        const message = game.messages.get(app.draft.random.messageIds[0]);
+        assert.equal(message.getFlag(MODULE_ID, "roll")?.attempt, 2, "the message says which go it was");
+        assert.ok(app.draft.picks.species && app.draft.picks.class, "a whole character again");
+        assert.equal(app.draft.abilities.method, "rolled", "the scores were rolled again too");
+        assert.notEqual(app.draft.abilities.roll.messageId, first.abilities.roll.messageId);
+
+        // That was the second of two: no more.
+        await app.settle();
+        assert.notExists(app.element.querySelector('[data-action="reroll"]'), "no goes left");
+        await setHardcore([]);
+        await awaitSetting(s => s.attempts === 1);
       });
 
       it("a part the GM leaves to the player is not rolled", async function() {

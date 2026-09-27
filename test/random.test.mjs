@@ -154,3 +154,36 @@ test("the gear is taken, never the bag of gold, and each either/or is rolled", a
   assert.equal(draft.equipment.class.mode, "items", "the gear, as an ordinary character takes it");
   assert.equal(rolled.some(r => r.key.endsWith(":mode")), false, "no die decides gold over gear");
 });
+
+test("an answer the character outgrows is rolled again, from what is on offer then", async () => {
+  // The class's skills are rolled first from three, and the answer is taken. The next replay says that answer
+  // is no longer allowed (a feature granted later took the same skill), and offers two instead of three.
+  const draft = createDraft({ id: ID("d"), worldId: "w", rules: "legacy", now: 1 });
+  const rolled = [];
+  const roll = async (faces, key) => {
+    rolled.push({ key, faces });
+    return 1;
+  };
+  const skills = { ...traitResult, options: { ...traitResult.options, max: 1 } };
+  let replays = 0;
+  await rollCharacter({
+    draft, catalog: CATALOG, free: ["species", "class", "background", "abilities", "equipment", "details"], roll,
+    rebuild: async d => {
+      replays++;
+      const answered = (d.recipe.steps ?? []).length > 0;
+      if ( !answered ) {
+        // Second time around the first skill is gone from the pool, so the dice can't pick it again.
+        const options = { ...skills.options, allowed: replays > 1 ? ["skills:his", "skills:inv"] : skills.options.allowed };
+        return { results: [{ ...skills, options }], roots: {}, actor: null };
+      }
+      // The stored answer is the one that stopped fitting — until it is rolled from the shorter pool.
+      const chosen = d.recipe.steps[0].data.chosen;
+      const stale = chosen.includes("skills:arc");
+      return { roots: {}, actor: null, results: [{ ...skills, status: stale ? "invalid" : "done",
+        errors: stale ? [{ code: "NOT_ALLOWED", detail: chosen }] : [] }] };
+    },
+    equipmentContext: async () => null
+  });
+  assert.deepEqual(draft.recipe.steps[0].data.chosen, ["skills:his"], "rolled again from what was left");
+  assert.deepEqual(rolled.map(r => r.faces), [3, 2], "three to choose from, then the two still on offer");
+});

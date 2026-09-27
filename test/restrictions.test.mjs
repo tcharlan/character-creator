@@ -1,10 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { editorState, toStored, toStoredArt, toggleEntry, allowAll, allowNone, allowOnly, togglePack,
-  toggleMethod, setArt, isEntryAllowed, warnings, restrictionsModel, TABS }
+  toggleMethod, setArt, isEntryAllowed, warnings, restrictionsModel, setRollAttempts, toStoredHardcore, TABS }
   from "../scripts/settings/restrictions-model.mjs";
 import { NO_RESTRICTIONS } from "../scripts/catalog/filters.mjs";
-import { ABILITY_METHODS } from "../scripts/contracts.mjs";
+import { ABILITY_METHODS, MAX_ATTEMPTS } from "../scripts/contracts.mjs";
 
 const ID = n => String(n).padEnd(16, "0");
 const U = n => `Compendium.dnd5e.classes.Item.${ID(n)}`;
@@ -282,4 +282,27 @@ test("a turned-off compendium shows in the tab count and stops 'everything is al
   assert.equal(after.tabs.find(t => t.key === "class").allowed, 0, "0 / 2 in the sidebar");
   assert.equal(after.category.unrestricted, false, "and it no longer claims everything is allowed");
   assert.equal(after.category.allowed, 0);
+});
+
+test("rolls per character: the slider's stops, and what is stored (D31)", () => {
+  const state = editorState(null, null, {}, {}, { offered: true, free: [], attempts: 3 });
+  assert.equal(state.hardcore.attempts, 3);
+  // 1 is the default and means the roll is final; 0 is the left end and means no limit.
+  assert.equal(editorState(null, null, {}, {}, null).hardcore.attempts, 1, "no setting yet");
+  assert.equal(setRollAttempts(state, 0).hardcore.attempts, 0);
+  assert.equal(setRollAttempts(state, 99).hardcore.attempts, MAX_ATTEMPTS, "no further than the slider goes");
+  assert.equal(setRollAttempts(state, -2).hardcore.attempts, 1, "and nonsense is the default, never a free roll");
+  assert.equal(setRollAttempts(state, "2").hardcore.attempts, 2, "the slider hands over a string");
+  assert.deepEqual(toStoredHardcore(setRollAttempts(state, 4)), { offered: true, free: [], attempts: 4 });
+});
+
+test("the hardcore tab is marked as changed when the rolls are not the default", () => {
+  const model = hardcore => restrictionsModel({ state: editorState(null, null, {}, {}, hardcore), everything: {},
+    packs: [], tab: "hardcore" });
+  const tab = m => m.tabs.find(t => t.key === "hardcore");
+  assert.equal(tab(model({ offered: true, free: [], attempts: 1 })).restricted, false, "the default");
+  assert.equal(tab(model({ offered: true, free: [], attempts: 3 })).restricted, true);
+  assert.equal(tab(model({ offered: true, free: [], attempts: 0 })).restricted, true);
+  const shown = model({ offered: true, free: [], attempts: 0 }).hardcore.attempts;
+  assert.deepEqual([shown.value, shown.unlimited, shown.final, shown.max], [0, true, false, MAX_ATTEMPTS]);
 });

@@ -31,17 +31,18 @@ export async function postRolls({ draftId, purpose, source, formula, count = 1, 
 /**
  * Post rolls that have already been made, in one public message — the random character rolls its dice as it
  * goes (each result decides what is rolled next) and posts them together at the end (D31).
- * @param {{ draftId: string, purpose: string, rolls: Roll[], flavor: string }} options
+ * @param {{ draftId: string, purpose: string, rolls: Roll[], attempt?: number, flavor: string }} options
+ *   `attempt` numbers the go a random character was rolled on (D31), so the GM can count the rerolls.
  * @returns {Promise<string>} the message id
  */
-export async function postMadeRolls({ draftId, purpose, rolls, flavor }) {
+export async function postMadeRolls({ draftId, purpose, rolls, attempt, flavor }) {
   const message = await ChatMessage.implementation.create({
     author: game.user.id,
     speaker: { alias: game.user.name },
     flavor,
     rolls: rolls.map(r => r.toJSON()),
     sound: CONFIG.sounds.dice,
-    flags: { [MODULE_ID]: { [ROLL_FLAG]: { draftId, purpose } } }
+    flags: { [MODULE_ID]: { [ROLL_FLAG]: { draftId, purpose, ...(attempt ? { attempt } : {}) } } }
   }, { messageMode: "public" });
   return message.id;
 }

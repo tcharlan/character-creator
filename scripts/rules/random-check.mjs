@@ -15,6 +15,8 @@ const PARTS = Object.freeze(["species", "class", "background", "abilities", "cho
 const PERSONALITY_FIELDS = ROLLED_DETAILS.filter(f => f !== "alignment");
 
 const fail = detail => [makeError("RANDOM_INVALID", detail)];
+/** Rolling more often than the GM allows is its own refusal: the character is sound, the player took more goes. */
+const attemptsFail = detail => [makeError("RANDOM_ATTEMPTS", detail)];
 
 /** The rolls a message holds, as `{ faces, total }`, or null when it isn't one die per roll. */
 export function messageRolls(record) {
@@ -31,9 +33,11 @@ export function messageRolls(record) {
  * The draft as it was before the dice: the parts the GM leaves to the player are kept, the rolled ones cleared,
  * so the replay has to produce them again.
  */
-export function clearRolled(draft, free = []) {
+export function clearRolled(draft, free = [], { abilities = false } = {}) {
   const rolled = part => !free.includes(part);
   const next = structuredClone(draft);
+  // Only a reroll asks for this: the GM's replay keeps the scores, which it checks against their own record.
+  if ( abilities && rolled("abilities") ) next.abilities = { method: null, base: null, roll: null };
   for ( const role of ["species", "class", "background"] ) if ( rolled(role) ) next.picks[role] = null;
   if ( rolled("choices") ) next.recipe = { steps: [] };
   else if ( rolled("species") || rolled("class") || rolled("background") ) {
@@ -89,21 +93,40 @@ function firstDifference(expected, actual) {
  *   decisions the first dice never saw.
  * @param {string} options.userId              The draft's owner.
  * @param {string[]} [options.free]            The parts the GM leaves to the player.
+ * @param {number} [options.attempts]          How many goes at a rolled character the GM allows (0 = any
+ *   number). A reroll starts a fresh series of messages, numbered in each message's flag, so the count of
+ *   goes on record is checked here too — that is what makes the limit worth anything.
  * @param {object} options.replay              The callbacks rollCharacter() needs (catalog, rebuild, …), plus
  *   `finish`: the creator writes the automatic steps into the draft as well, so the replay is finished the
  *   same way before the two are compared.
  * @returns {Promise<object[]>} makeError() objects
  */
-export async function checkRandomDraft(draft, { records = [], userId, free = [], replay } = {}) {
+export async function checkRandomDraft(draft, { records = [], userId, free = [], attempts = 1, replay } = {}) {
   const random = draft.random;
   if ( !random ) return fail({ message: "missing" });
   if ( !records.length ) return fail({ message: "noMessage" });
+
+  // Each go at the character is numbered (D31). Earlier goes stay in chat, so they are counted here and then
+  // set aside: only the go this character came from is checked against the draft.
+  const attemptOf = record => record.flag?.attempt ?? 1;
+  const goes = new Set(records.map(attemptOf));
+  if ( (attempts > 0) && (goes.size > attempts) ) {
+    return attemptsFail({ message: "tooManyAttempts", used: goes.size, allowed: attempts });
+  }
+  const mineAttempt = random.attempt ?? 1;
+  const latest = Math.max(...goes);
+  if ( mineAttempt !== latest ) {
+    // An earlier character kept while the dice were rolled again: that is cherry-picking the best of them.
+    return attemptsFail({ message: "staleAttempt", draft: mineAttempt, posted: latest });
+  }
+  const mine = records.filter(r => attemptOf(r) === mineAttempt);
+
   // Every message the draft names, in its order, and nothing else: no borrowed or extra rolls.
-  if ( records.length !== random.messageIds.length ) {
-    return fail({ message: "messageCount", posted: records.length, draft: random.messageIds.length });
+  if ( mine.length !== random.messageIds.length ) {
+    return fail({ message: "messageCount", posted: mine.length, draft: random.messageIds.length });
   }
   const posted = [];
-  for ( const [i, record] of records.entries() ) {
+  for ( const [i, record] of mine.entries() ) {
     if ( record.id !== random.messageIds[i] ) return fail({ message: "wrongMessage" });
     if ( record.authorId !== userId ) return fail({ message: "wrongAuthor" });
     if ( record.flag?.draftId !== draft.id ) return fail({ message: "wrongDraft" });

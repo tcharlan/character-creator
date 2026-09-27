@@ -27,5 +27,9 @@
     </button>
     {{/if}}
   </div>
-  {{#if hardcore.offered}}<p class="cc-hint cc-start__dice-hint">{{localize "CHARCREATOR.Random.Hint"}}</p>{{/if}}
+  {{#if hardcore.offered}}
+  <p class="cc-hint cc-start__dice-hint">
+    {{localize "CHARCREATOR.Random.Hint"}} {{hardcore.attemptsText}}
+  </p>
+  {{/if}}
 </div>

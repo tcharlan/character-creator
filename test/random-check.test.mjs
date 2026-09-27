@@ -24,7 +24,7 @@ const MESSAGE_ID = ID("msg");
 const USER = ID("user");
 
 const record = (over = {}) => ({
-  id: MESSAGE_ID, authorId: USER, public: true, flag: { draftId: ID("d"), purpose: "random" },
+  id: MESSAGE_ID, authorId: USER, public: true, flag: { draftId: ID("d"), purpose: "random", attempt: 1 },
   created: 1000, modified: 1000,
   rolls: ROLLS.map(r => ({ formula: `1d${r.faces}`, total: r.total,
     dice: [{ number: 1, faces: r.faces, results: [{ result: r.total, active: true }] }] })),
@@ -42,7 +42,7 @@ const replay = {
 function submitted(over = {}) {
   const draft = createDraft({ id: ID("d"), worldId: "w", rules: "legacy", now: 1 });
   draft.mode = "hardcore";
-  draft.random = { messageIds: [MESSAGE_ID], rolls: ROLLS.map(r => ({ ...r })) };
+  draft.random = { attempt: 1, messageIds: [MESSAGE_ID], rolls: ROLLS.map(r => ({ ...r })) };
   draft.picks = { species: U("species", "elf"), class: U("classes", "cleric"), background: U("backgrounds", "acolyte") };
   draft.abilities = { method: "rolled", base: { str: 15, dex: 14, con: 13, int: 12, wis: 10, cha: 8 },
     roll: { messageId: ID("abil"), results: [15, 14, 13, 12, 10, 8] } };
@@ -116,7 +116,7 @@ test("rolls posted later, in another message, still count for the decision they 
   // doesn't ask for: each roll is taken by what it was for, not by its place in the line.
   const draft = submitted();
   const [species, klass, background, alignment] = ROLLS;
-  draft.random = { messageIds: [MESSAGE_ID, ID("later")],
+  draft.random = { attempt: 1, messageIds: [MESSAGE_ID, ID("later")],
     rolls: [alignment, background, species, klass].map(r => ({ ...r })) };
   const dice = rolls => rolls.map(r => ({ formula: `1d${r.faces}`, total: r.total,
     dice: [{ number: 1, faces: r.faces, results: [{ result: r.total, active: true }] }] }));
@@ -126,7 +126,8 @@ test("rolls posted later, in another message, still count for the decision they 
 
   // A die of the wrong size for that decision is still caught.
   const wrong = submitted();
-  wrong.random = { messageIds: [MESSAGE_ID], rolls: ROLLS.map(r => (r.key === "species" ? { ...r, faces: 3 } : { ...r })) };
+  wrong.random = { attempt: 1, messageIds: [MESSAGE_ID],
+    rolls: ROLLS.map(r => (r.key === "species" ? { ...r, faces: 3 } : { ...r })) };
   const [error] = await check(wrong, { records: [record({ rolls: dice(wrong.random.rolls) })] });
   assert.equal(error.detail.message, "wrongDie");
   assert.equal(error.detail.key, "species");
@@ -148,4 +149,32 @@ test("only one die per roll is accepted in the message", () => {
   assert.deepEqual(messageRolls(record()).length, 4);
   assert.equal(messageRolls({ rolls: [{ total: 7, dice: [{ number: 2, faces: 6, results: [] }] }] }), null);
   assert.equal(messageRolls({ rolls: [{ total: 7, dice: [] }] }), null);
+});
+
+test("a reroll is allowed only as often as the GM says, and only the last one counts (D31)", async () => {
+  // Two goes on record. The character came from the second, so the first is set aside — but it is counted.
+  const dice = rolls => rolls.map(r => ({ formula: `1d${r.faces}`, total: r.total,
+    dice: [{ number: 1, faces: r.faces, results: [{ result: r.total, active: true }] }] }));
+  const second = ID("second");
+  const draft = submitted();
+  draft.random = { attempt: 2, messageIds: [second], rolls: ROLLS.map(r => ({ ...r })) };
+  const records = [record({ id: ID("first"), rolls: dice([{ key: "species", faces: 2, total: 1 }]),
+    flag: { draftId: ID("d"), purpose: "random", attempt: 1 } }),
+  record({ id: second, flag: { draftId: ID("d"), purpose: "random", attempt: 2 } })];
+
+  assert.deepEqual(await check(draft, { records, attempts: 2 }), [], "two goes, two allowed");
+  assert.deepEqual(await check(draft, { records, attempts: 0 }), [], "0 is the GM's no limit");
+
+  const [tooMany] = await check(draft, { records, attempts: 1 });
+  assert.equal(tooMany.code, "RANDOM_ATTEMPTS");
+  assert.equal(tooMany.detail.message, "tooManyAttempts");
+  assert.deepEqual([tooMany.detail.used, tooMany.detail.allowed], [2, 1]);
+
+  // Rolled again, then the earlier character submitted: the best of the two, which is not the deal.
+  const kept = submitted();
+  kept.random = { attempt: 1, messageIds: [MESSAGE_ID], rolls: ROLLS.map(r => ({ ...r })) };
+  const [stale] = await check(kept, { records: [record(),
+    record({ id: second, flag: { draftId: ID("d"), purpose: "random", attempt: 2 } })], attempts: 2 });
+  assert.equal(stale.code, "RANDOM_ATTEMPTS");
+  assert.equal(stale.detail.message, "staleAttempt");
 });

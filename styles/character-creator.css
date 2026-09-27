@@ -1115,3 +1115,21 @@ li.notification button.cc-entry-prompt {
 /* An option whose compendium the GM turned off: shown, so it can be seen, but not something to tick. */
 .cc-entry-row--off { opacity: 0.55; }
 .cc-entry-row--off .cc-entry { border-style: dashed; }
+
+/* Rolls per character (D31): the GM's slider, and what the player is told about their goes. */
+.cc-attempts {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 10px 12px;
+  background: var(--cc-panel);
+  border: 1px solid var(--cc-line-soft);
+  border-radius: var(--cc-radius);
+}
+.cc-attempts__label { flex: 0 0 auto; }
+.cc-attempts__range { flex: 1 1 auto; min-width: 120px; accent-color: var(--cc-gold); }
+.cc-attempts__value { flex: 0 0 auto; min-width: 12ch; color: var(--cc-gold); font-size: 13px; text-align: right; }
+.cc-attempts__hint { margin-top: 6px; }
+.cc-attempts-note { margin-top: 4px; }
+.cc-rolled--attempts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

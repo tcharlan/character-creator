@@ -9,7 +9,7 @@
 export const MODULE_ID = "character-creator";
 
 /** Bump when the draft shape changes, and add a migration below. */
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 /** Where the draft lives: `user.flags[MODULE_ID][DRAFT_FLAG]` (players may write their own flags). */
 export const DRAFT_FLAG = "draft";
@@ -40,6 +40,9 @@ export const DRAFT_MODES = Object.freeze(["normal", "hardcore"]);
  */
 export const RANDOM_PARTS = Object.freeze(["species", "class", "background", "abilities", "choices", "equipment",
   "details"]);
+
+/** The most rolls of a character a GM can hand out (D31); 0 in the setting means as many as the player likes. */
+export const MAX_ATTEMPTS = 10;
 export const ABILITIES = Object.freeze(["str", "dex", "con", "int", "wis", "cha"]);
 export const ABILITY_METHODS = Object.freeze(["pointBuy", "standardArray", "rolled"]);
 export const EQUIPMENT_MODES = Object.freeze(["items", "wealth"]);
@@ -68,7 +71,7 @@ export const LIMITS = Object.freeze({
 /** Every error code, the step the player revisits for it, and its message key in lang/en.json. */
 const CODES_BY_STEP = {
   start: ["BAD_REQUEST", "SCHEMA_TOO_NEW", "WORLD_MISMATCH", "RULES_MISMATCH", "GM_OFFLINE", "NOT_ACTIVE_GM",
-    "CHARACTER_LIMIT", "ALREADY_SUBMITTED", "RANDOM_INVALID"],
+    "CHARACTER_LIMIT", "ALREADY_SUBMITTED", "RANDOM_INVALID", "RANDOM_ATTEMPTS"],
   species: ["SPECIES_MISSING", "SPECIES_NOT_ALLOWED"],
   class: ["CLASS_MISSING", "CLASS_NOT_ALLOWED"],
   background: ["BACKGROUND_MISSING", "BACKGROUND_NOT_ALLOWED"],
@@ -132,9 +135,10 @@ export function createDraft({ id, worldId, rules, now = Date.now() }) {
     step: "start",
     updatedAt: now,
     mode: "normal",
-    // Set when the dice made this character (D31): the chat messages the rolls were posted in, and every
-    // roll in the order it was made. A choice the player was left (their class, say) can open decisions the
-    // first handful of dice never saw, so more are rolled and posted as they appear.
+    // Set when the dice made this character (D31): which attempt made it (1-based, so the GM can hold a
+    // player to the rolls they are allowed), the chat messages the rolls were posted in, and every roll in the
+    // order it was made. A choice the player was left (their class, say) can open decisions the first handful
+    // of dice never saw, so more are rolled and posted as they appear.
     random: null,
     picks: { species: null, background: null, class: null },
     abilities: { method: null, base: null, roll: null },
@@ -254,7 +258,8 @@ export function checkDraftShape(draft) {
   c.oneOf("draft.step", d.step, STEPS);
   c.int("draft.updatedAt", d.updatedAt, 0, Number.MAX_SAFE_INTEGER);
   c.oneOf("draft.mode", d.mode, DRAFT_MODES);
-  if ( d.random !== null && c.object("draft.random", d.random, ["messageIds", "rolls"]) ) {
+  if ( d.random !== null && c.object("draft.random", d.random, ["attempt", "messageIds", "rolls"]) ) {
+    c.int("draft.random.attempt", d.random.attempt, 1, MAX_ATTEMPTS);
     c.list("draft.random.messageIds", d.random.messageIds,
       (path, v) => c.test(path, v, isId, "a message id"), { max: LIMITS.maxListLength });
     c.list("draft.random.rolls", d.random.rolls, (path, v) => {
@@ -355,6 +360,10 @@ export const MIGRATIONS = Object.freeze({
   // 2 → 3: the rolls can come in more than one message, as later choices open more of them.
   2: draft => ({ ...draft, random: draft.random
     ? { messageIds: draft.random.messageIds ?? [draft.random.messageId].filter(Boolean), rolls: draft.random.rolls }
+    : null }),
+  // 3 → 4: a rolled character says which attempt it came from (D31 rerolls); what is already rolled is the first.
+  3: draft => ({ ...draft, random: draft.random
+    ? { attempt: draft.random.attempt ?? 1, messageIds: draft.random.messageIds, rolls: draft.random.rolls }
     : null })
 });
 

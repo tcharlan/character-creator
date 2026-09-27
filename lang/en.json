@@ -63,7 +63,8 @@
       "NOT_OWNER": "You can only change the portrait of your own character.",
       "UPLOAD_FAILED": "The portrait couldn't be saved. Your character is fine; try uploading it again later.",
       "DETAIL_INVALID": "Check the age, height, weight and colouring: numbers where numbers belong (as large as you like, but not negative), words where words do.",
-      "RANDOM_INVALID": "This character does not match the dice that made it. Discard it and roll again."
+      "RANDOM_INVALID": "This character does not match the dice that made it. Discard it and roll again.",
+      "RANDOM_ATTEMPTS": "This character was rolled more times than the GM allows."
     },
     "AbilityRoll": {
       "Flavor": "Ability scores for a new character (4d6, drop the lowest, six times)"
@@ -491,7 +492,12 @@
       "PackOff": "Its compendium is turned off",
       "RowTooltip": "{name} — {pack}",
       "RowTooltipOff": "{name} — {pack} (turned off on the Compendiums tab)",
-      "HardcoreParts": "What the dice decide. Switch one off to let the player choose it themselves."
+      "HardcoreParts": "What the dice decide. Switch one off to let the player choose it themselves.",
+      "Attempts": "Rolls per character",
+      "AttemptsHint": "How many goes a player gets at a rolled character. A rolled character can't be discarded, so this is the whole of it: drag to the left end to let them roll as often as they like.",
+      "AttemptsUnlimited": "No limit",
+      "AttemptsFinal": "1 roll — the dice are final",
+      "AttemptsMany": "{count} rolls ({rerolls} rerolls)"
     },
     "Pending": {
       "Title": "Pending characters",
@@ -548,7 +554,20 @@
       "Rolled": "The dice chose this.",
       "Rolling": "Rolling…",
       "FlavorMore": "Random character: what that choice opened",
-      "ToppedUp": "Your choice opened {count} more to roll. The dice have settled them."
+      "ToppedUp": "Your choice opened {count} more to roll. The dice have settled them.",
+      "FlavorAgain": "Random character: rolled again",
+      "Reroll": "Roll again",
+      "RerollLeft": "Roll again ({count} left)",
+      "RerollTitle": "Roll this character again?",
+      "RerollBody": "Everything the dice decided is rolled again, and this character is gone. This is go {attempt} of {of}.",
+      "RerollBodyUnlimited": "Everything the dice decided is rolled again, and this character is gone.",
+      "RerollConfirm": "Roll again",
+      "AttemptsUnlimited": "You can roll again as often as you like.",
+      "AttemptsOnly": "One roll: what the dice give you is your character.",
+      "AttemptsOffered": "You get {count} rolls.",
+      "AttemptsLeft": "You have {count} rolls remaining.",
+      "AttemptsNone": "No rolls remaining: this is your character.",
+      "NoDiscard": "A rolled character can't be discarded."
     }
   }
 }

@@ -60,6 +60,15 @@
         · {{localize "CHARCREATOR.Review.Level"}} {{review.summary.level}} · {{review.summary.background}}
         {{/if}}
       </p>
+      {{!-- The dice made this one (D31): how many goes are left, and the way to take another. --}}
+      {{#if hardcore.rolled}}
+      <p class="cc-rolled cc-rolled--attempts">
+        <i class="fa-solid fa-dice-d20" inert></i>{{hardcore.attemptsText}}
+        {{#if hardcore.canReroll}}
+        <button type="button" class="cc-link" data-action="reroll" {{#if busy}}disabled{{/if}}>{{hardcore.rerollLabel}}</button>
+        {{/if}}
+      </p>
+      {{/if}}
     </header>
 
     {{#if review.summary}}

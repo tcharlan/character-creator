@@ -10,6 +10,7 @@
     <h1 class="cc-pane__title">{{stepTitle}}</h1>
     <p class="cc-pane__hint">{{stepHint}}</p>
     {{#if hardcore.locked}}<p class="cc-rolled"><i class="fa-solid fa-dice-d20" inert></i>{{localize "CHARCREATOR.Random.Rolled"}}</p>{{/if}}
+    {{#if hardcore.rolled}}<p class="cc-hint cc-attempts-note">{{hardcore.attemptsText}}</p>{{/if}}
   </header>
   {{/unless}}
 

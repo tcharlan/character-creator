@@ -11,7 +11,7 @@
  */
 
 import { normalizeUuid } from "../catalog/filters.mjs";
-import { applyPick, answerStep } from "../wizard/picks.mjs";
+import { applyPick, answerStep, clearStep } from "../wizard/picks.mjs";
 import { answerData } from "../wizard/choices-step.mjs";
 import { sourceModel, setMode, chooseBranch, setPick, EQUIPMENT_SOURCES } from "../wizard/equipment-step.mjs";
 import { setDetail, PERSONALITY } from "../wizard/details-step.mjs";
@@ -31,6 +31,17 @@ const STRUCTURAL = Object.freeze(["ItemChoice", "ItemGrant", "Subclass"]);
 
 /** Advancement types the loop can answer. Anything else is left for the player (the wizard flags it). */
 const ANSWERABLE = Object.freeze(["Trait", "ItemChoice", "ItemGrant", "AbilityScoreImprovement", "Size", "Subclass"]);
+
+/**
+ * An answer can stop fitting after something else is applied: the dice take Nature for a class's skills, and a
+ * feature granted later grants Nature as well, which leaves the answer pointing at something no longer on offer.
+ * A player would change it; in hardcore mode the step is closed to them, so the dice have to. These are the
+ * complaints worth rolling again for — the answer is wrong, not the content.
+ */
+const REDOABLE = Object.freeze(["NOT_ALLOWED", "NOT_OFFERED", "TOO_MANY_PICKS", "UNFULFILLED"]);
+
+/** How many times one decision may be rolled again before it is left alone (so the loop always ends). */
+const REDO_LIMIT = 3;
 
 const byUuid = list => [...list].sort((a, b) => String(a).localeCompare(String(b)));
 
@@ -138,6 +149,12 @@ export function openChoices(build) {
   return (build?.results ?? []).filter(r => (r.status === "needsInput") && ANSWERABLE.includes(r.type));
 }
 
+/** Answered choices whose answer no longer fits, and which rolling again would settle. */
+export function staleChoices(build) {
+  return (build?.results ?? []).filter(r => (r.status === "invalid") && ANSWERABLE.includes(r.type)
+    && (r.errors ?? []).some(e => REDOABLE.includes(e.code)));
+}
+
 /**
  * One source's equipment: the gear it offers (never the gold instead), then each either/or and each
  * "any simple weapon" slot.
@@ -224,9 +241,23 @@ export async function rollCharacter({ draft, catalog, free = [], roll, rebuild, 
   // all answered from one replay. Equipment and the details change nothing that is replayed at all.
   let build = await rebuild(draft);
   if ( rolls("choices") ) {
+    const tries = new Map();
+    // A decision whose answer stopped fitting and which hasn't used up its goes yet.
+    const redoable = b => staleChoices(b).filter(r => (tries.get(r.key) ?? 0) < REDO_LIMIT);
     for ( let guard = 0; guard < maxDecisions; guard++ ) {
       let answered = false;
       let structural = false;
+      // First, anything the character has outgrown: drop the answer and let the round below roll it again, from
+      // what is on offer now. Each one is given a few goes and then left, so this can't loop for ever.
+      const stale = redoable(build);
+      if ( stale.length ) {
+        for ( const result of stale ) {
+          tries.set(result.key, (tries.get(result.key) ?? 0) + 1);
+          clearStep(draft, result);
+        }
+        build = await rebuild(draft);
+        continue;
+      }
       for ( const result of openChoices(build) ) {
         if ( !await rollChoice(draft, result, { roll }) ) continue;
         answered = true;
@@ -237,7 +268,8 @@ export async function rollCharacter({ draft, catalog, free = [], roll, rebuild, 
       }
       if ( !answered ) break;
       build = await rebuild(draft);
-      if ( !structural && !openChoices(build).length ) break;
+      // Round again while anything is open — or while an answer has stopped fitting and can be rolled again.
+      if ( !structural && !openChoices(build).length && !redoable(build).length ) break;
     }
   }
   if ( rolls("equipment") ) {
