@@ -10,8 +10,8 @@ import { DraftStore } from "../draft/store.mjs";
 import { isEditable } from "../draft/state.mjs";
 import { getCatalog, itemName } from "../catalog/catalog.mjs";
 import { NO_RESTRICTIONS } from "../catalog/filters.mjs";
-import { checkBuilt } from "../rules/validate.mjs";
-import { buildCharacter } from "../rules/build.mjs";
+import { checkBuilt, levelOptions } from "../rules/validate.mjs";
+import { buildCharacter, buildInput } from "../rules/build.mjs";
 import { readSettings, SETTINGS } from "../settings/settings.mjs";
 import { bannerSteps, canOpen, moveStep, groupErrors, attention, BANNER_STEPS } from "./steps-model.mjs";
 import { applyPick, answerStep, syncRecipe } from "./picks.mjs";
@@ -21,7 +21,7 @@ import { choicesModel, answerData, nextOpenChoice, withAnswer } from "./choices-
 import { sourceModel, setMode, chooseBranch, setPick, setWealth, EQUIPMENT_SOURCES } from "./equipment-step.mjs";
 import { equipmentContext, rollStartingWealth } from "../rules/equipment-items.mjs";
 import { spellsModel, toggleSpell } from "./spells-step.mjs";
-import { spellContext } from "../rules/spell-facts.mjs";
+import { spellContext, classRoots, takenByOthers } from "../rules/spell-facts.mjs";
 import { traitReference, summaryCached, summariesReady, loadSummaries, spellMeta } from "./descriptions.mjs";
 import { detailsModel, setDetail, setHeightPart, setAmount, alignmentOptions, PERSONALITY } from "./details-step.mjs";
 import { portraitModel, setImage, clearImage, skipPortrait, setRingColor } from "./portrait-step.mjs";
@@ -33,12 +33,17 @@ import { givablePlayers, giveAndTell, giveDialog } from "../gm/assign.mjs";
 import { allowance } from "../ui/entry.mjs";
 import { arrowKeys } from "../ui/keyboard.mjs";
 import { rollAbilityScores } from "../rules/ability-roll.mjs";
-import { rollCharacter, openChoices, staleChoices } from "../rules/random.mjs";
+import { rollCharacter, openChoices, staleChoices, openStage, playerOwned, blockedAt, stageKind } from "../rules/random.mjs";
+import { stageConfig } from "../rules/random-stages.mjs";
+import { incrementalBuilder } from "../rules/rebuild-cache.mjs";
 import { clearRolled } from "../rules/random-check.mjs";
 import { ROLLED_DETAILS } from "../rules/random.mjs";
 import { postMadeRolls } from "../rules/roll-messages.mjs";
 import { ROLL_PURPOSE } from "../rules/roll-record.mjs";
 import { DISPLAY_MODES, displayButton, fullscreenPosition, readDisplay, windowPosition } from "./display.mjs";
+import { levelsModel, setMulticlass, shiftSplit, sameSplit } from "./levels-step.mjs";
+import { meetsPrerequisite, prerequisiteFor } from "../rules/multiclass.mjs";
+import { slotsToRoll, rollHitPoints } from "../rules/hit-points.mjs";
 import { splashFor } from "./splash.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
@@ -99,6 +104,28 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   #openChoice = null;
   #equipment = null;
   #spellTab = null;
+
+  /**
+   * The wizard's builder (D38): it replays the character from the first level a change reaches, keeping a copy of
+   * the character at every level, and hands the browser back control as it goes. A new one is made when what it
+   * builds with changes (the catalog, the GM's hit point method).
+   */
+  #builder(hitPointMethod) {
+    const key = this.#builds;
+    if ( (key?.catalog !== this.#catalog) || (key?.hitPointMethod !== hitPointMethod) ) {
+      this.#builds = { catalog: this.#catalog, hitPointMethod, build: incrementalBuilder({ catalog: this.#catalog,
+        fill: true, withOptions: true, hitPointMethod, slice: true }) };
+    }
+    return this.#builds.build;
+  }
+
+  #builds = null;
+
+  /** The level split on the class step, while the player is still working it out (not yet in the draft). */
+  #split = null;
+
+  /** Which casting class the Spells step shows (`class` or `multiclass:<identifier>`). */
+  #spellClass = "class";
   #tables = null;
   #submitting = false;
   #brokeDown = false;
@@ -140,6 +167,9 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       "roll-character": onRollCharacter,
       pick: onPick,
       subclass: onSubclass,
+      "class-level": onClassLevel,
+      "class-confirm": onClassConfirm,
+      "your-turn": onYourTurn,
       method: onMethod,
       raise: onRaise,
       lower: onLower,
@@ -151,10 +181,13 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       "choice-ability": onChoiceAbility,
       "asi-raise": onAsiRaise,
       "asi-lower": onAsiLower,
+      "asi-mode": onAsiMode,
+      "asi-feat": onAsiFeat,
       "equip-mode": onEquipMode,
       "equip-branch": onEquipBranch,
       "equip-roll": onEquipRoll,
       "spell-tab": onSpellTab,
+      "spell-class": onSpellClass,
       spell: onSpell,
       "detail-roll": onDetailRoll,
       "portrait-clear": onPortraitClear,
@@ -306,13 +339,21 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   /** Go to a step (if its picks are in place). */
   async goTo(step) {
     if ( (step !== "start") && !canOpen(step, this.draft) ) return;
+    // A split worked out but not confirmed counts as confirmed when the player moves on (except at a hardcore
+    // stage, which only the player's own confirmation answers).
+    if ( (this.#current === "class") && (step !== "class") && this.#split && !this.draft.random?.stages?.multiclass ) {
+      const split = this.#split;
+      this.#split = null;
+      await this.update(d => setMulticlass(d, split, this.#catalog), { rebuild: false });
+    }
     if ( !this.#visited.includes(this.#current) ) this.#visited.push(this.#current);
     // Arriving at the choices step, open the first one that still needs an answer.
     if ( (step === "choices") && (this.#current !== "choices") ) this.#openChoice = null;
     const held = this.#deferred;
     this.#current = step;
+    // The new step shows straight away, from the character as it was; the replay catches up behind it.
     if ( this.draft ) await this.update(() => null, { rebuild: !held });
-    else this.render({ parts: ["banner", "body", "footer"] });
+    await this.render({ parts: ["banner", "body", "footer"] });
     // The step we just left held its changes back: replay the character now.
     if ( held ) await this.settle();
   }
@@ -322,16 +363,57 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
    * moves on to the next step once they are all done.
    */
   async next() {
+    // An answer held back on this step can open more choices (a feat's own, or — in a rolled character — the
+    // dice's next shortlist), so the character is replayed first and Next goes to whatever is open then, rather
+    // than on to the next step with choices still to make.
+    // Likewise a replay still to come, or dice a rolled character still owes: those can open choices too. Next
+    // waits for them here, on this step, so the player is never sent on and then pulled back.
+    if ( (this.#current === "choices") && (this.#deferred || this.#timer || this.#pendingRolled()) ) {
+      this.#busy = true;
+      await this.render({ parts: ["footer"] });
+      await this.settle();
+    }
     const choice = this.#nextChoice();
     if ( choice ) return this.openChoice(choice);
+    // A rolled character with no choice of the player's left: the steps after this are the dice's, so straight to
+    // Review rather than through them (D31).
+    if ( (this.#current === "choices") && (this.draft.mode === "hardcore") && !openStage(this.draft, this.#build) ) {
+      return this.goTo("review");
+    }
     const step = moveStep(this.#current, 1, this.draft);
     if ( step ) await this.goTo(step);
+  }
+
+  /**
+   * Decisions the player still has to make, by step, for the banner: open choices of theirs (in a rolled
+   * character only the stages and what a feat brings, D36/D39), and a level split waiting to be confirmed or
+   * a multiclass stage to answer (D35).
+   */
+  #decisionsLeft() {
+    const left = {};
+    if ( this.#build ) {
+      const open = choicesModel(this.#build, this.#catalog, this.#openChoice, { mine: this.#mine() }).counts.open;
+      if ( open ) left.choices = open;
+    }
+    const stage = this.draft?.random?.stages?.multiclass;
+    if ( (stage && !stage.answered) || this.#split ) left.class = 1;
+    return left;
   }
 
   /** The next choice to walk to from here, or null (also used for the Next button's label). */
   #nextChoice() {
     if ( (this.#current !== "choices") || !this.#build ) return null;
-    return nextOpenChoice(choicesModel(this.#build, this.#catalog, this.#openChoice), this.#openChoice);
+    return nextOpenChoice(choicesModel(this.#build, this.#catalog, this.#openChoice, { mine: this.#mine() }), this.#openChoice);
+  }
+
+  /**
+   * In a rolled character, which open choices are the player's (a stage, a feat's own choices, D35/D36/D39);
+   * null when every choice is.
+   */
+  #mine() {
+    if ( !this.#locked("choices") ) return null;
+    const stages = this.draft.random?.stages ?? {};
+    return result => playerOwned(result, stages);
   }
 
   /**
@@ -345,8 +427,73 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     this.#auto.delete(role);
     // Show the choice at once (the details come from the compendium, not the rebuild), then rebuild in the
     // background: replaying a class's advancements takes a moment the first time dnd5e loads its lists.
-    await this.update(d => applyPick(d, role, uuid));
+    if ( role === "class" ) this.#split = null;
+    await this.update(d => {
+      applyPick(d, role, uuid);
+      // A new first class can't also be one of the others (D37).
+      if ( role === "class" ) setMulticlass(d, d.multiclass, this.#catalog);
+    });
     await this.render({ parts: ["banner", "body", "footer"] });
+  }
+
+  /**
+   * Confirm the level split (D35, D37): it goes into the draft and the character is replayed — once, rather than
+   * on every + and −. At the hardcore multiclass stage this is the player's answer, and the dice carry on.
+   */
+  async confirmClasses() {
+    const stage = this.draft.random?.stages?.multiclass;
+    const atStage = stage && !stage.answered;
+    if ( this.#locked("class") && !atStage ) return;
+    const split = this.#split ?? this.draft.multiclass ?? [];
+    this.#split = null;
+    const firstMinimum = readSettings().levels.firstClassLevels;
+    await this.update(d => {
+      setMulticlass(d, split, this.#catalog, { firstMinimum });
+      if ( atStage ) d.random.stages.multiclass = { ...d.random.stages.multiclass, answered: true };
+    }, { wait: true });
+    await this.render({ parts: ["banner", "body", "footer"] });
+    await this.settle();
+  }
+
+  /** The hardcore multiclass stage's answer (D35): the split as it stands. */
+  finishClassStage() {
+    return this.confirmClasses();
+  }
+
+  /**
+   * A stage's choice with its options narrowed to the shortlist (D36, D39), for the widget and the answer check;
+   * any other result as it is.
+   */
+  #stageResult(result) {
+    const stage = result && this.draft?.random?.stages?.[result.key];
+    if ( !stage?.options || !result.options ) return result;
+    const on = new Set(stage.options);
+    if ( stage.kind === "subclass" ) return { ...result, options: { ...result.options, options: result.options.options.filter(u => on.has(u)) } };
+    if ( stage.kind === "feat" ) return { ...result, options: { ...result.options, feats: result.options.feats.filter(u => on.has(u)) } };
+    return result;
+  }
+
+  /**
+   * Change how the levels are split between classes (D35, D37): add a class, drop one, or move a level between
+   * a class and the first.
+   * @param {"add"|"remove"|"up"|"down"} change
+   * @param {string} uuid
+   */
+  async changeClasses(change, uuid) {
+    const stage = this.draft.random?.stages?.multiclass;
+    const atStage = stage && !stage.answered;
+    if ( (this.#locked("class") && !atStage) || !uuid ) return;
+    const raising = (change === "up") || (change === "add");
+    if ( raising && !readSettings().levels.multiclass && !atStage ) return;
+    // At the stage, only the classes the dice offered (D35).
+    if ( atStage && raising && !stage.options.includes(uuid) ) return;
+    // On screen only: the character is replayed when the split is confirmed.
+    let split = this.#split ?? foundry.utils.deepClone(this.draft.multiclass ?? []);
+    const firstMinimum = readSettings().levels.firstClassLevels;
+    if ( change === "remove" ) split = split.filter(m => m.uuid !== uuid);
+    else split = shiftSplit(split, uuid, raising ? 1 : -1, this.draft.level, { firstMinimum });
+    this.#split = sameSplit(split, this.draft.multiclass ?? []) ? null : split;
+    await this.render({ parts: ["body", "footer"] });
   }
 
   /** Choose a subclass the class grants at level 1. */
@@ -407,9 +554,14 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       T("Random.RerollConfirm"));
     if ( !confirmed ) return;
     // A fresh go at everything the dice decide, the scores included; what is the player's own is kept.
-    const working = clearRolled(this.draft, free, { abilities: true });
+    // Without the last go's shortlists, so the picks made from them go too.
+    const working = clearRolled({ ...this.draft, random: null }, free, { abilities: true });
     working.mode = "hardcore";
     working.random = null;
+    // The level split came from the last go's shortlist, and the hit dice were part of it (D33, D35).
+    working.multiclass = [];
+    working.multiclassSpells = {};
+    working.hitPoints = { rolls: {} };
     this.#toppedUpAt = null;
     await this.#roll(working, free, { first: true, attempt: next });
   }
@@ -466,20 +618,28 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
         rolled.push({ key, faces, total: die.total });
         return die.total;
       };
+      const stagesBefore = JSON.stringify(working.random?.stages ?? {});
+      // A round's rebuild replays from the level it changed, not the whole character (D38).
+      const rebuildFrom = incrementalBuilder({ catalog: this.#catalog, fill: true, withOptions: true,
+        hitPointMethod: readSettings().levels.hitPointMethod });
       await rollCharacter({
         draft: working,
         catalog: this.#catalog,
         free,
         roll,
-        rebuild: async draft => {
-          build = await buildCharacter({ picks: draft.picks, base: draft.abilities.base, steps: draft.recipe.steps },
-            { catalog: this.#catalog, fill: true, withOptions: true });
+        stages: stageConfig(readSettings(), this.#catalog),
+        rebuild: async (draft, { reference = false } = {}) => {
+          if ( reference ) {
+            return buildCharacter(buildInput(draft), { catalog: this.#catalog, fill: true, withOptions: true,
+              hitPointMethod: readSettings().levels.hitPointMethod });
+          }
+          build = await rebuildFrom(buildInput(draft));
           lastBuild = build;
           return build;
         },
-        equipmentContext: async role => {
-          const item = build?.actor?.items?.get(build.roots?.[role]);
-          return item ? equipmentContext(build.actor, item, this.#catalog, { standard: this.#standard }) : null;
+        equipmentContext: async (role, from = build) => {
+          const item = from?.actor?.items?.get(from.roots?.[role]);
+          return item ? equipmentContext(from.actor, item, this.#catalog, { standard: this.#standard }) : null;
         },
         abilities: async () => {
           // Only ever once: a later top-up leaves the scores that were rolled at the start.
@@ -491,33 +651,52 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
           working.abilities.base = Object.fromEntries(ABILITIES.map((key, i) => [key, results[i] ?? null]));
         },
         alignments: alignmentOptions(),
-        tables: field => this.#personalityEntries(field)
+        // The background the dice just picked (the loop's own replay, not the screen's last one), and only a
+        // 2014 one: the 2014 tables sit in a 2024 world's packs too (D31).
+        tables: field => (working.rules === "legacy" ? this.#personalityEntries(field, build) : [])
       });
-      if ( !made.length ) return false;
-      const messageId = await postMadeRolls({ draftId: working.id, purpose: ROLL_PURPOSE.RANDOM, rolls: made,
-        attempt, flavor: T(first ? (attempt > 1 ? "Random.FlavorAgain" : "Random.Flavor") : "Random.FlavorMore") });
-      // A fresh go starts the record over; a top-up adds to the go it belongs to.
-      const before = first ? null : working.random;
-      working.random = { attempt, messageIds: [...(before?.messageIds ?? []), messageId],
-        rolls: [...(before?.rolls ?? []), ...rolled] };
+      // A stage with every option on offer takes no dice, but it is still news for the draft (D39).
+      const stagesChanged = JSON.stringify(working.random?.stages ?? {}) !== stagesBefore;
+      if ( !made.length && !stagesChanged ) return false;
+      const messageId = made.length ? await postMadeRolls({ draftId: working.id, purpose: ROLL_PURPOSE.RANDOM, rolls: made,
+        attempt, flavor: T(first ? (attempt > 1 ? "Random.FlavorAgain" : "Random.Flavor") : "Random.FlavorMore") }) : null;
+      // A fresh go starts the record over; a top-up adds to the go it belongs to. The shortlists stay with the go.
+      const before = first ? null : this.draft.random;
+      working.random = { attempt, messageIds: [...(before?.messageIds ?? []), ...(messageId ? [messageId] : [])],
+        rolls: [...(before?.rolls ?? []), ...rolled], stages: working.random?.stages ?? {} };
       // The whole rolled character in one write (update() keeps the draft it is handed, not what it returns).
       if ( first ) {
         this.#current = "review";
         this.#visited = [];
       }
+      // A shortlist waiting on the player: take them to it (D35 on the class step, D36/D39 in the choices).
+      // The first roll lands on Review, so the player sees what the dice made before anything is asked of them;
+      // Review then points them to the first pick they have to make. Later rolls take them straight to it.
+      // On the step it belongs to, the pick opens by itself; from anywhere else the player is told where it is
+      // (below) rather than moved there under their feet.
+      const stage = openStage(working, lastBuild);
+      if ( stage && !first && (stage.kind !== "multiclass") && (this.#current === "choices") ) this.#openChoice = stage.key;
+      // The last pick made and the dice done with what came after it: nothing is left on these steps for the
+      // player, so they go to Review, which says what is still theirs (spells, a name).
+      if ( !stage && !first && ["choices", "class"].includes(this.#current)
+        && Object.keys(working.random?.stages ?? {}).length ) this.#current = "review";
       // Written at once rather than on the autosave's own time: the player is waiting on it.
       const saved = this.update(d => {
         if ( first ) Object.assign(d, working);
         // A top-up writes only what the dice touch. The player can have been typing a name while they fell,
         // and the whole draft going back a couple of seconds would take that with it.
         else {
-          for ( const key of ["picks", "recipe", "equipment", "abilities", "random"] ) d[key] = working[key];
+          for ( const key of ["picks", "recipe", "equipment", "abilities", "random", "multiclass"] ) d[key] = working[key];
           for ( const field of ROLLED_DETAILS ) d.details[field] = working.details[field];
         }
       }, { rebuild: false });
       await this.#store.flush();
       await saved;
-      if ( !first ) ui.notifications?.info(T("Random.ToppedUp", { count: rolled.length }));
+      // A pick the dice now wait on (D35, D36, D39): say so, and where, so the player isn't left wondering.
+      const waiting = openStage(working, lastBuild);
+      const where = waiting && (waiting.kind === "multiclass" ? "class" : "choices");
+      if ( !first && waiting && (where !== this.#current) ) ui.notifications?.info(T("Random.YourChoice", { step: T(`Step.${where}.Title`) }));
+      else if ( !first && rolled.length ) ui.notifications?.info(T("Random.ToppedUp", { count: rolled.length }));
     } catch ( err ) {
       console.error(`${MODULE_ID} | the random character couldn't be rolled`, err);
       ui.notifications?.error(T("Random.Failed"));
@@ -533,8 +712,8 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   /** A personality table's entries, in the order the table lists them (D31 rolls one of them). */
-  async #personalityEntries(field) {
-    const uuid = (await this.#personalityTables())[field];
+  async #personalityEntries(field, build = this.#build) {
+    const uuid = (await this.#personalityTables(build))[field];
     if ( !uuid ) return [];
     try {
       const table = await fromUuid(uuid);
@@ -574,11 +753,12 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
    * @param {{ action?: string, value?: string }} click
    */
   async answer(click) {
-    if ( this.#locked("choices") ) return;
     const model = choicesModel(this.#build, this.#catalog, this.#openChoice);
     const open = model.open;
     if ( !open ) return;
-    const result = this.#build.results.find(r => r.key === open.key);
+    const result = this.#stageResult(this.#build.results.find(r => r.key === open.key));
+    // In hardcore mode only a stage (and what a feat taken at one brings) is the player's (D35, D36, D39).
+    if ( this.#locked("choices") && !playerOwned(result, this.draft.random?.stages ?? {}) ) return;
     const data = answerData(result, click);
     if ( !data ) {
       // The click changes nothing (one pick too many, a granted trait). A checkbox has already ticked itself,
@@ -636,12 +816,20 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     await this.render({ parts: ["body"] });
   }
 
+  /** Show another casting class's spells (a multiclassed character chooses for each). */
+  async openSpellClass(root) {
+    this.#spellClass = root;
+    this.#spellTab = null;
+    await this.render({ parts: ["body"] });
+  }
+
   /** Choose or drop a spell in the open list. */
   async toggleSpell(kind, uuid) {
-    const context = spellContext(this.#build, this.#catalog);
+    const root = this.#spellClass;
+    const context = spellContext(this.#build, this.#catalog, root);
     let changed = false;
     await this.update(d => {
-      changed = !!toggleSpell(d, kind, uuid, context.req, context.owned);
+      changed = !!toggleSpell(d, kind, uuid, context.req, context.owned, root, takenByOthers(this.#build, d, root));
     }, { build: false });
     if ( changed ) await this.settleWith(this.#build);
   }
@@ -683,8 +871,8 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
    * The background's personality tables, by field. 2014 backgrounds have tables named like
    * "Personality Traits (Acolyte)" in the SRD; a background without them simply gets no roll buttons.
    */
-  async #personalityTables() {
-    const background = this.#build?.actor?.items?.get(this.#build.roots?.background);
+  async #personalityTables(build = this.#build) {
+    const background = build?.actor?.items?.get(build.roots?.background);
     const key = background?.name ?? null;
     if ( this.#tables?.for === key ) return this.#tables.tables;
     const tables = {};
@@ -851,7 +1039,13 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     const reuse = build ? null : this.#build;
     this.#timer = setTimeout(() => {
       this.#timer = null;
-      this.#rebuild({ reuse }).then(() => this.rendered && this.render({ parts: ["banner", "body", "footer"] }));
+      // While the player is typing in a field, a check that only re-reads the draft leaves the step itself alone
+      // (the banner and footer still show what it found): redrawing the field under their cursor is what made
+      // typing a name jump about.
+      const typing = !build && this.element?.contains(document.activeElement) && ("value" in document.activeElement)
+        && (document.activeElement.tagName !== "SELECT");
+      const parts = typing ? ["banner", "footer"] : ["banner", "body", "footer"];
+      this.#rebuild({ reuse }).then(() => this.rendered && this.render({ parts }));
     }, build ? REBUILD_DELAY : CHECK_DELAY);
   }
 
@@ -878,8 +1072,20 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       // stopped allowing — A6).
       // A replay the caller already has (the random character just made one): the draft has not changed
       // in any way that changes it, so it is used as it is.
-      this.#build = reuse ?? await buildCharacter({ picks: this.draft.picks, base: this.draft.abilities.base,
-        steps: this.draft.recipe.steps }, { catalog: this.#catalog, fill: true, withOptions: true });
+      const hitPointMethod = readSettings().levels.hitPointMethod;
+      this.#build = reuse ?? await this.#builder(hitPointMethod)(buildInput(this.draft));
+      // Rolled hit points (D33): the dice for any level that has none yet are rolled now, without asking, and
+      // posted to chat; the character is replayed once more with them.
+      if ( !reuse && (hitPointMethod === "rolled") && isEditable(this.draft) ) {
+        const needs = slotsToRoll(this.#build);
+        if ( needs.length ) {
+          const rolled = await rollHitPoints(this.draft, needs);
+          if ( Object.keys(rolled).length ) {
+            await this.update(d => d.hitPoints = { rolls: { ...(d.hitPoints?.rolls ?? {}), ...rolled } }, { rebuild: false });
+            this.#build = await this.#builder(hitPointMethod)(buildInput(this.draft));
+          }
+        }
+      }
       // Once the draft is submitted or created it belongs to the GM's side: read it, never write it.
       if ( isEditable(this.draft) ) {
         const next = syncRecipe(this.draft.recipe.steps, this.#build);
@@ -889,8 +1095,9 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       }
       this.#brokeDown = false;
       this.#bonuses = abilityBonuses(this.#build, this.draft.abilities.base);
+      const settings = readSettings();
       const { errors, equipment } = await checkBuilt(this.draft, this.#build, { catalog: this.#catalog,
-        standard: this.#standard, userId: game.user.id, allowedMethods: readSettings().abilityMethods });
+        standard: this.#standard, userId: game.user.id, allowedMethods: settings.abilityMethods, ...levelOptions(settings) });
       this.#validation = { ok: !errors.length, errors, built: this.#build, equipment };
       // The starting-equipment trees and proficiencies come from the replay: with the same replay they stand.
       if ( !reuse || !this.#equipment ) await this.#equipmentContexts();
@@ -910,7 +1117,9 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
     if ( !reuse && this.#pendingRolled() ) {
       // Once per state of the draft: a decision the dice can't settle (a slot with nothing allowed in it)
       // would otherwise have the loop run again on every rebuild.
-      const decided = JSON.stringify([this.draft.picks, this.draft.recipe.steps.length, this.draft.equipment]);
+      // The level split and a stage answered are news too (D35): the dice carry on from them.
+      const decided = JSON.stringify([this.draft.picks, this.draft.recipe.steps.length, this.draft.equipment,
+        this.draft.multiclass, Object.entries(this.draft.random?.stages ?? {}).map(([k, st]) => [k, !!st.answered])]);
       if ( decided !== this.#toppedUpAt ) {
         this.#toppedUpAt = decided;
         await this.#topUpRandom();
@@ -925,7 +1134,11 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   #pendingRolled() {
     if ( (this.draft?.mode !== "hardcore") || !this.#build ) return false;
     // Something still to answer, or an answer the character has outgrown: either way the dice owe a roll.
-    if ( this.#locked("choices") && (openChoices(this.#build).length || staleChoices(this.#build).length) ) return true;
+    const stages = this.draft.random?.stages ?? {};
+    const config = stageConfig(readSettings(), this.#catalog);
+    const owed = openChoices(this.#build).filter(r => !playerOwned(r, stages)
+      && ((r.at ?? 1) <= blockedAt(this.#build, stages)) && !(stageKind(r, config) && stages[r.key]));
+    if ( this.#locked("choices") && (owed.length || staleChoices(this.#build).some(r => !playerOwned(r, stages))) ) return true;
     if ( this.#locked("equipment") ) {
       for ( const role of EQUIPMENT_SOURCES ) {
         const ctx = this.#equipment?.[role];
@@ -1019,7 +1232,8 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       step: this.#current,
       stepTitle: T(`Step.${this.#current}.Title`),
       stepHint: T(`Step.${this.#current}.Hint`),
-      steps: bannerSteps({ current: this.#current, draft, errorsByStep, labels, visited: this.#visited }),
+      steps: bannerSteps({ current: this.#current, draft, errorsByStep, labels, visited: this.#visited,
+        left: this.#decisionsLeft() }),
       errors: errorsByStep[this.#current] ?? [],
       problems: Object.entries(errorsByStep).map(([step, errors]) => ({ step, title: T(`Step.${step}.Title`),
         errors: errors.map(e => ({ ...e, message: game.i18n.localize(e.key) })) })),
@@ -1035,7 +1249,10 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       ...(await this.#stepContext()),
       attention: state,
       backLabel: back ? T(`Step.${back}.Title`) : T("Nav.Start"),
-      nextLabel: choice ? T("Nav.NextChoice") : (next ? T("Nav.Next", { step: T(`Step.${next}.Title`) }) : T("Nav.Review")),
+      // With an answer held back, or dice still owed, the next choice isn't known yet: just "Continue".
+      nextLabel: choice ? T("Nav.NextChoice")
+        : ((this.#current === "choices") && (this.#deferred || this.#pendingRolled())) ? T("Nav.Continue")
+          : (next ? T("Nav.Next", { step: T(`Step.${next}.Title`) }) : T("Nav.Review")),
       canBack: !!back,
       canNext: !!next || !!choice
     });
@@ -1057,7 +1274,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       const limit = game.user.isGM ? null : readSettings().characterLimit;
       const made = createdFor(game.user.id).length;
       const model = reviewModel({ built: this.#build, validation: this.#validation, draft: this.draft, equipment,
-        busy: this.#submitting, another: (limit === null) || (made < limit) });
+        busy: this.#submitting, another: (limit === null) || (made < limit), goldPerLevel: readSettings().levels.goldPerLevel });
       // A GM chooses who the character is for, or keeps it (D29).
       const gm = game.user.isGM ? {
         players: givablePlayers().map(u => ({ id: u.id, name: u.name, selected: u.id === this.#assignTo })),
@@ -1066,7 +1283,12 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
         givenText: this.#givenTo ? T("Review.GivenTo", { name: this.#givenTo.name }) : null,
         canGive: !this.#givenTo && (givablePlayers().length > 0)
       } : null;
-      return { gm, review: { ...model,
+      // A rolled character waiting on a pick of the player's (D35, D36, D39): Review says what and where.
+      const waiting = (this.draft.mode === "hardcore") && isEditable(this.draft) ? openStage(this.draft, this.#build) : null;
+      const yourTurn = waiting ? { kind: waiting.kind, key: waiting.key,
+        step: waiting.kind === "multiclass" ? "class" : "choices",
+        text: T(`Review.YourTurn_${waiting.kind}`) } : null;
+      return { gm, yourTurn, review: { ...model,
         skillsText: model.summary?.skills.join(", ") || "—",
         featuresText: model.summary?.features.join(", ") || "—",
         equipmentText: [model.summary?.equipment.map(i => i.count ? `${i.name} ×${i.count}` : i.name).join(", "),
@@ -1085,16 +1307,45 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
         locked: this.#locked("details") ? ROLLED_DETAILS : [] }) };
     }
     if ( this.#current === "spells" ) {
-      const context = spellContext(this.#build, this.#catalog);
-      const model = spellsModel(context, this.draft, this.#spellTab, this.#catalog);
+      // Every class that casts, the first one first; the one shown is remembered while it's still there.
+      const casters = classRoots(this.#build).map(root => ({ root, ctx: spellContext(this.#build, this.#catalog, root) }))
+        .filter(c => c.ctx.req.caster);
+      if ( !casters.some(c => c.root === this.#spellClass) ) this.#spellClass = casters[0]?.root ?? "class";
+      const context = casters.find(c => c.root === this.#spellClass)?.ctx ?? spellContext(this.#build, this.#catalog);
+      const className = root => casters.find(c => c.root === root)?.ctx.facts.name ?? root;
+      const model = spellsModel(context, this.draft, this.#spellTab, this.#catalog, this.#spellClass,
+        { taken: takenByOthers(this.#build, this.draft, this.#spellClass), className });
+      // A multiclassed caster chooses for each class on its own: each class's tab says how far along it is, and
+      // the step says plainly which classes still have spells to choose.
+      const classes = casters.length > 1 ? casters.map(c => {
+        const m = spellsModel(c.ctx, this.draft, null, this.#catalog, c.root);
+        const chosen = m.tabs.reduce((n, t) => n + Math.min(t.chosen, t.needed), 0);
+        const needed = m.tabs.reduce((n, t) => n + t.needed, 0);
+        return { root: c.root, name: c.ctx.facts.name, open: c.root === this.#spellClass, complete: m.complete, chosen, needed };
+      }) : [];
+      const unfinished = classes.filter(c => !c.complete).map(c => c.name);
       this.#spellTab = model.open?.key ?? null;
       const open = model.open ? { ...model.open, list: this.#described(model.open.list.map(s => ({ ...s,
         meta: spellMeta(this.#catalog?.get?.(s.uuid)) })), s => s.uuid) } : null;
-      return { spells: { ...model, open, knownText: model.known.join(", "),
-        errors: (this.#validation?.errors ?? []).filter(e => e.step === "spells").map(e => e.key) } };
+      return { spells: { ...model, open, classes, className: context.facts?.name ?? "",
+        classesText: classes.map(c => c.name).join(", "), unfinishedText: unfinished.join(", "), knownText: model.known.join(", "),
+        // Each problem says which class it is about (a multiclassed caster has a set of lists per class).
+        errors: (this.#validation?.errors ?? []).filter(e => e.step === "spells").map(e => {
+          const root = e.detail?.class ?? (casters.length > 1 ? "class" : null);
+          return root ? `${className(root)}: ${game.i18n.localize(e.key)}` : game.i18n.localize(e.key);
+        }) } };
     }
     if ( this.#current === "choices" ) {
-      const choices = choicesModel(this.#build, this.#catalog, this.#openChoice);
+      const build = this.#build ? { ...this.#build, results: this.#build.results.map(r => this.#stageResult(r)) } : this.#build;
+      const choices = choicesModel(build, this.#catalog, this.#openChoice, { mine: this.#mine() });
+      const stage = choices.open && this.draft.random?.stages?.[choices.open.key];
+      if ( stage ) choices.open = { ...choices.open, stage: { kind: stage.kind } };
+      // In hardcore mode the step is the dice's, but a stage and what a feat taken at one brings are the player's
+      // (D35, D36, D39): the screen leaves those open to them.
+      if ( choices.open && (this.draft.mode === "hardcore") ) {
+        const result = this.#build?.results?.find(r => r.key === choices.open.key);
+        choices.open = { ...choices.open, own: !!result && playerOwned(result, this.draft.random?.stages ?? {}) };
+      }
       this.#openChoice = choices.open?.key ?? null;
       const widget = choices.open?.widget;
       if ( widget?.type === "Trait" ) {
@@ -1139,12 +1390,69 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
         subclass = { list: subclassOptions(this.#catalog, detail.identifier, chosen, art), chosen };
       }
     }
-    return { options, detail, subclass };
+    // Above level 1: the character's level and, where the GM allows it, the split between classes (D32, D35).
+    let levels = null;
+    if ( this.#current === "class" ) {
+      const rules = readSettings().levels;
+      // A hint only (the scores the character has now); the validator checks the scores when each class joins.
+      const scores = this.#build?.actor ? Object.fromEntries(Object.entries(this.#build.actor.system.abilities)
+        .map(([k, a]) => [k, a.value])) : null;
+      const qualifies = uuid => {
+        if ( !rules.prerequisites || !scores || !Number.isInteger(this.draft.abilities?.base?.str) ) return null;
+        const e = this.#catalog?.get?.(uuid);
+        return meetsPrerequisite(prerequisiteFor(e?.system?.identifier, e?.system?.primaryAbility), scores);
+      };
+      // In hardcore mode the classes are the dice's shortlist (D35), and the split is only the player's while the
+      // stage is open.
+      const stage = this.draft.random?.stages?.multiclass;
+      const hardcore = this.draft.mode === "hardcore";
+      const atStage = hardcore && stage && !stage.answered;
+      levels = levelsModel(this.draft, this.#catalog, { multiclass: rules.multiclass && (this.draft.level > rules.firstClassLevels),
+        split: this.#split, qualifies, offered: hardcore ? (stage?.options ?? []) : null, readOnly: hardcore && !atStage,
+        firstMinimum: rules.firstClassLevels });
+      if ( levels ) {
+        levels.stage = atStage ? { rolled: levels.first.name, level: levels.level, offered: stage.options.length } : null;
+        levels.canConfirm = atStage || levels.dirty;
+      }
+    }
+    return { options, detail, subclass, levels };
   }
 
   /** @inheritDoc */
+  /**
+   * A field the player is typing in survives a re-render (a check finishing in the background redraws the step):
+   * which field, what is in it and where the cursor is are put back afterwards, so the text never jumps.
+   */
+  async _preRender(context, options) {
+    await super._preRender(context, options);
+    const active = this.element?.contains(document.activeElement) ? document.activeElement : null;
+    const key = active?.dataset?.detail ? `[data-detail="${active.dataset.detail}"]${active.dataset.part ? `[data-part="${active.dataset.part}"]` : ""}`
+      : active?.classList?.contains("cc-search") ? ".cc-search" : null;
+    this.#typing = (key && ("value" in active)) ? { key, value: active.value, start: active.selectionStart,
+      end: active.selectionEnd } : null;
+  }
+
+  #typing = null;
+
   _onRender(context, options) {
     super._onRender(context, options);
+    if ( this.#typing ) {
+      const { key, value, start, end } = this.#typing;
+      this.#typing = null;
+      const field = this.element.querySelector(key);
+      // Foundry puts focus back on a redrawn field by itself, but with the saved text and the cursor at the start:
+      // the text and the cursor are what matter, so they are always put back.
+      if ( field ) {
+        // What was typed since the last save is kept, not the saved (and trimmed) value.
+        field.value = value;
+        field.focus();
+        try {
+          field.setSelectionRange(start, end);
+        } catch {
+          // Not every field has a cursor (a number field): focus is enough.
+        }
+      }
+    }
     if ( this.#refreshWanted ) {
       this.#refreshWanted = false;
       // After this render has finished, not inside it.
@@ -1478,6 +1786,28 @@ function onAsiLower(event, target) {
   return this.answer({ action: "lower", value: target.dataset.key });
 }
 
+/** Review's "your turn" button: to the step and the choice the dice are waiting on. */
+async function onYourTurn(event, target) {
+  await this.goTo(target.dataset.step);
+  if ( target.dataset.key ) await this.openChoice(target.dataset.key);
+}
+
+function onClassConfirm() {
+  return this.confirmClasses();
+}
+
+function onClassLevel(event, target) {
+  return this.changeClasses(target.dataset.change, target.dataset.uuid);
+}
+
+function onAsiMode(event, target) {
+  return this.answer({ action: "mode", value: target.dataset.key });
+}
+
+function onAsiFeat(event, target) {
+  return this.answer({ action: "feat", value: target.dataset.uuid });
+}
+
 function onEquipMode(event, target) {
   return this.setEquipmentMode(target.dataset.role, target.dataset.mode);
 }
@@ -1492,6 +1822,10 @@ function onEquipRoll(event, target) {
 
 function onSpellTab(event, target) {
   return this.openSpellList(target.dataset.tab);
+}
+
+function onSpellClass(event, target) {
+  return this.openSpellClass(target.dataset.root);
 }
 
 function onSpell(event, target) {

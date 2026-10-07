@@ -14,7 +14,7 @@ import { SETTINGS, readSettings } from "./settings.mjs";
 import { arrowKeys } from "../ui/keyboard.mjs";
 import { editorState, restrictionsModel, toStored, toStoredArt, toggleEntry, allowAll, allowNone, allowThese,
   disallowThese, togglePack, toggleMethod, setArt, setStepArt, toStoredStepArt, toggleHardcore, toggleRandomPart,
-  setRollAttempts, toStoredHardcore, TABS } from "./restrictions-model.mjs";
+  setRollAttempts, toStoredHardcore, setShortlist, setFeatMode, TABS } from "./restrictions-model.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 const T = (key, data) => (data ? game.i18n.format(`CHARCREATOR.${key}`, data) : game.i18n.localize(`CHARCREATOR.${key}`));
@@ -38,7 +38,7 @@ export class RestrictionsApp extends HandlebarsApplicationMixin(ApplicationV2) {
     classes: ["character-creator", "cc-restrictions"],
     tag: "div",
     window: { title: "CHARCREATOR.Restrictions.Title", icon: "fa-solid fa-list-check", resizable: true },
-    position: { width: 900, height: 700 },
+    position: { width: 1000, height: 720 },
     actions: {
       // Not "tab": ApplicationV2 keeps that action for its own tab groups and never passes it on (RESEARCH.md).
       "show-tab": onTab,
@@ -50,6 +50,7 @@ export class RestrictionsApp extends HandlebarsApplicationMixin(ApplicationV2) {
       duplicates: onDuplicates,
       hardcore: onHardcore,
       "random-part": onRandomPart,
+      "feat-mode": onFeatMode,
       pack: onPack,
       art: onArt,
       "art-clear": onArtClear,
@@ -149,6 +150,11 @@ export class RestrictionsApp extends HandlebarsApplicationMixin(ApplicationV2) {
         if ( value ) value.textContent = attemptsText(Number(event.target.value));
       });
       attempts.addEventListener("change", event => this.change(state => setRollAttempts(state, Number(event.target.value))));
+    }
+    // The shortlist sizes above level 1 (D35, D36, D39): written when the number is changed.
+    for ( const input of this.element.querySelectorAll(".cc-shortlist") ) {
+      input.addEventListener("change", event => this.change(state => setShortlist(state, event.target.dataset.key,
+        Number(event.target.value))));
     }
     const search = this.element.querySelector(".cc-search input");
     if ( search ) {
@@ -287,6 +293,10 @@ function onDuplicates() {
 /** Hardcore mode (D31): offer it at all, and which parts the player still chooses. */
 function onHardcore() {
   return this.change(state => toggleHardcore(state));
+}
+
+function onFeatMode(event, target) {
+  return this.change(state => setFeatMode(state, target.dataset.mode));
 }
 
 function onRandomPart(event, target) {

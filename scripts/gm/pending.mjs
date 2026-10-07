@@ -24,13 +24,21 @@ const draftPath = `flags.${MODULE_ID}.${DRAFT_FLAG}`;
 /* -------------------------------------------- */
 
 /**
+ * How long to wait for the GM's browser before keeping the build as pending. Checking a character above 1st
+ * level takes longer — a rolled one has its dice replayed — so the wait grows with the level (seconds).
+ */
+export function submitTimeout(draft) {
+  return (30 + (15 * Math.max(0, (draft?.level ?? 1) - 1)) + (draft?.mode === "hardcore" ? 30 : 0)) * 1000;
+}
+
+/**
  * Submit a draft: live when a GM is online, otherwise stored as a pending build.
  * @param {object} draft
  * @param {{ image?: object|null, timeout?: number }} [options]
  * @returns {Promise<{ ok: boolean, pending?: boolean, actorUuid?: string, errors?: object[], byStep?: object[],
  *   warnings?: object[] }>}  `pending: true` when stored for a GM to process later.
  */
-export async function submitDraft(draft, { image = null, timeout = 30_000 } = {}) {
+export async function submitDraft(draft, { image = null, timeout = submitTimeout(draft) } = {}) {
   const gm = game.users.activeGM;
   // The active GM's own character (D29): no need to ask their own browser over the network.
   if ( gm?.isSelf ) return submitFor({ draft: { ...draft, portrait: { ...draft.portrait, pendingImage: null } }, image }, game.user);

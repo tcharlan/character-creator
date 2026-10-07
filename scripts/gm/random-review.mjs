@@ -3,7 +3,7 @@
  * this world's content, and hand the result to `checkRandomDraft`. The Foundry half of random-check.mjs.
  */
 
-import { buildCharacter } from "../rules/build.mjs";
+import { buildCharacter, buildInput } from "../rules/build.mjs";
 import { equipmentContext } from "../rules/equipment-items.mjs";
 import { checkRandomDraft } from "../rules/random-check.mjs";
 import { readRollRecord, rollMessagesFor } from "../rules/roll-messages.mjs";
@@ -11,6 +11,8 @@ import { ROLL_PURPOSE } from "../rules/roll-record.mjs";
 import { syncRecipe } from "../wizard/picks.mjs";
 import { alignmentOptions, PERSONALITY } from "../wizard/details-step.mjs";
 import { readSettings } from "../settings/settings.mjs";
+import { stageConfig } from "../rules/random-stages.mjs";
+import { incrementalBuilder } from "../rules/rebuild-cache.mjs";
 
 /** A personality table's entries for a background, in the order the table lists them. */
 async function personalityEntries(backgroundName, field) {
@@ -36,34 +38,42 @@ async function personalityEntries(backgroundName, field) {
  * @returns {Promise<object[]>} makeError() objects
  */
 export async function checkRandomCharacter(draft, { catalog, userId }) {
-  const { free, attempts } = readSettings().hardcore;
+  const settings = readSettings();
+  const { free, attempts } = settings.hardcore;
+  const { hitPointMethod } = settings.levels;
   // Every message this draft's rolls were posted in, oldest first (rollMessagesFor sorts by creation).
   const onRecord = rollMessagesFor(draft.id, userId, ROLL_PURPOSE.RANDOM);
   const records = onRecord.map(id => readRollRecord(game.messages.get(id))).filter(Boolean);
   let build = null;
+  // The loop rebuilds once a round, a level at a time: each round replays from the level it changed (D38).
+  const rebuildFrom = incrementalBuilder({ catalog, fill: true, withOptions: true, slice: true, hitPointMethod });
   return checkRandomDraft(draft, {
     records, userId, free, attempts,
     replay: {
       catalog,
-      rebuild: async d => {
-        build = await buildCharacter({ picks: d.picks, base: d.abilities.base, steps: d.recipe.steps },
-          { catalog, fill: true, withOptions: true });
+      stages: stageConfig(settings, catalog),
+      rebuild: async (d, { reference = false } = {}) => {
+        if ( reference ) return buildCharacter(buildInput(d), { catalog, fill: true, withOptions: true, slice: true, hitPointMethod });
+        build = await rebuildFrom(buildInput(d));
         return build;
       },
-      equipmentContext: async role => {
-        const item = build?.actor?.items?.get(build.roots?.[role]);
-        return item ? equipmentContext(build.actor, item, catalog) : null;
+      equipmentContext: async (role, from = build) => {
+        const item = from?.actor?.items?.get(from.roots?.[role]);
+        return item ? equipmentContext(from.actor, item, catalog) : null;
       },
       // The creator keeps the automatic answers in the recipe too (D18), so the replay does the same before
       // the two recipes are compared.
       finish: async replayed => {
-        const built = await buildCharacter({ picks: replayed.picks, base: replayed.abilities.base,
-          steps: replayed.recipe.steps }, { catalog, fill: true, withOptions: true });
+        const built = await buildCharacter(buildInput(replayed), { catalog, fill: true, withOptions: true, slice: true,
+          hitPointMethod });
         replayed.recipe = { steps: syncRecipe(replayed.recipe.steps, built) };
         return replayed;
       },
       alignments: alignmentOptions(),
-      tables: field => personalityEntries(build?.actor?.items?.get(build.roots?.background)?.name ?? null, field)
+      // Only a 2014 background has personality tables (D31). The 2014 SRD tables are in a 2024 world's packs too,
+      // and a 2024 background of the same name ("Acolyte") must not pick them up.
+      tables: field => (draft.rules === "legacy"
+        ? personalityEntries(build?.actor?.items?.get(build.roots?.background)?.name ?? null, field) : [])
     }
   });
 }

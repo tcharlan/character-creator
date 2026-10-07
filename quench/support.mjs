@@ -56,7 +56,7 @@ export function answer(options) {
 export async function complete(build, input, catalog, overrides = {}) {
   let steps = [];
   let rebuilds = 0;
-  for ( let i = 0; i < 40; i++ ) {
+  for ( let i = 0; i < 120; i++ ) {
     const b = await build({ ...input, steps }, { catalog, withOptions: true });
     rebuilds++;
     const need = b.results.find(r => r.status === "needsInput");

@@ -22,6 +22,44 @@
   </section>
 
   <section class="cc-detail">
+    {{#if levels}}
+    {{!-- Above level 1 (D32, D35): the level, and the split between classes, confirmed in one go. --}}
+    <section class="cc-levels{{#if levels.stage}} cc-levels--stage{{/if}}" aria-label="{{localize 'CHARCREATOR.Levels.Title' level=levels.level}}">
+      {{#if levels.stage}}
+      <h2 class="cc-levels__ask">{{localize "CHARCREATOR.Levels.StageAsk"}}</h2>
+      <p>{{localize "CHARCREATOR.Levels.StageHint" class=levels.stage.rolled level=levels.stage.level}}</p>
+      {{else}}
+      <h3 class="cc-section-title">{{localize "CHARCREATOR.Levels.Title" level=levels.level}}</h3>
+      {{#if levels.multiclass}}{{#unless levels.readOnly}}<p class="cc-hint">{{localize "CHARCREATOR.Levels.SplitHint"}}</p>{{/unless}}{{/if}}
+      {{/if}}
+      <ul class="cc-levels__list">
+        <li class="cc-levels__row cc-levels__row--first">
+          <span class="cc-levels__name">{{levels.first.name}}</span>
+          <span class="cc-levels__count">{{levels.first.levels}}</span>
+        </li>
+        {{#each levels.others as |o|}}
+        <li class="cc-levels__row{{#unless o.levels}} cc-levels__row--none{{/unless}}">
+          <span class="cc-levels__name">{{o.name}}{{#if (eq o.qualifies false)}} <span class="cc-key__note">{{localize "CHARCREATOR.Levels.Needs13"}}</span>{{/if}}</span>
+          {{#unless @root.levels.readOnly}}
+          <button type="button" class="cc-score__step" data-action="class-level" data-change="down" data-uuid="{{o.uuid}}"
+                  aria-label="{{localize 'CHARCREATOR.Levels.Fewer'}} {{o.name}}" {{#unless o.canLower}}disabled{{/unless}}>&minus;</button>
+          {{/unless}}
+          <span class="cc-levels__count">{{o.levels}}</span>
+          {{#unless @root.levels.readOnly}}
+          <button type="button" class="cc-score__step" data-action="class-level" data-change="up" data-uuid="{{o.uuid}}"
+                  aria-label="{{localize 'CHARCREATOR.Levels.More'}} {{o.name}}" {{#unless o.canRaise}}disabled{{/unless}}>+</button>
+          {{/unless}}
+        </li>
+        {{/each}}
+      </ul>
+      {{#if levels.canConfirm}}
+      <div class="cc-levels__confirm">
+        <span class="cc-hint">{{levels.line}}</span>
+        <button type="button" class="cc-button cc-button--primary" data-action="class-confirm">{{localize "CHARCREATOR.Levels.Confirm"}}</button>
+      </div>
+      {{/if}}
+    </section>
+    {{/if}}
     {{#if detail}}
     <header class="cc-pane__header">
       <h1 class="cc-pane__title">{{detail.name}}</h1>

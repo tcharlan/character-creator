@@ -1440,7 +1440,25 @@ export function registerPortraitStepBatch(quench) {
 export async function fillSpells(app) {
   await app.goTo("spells");
   await app.settle();
-  for ( let guard = 0; guard < 40; guard++ ) {
+  // A multiclassed caster chooses for each class (PLAN 8.4): every class tab in turn, the first one last open.
+  const classTabs = [...app.element.querySelectorAll('[data-action="spell-class"]')].map(t => t.dataset.root);
+  for ( const root of classTabs.length ? classTabs : [null] ) {
+    if ( root ) {
+      app.element.querySelector(`[data-action="spell-class"][data-root="${root}"]`)?.click();
+      await app.settle();
+      // The tabs must stay on screen with another class open (a player reported them gone).
+      // The strip itself, not only its buttons: a strip squeezed to a line still has buttons of full height in it.
+      const hidden = [...app.element.querySelectorAll('.cc-detail [role="tab"]')]
+        .filter(t => !t.offsetHeight || (t.closest(".cc-methods").getBoundingClientRect().height < t.offsetHeight));
+      if ( hidden.length ) throw new Error(`spell tabs not shown with ${root} open: ${hidden.map(t => t.textContent.trim()).join(", ")}`);
+    }
+    await fillOpenClassSpells(app);
+  }
+}
+
+/** Fill every list of the class the Spells step shows. */
+async function fillOpenClassSpells(app) {
+  for ( let guard = 0; guard < 80; guard++ ) {
     const tab = [...app.element.querySelectorAll('[data-action="spell-tab"]')].find(t => {
       const numbers = t.textContent.trim().split(/\s+/).filter(x => /^\d+$/.test(x)).map(Number);
       return numbers.length >= 2 && (numbers[0] < numbers[1]);

@@ -38,13 +38,16 @@ export function stepState(step, { current, draft, errorsByStep, visited = [] }) 
  * @param {Record<string, object[]>} options.errorsByStep   Errors keyed by step (validator output, grouped).
  * @param {Record<string, string>} [options.labels]   Step key → what the player picked ("High Elf").
  * @param {string[]} [options.visited]
- * @returns {{ key, name, numeral, state, label, locked }[]}
+ * @param {Record<string, number>} [options.left]     Step key → decisions the player still has to make there.
+ * @returns {{ key, name, numeral, state, label, locked, count, left }[]}
  */
-export function bannerSteps({ current, draft, errorsByStep = {}, labels = {}, visited = [] }) {
+export function bannerSteps({ current, draft, errorsByStep = {}, labels = {}, visited = [], left = {} } = {}) {
   return BANNER_STEPS.map((key, i) => {
     const state = stepState(key, { current, draft, errorsByStep, visited });
-    return { key, numeral: NUMERALS[i], state, locked: state === "locked",
-      label: labels[key] ?? "", count: errorsByStep[key]?.length ?? 0 };
+    const count = errorsByStep[key]?.length ?? 0;
+    // Decisions still to make, where nothing is wrong yet: a quieter mark than a problem's.
+    return { key, numeral: NUMERALS[i], state: ((state === "done") && left[key]) ? "todo" : state, locked: state === "locked",
+      label: labels[key] ?? "", count, left: (!count && (state !== "locked")) ? (left[key] ?? 0) : 0 };
   });
 }
 

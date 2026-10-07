@@ -6,7 +6,7 @@
 
 import { MODULE_ID, SCHEMA_VERSION } from "../contracts.mjs";
 import { equipmentCreationData } from "../rules/equipment-items.mjs";
-import { spellCreationData } from "../rules/spell-facts.mjs";
+import { spellCreationData, classRoots, selectionFor } from "../rules/spell-facts.mjs";
 import { addCurrency } from "../rules/equipment.mjs";
 import { detailsData } from "./details.mjs";
 
@@ -43,9 +43,9 @@ export const createdFrom = (draftId, userId) => game.actors.find(a => {
 /**
  * Creation data for a validated draft.
  * @param {{ draft, built, equipment }} validated   From validateDraft() with ok = true.
- * @param {{ user: User, catalog: object, folderId?: string|null }} options
+ * @param {{ user: User, catalog: object, folderId?: string|null, goldPerLevel?: number }} options
  */
-export async function characterData({ draft, built, equipment }, { user, catalog, folderId = null }) {
+export async function characterData({ draft, built, equipment }, { user, catalog, folderId = null, goldPerLevel = 0 }) {
   const data = built.actor.toObject();
   delete data._id;
   const details = detailsData(draft.details, `${user.name}'s character`);
@@ -60,8 +60,13 @@ export async function characterData({ draft, built, equipment }, { user, catalog
   });
 
   data.items.push(...await equipmentCreationData(equipment.items));
-  data.items.push(...await spellCreationData(built, draft.spells, { catalog }));
-  const currency = addCurrency({ ...(data.system.currency ?? {}) }, equipment.currency);
+  for ( const root of classRoots(built) ) {
+    data.items.push(...await spellCreationData(built, selectionFor(draft, root), { catalog, root }));
+  }
+  // The GM's gold for each level above the first (D34), on top of what the equipment gives.
+  const extra = goldPerLevel * Math.max(0, (draft.level ?? 1) - 1);
+  const currency = addCurrency({ ...(data.system.currency ?? {}) }, extra ? addCurrency({ ...equipment.currency }, { gp: extra })
+    : equipment.currency);
   data.system.currency = currency;
   // Start at full hit points (the replayed actor's maximum).
   foundry.utils.setProperty(data, "system.attributes.hp.value", built.actor.system.attributes.hp.max);

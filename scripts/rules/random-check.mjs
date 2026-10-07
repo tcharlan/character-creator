@@ -8,10 +8,11 @@
  */
 
 import { ABILITIES, makeError } from "../contracts.mjs";
-import { rollCharacter, ROLLED_DETAILS } from "./random.mjs";
+import { rollCharacter, ROLLED_DETAILS, playerOwned } from "./random.mjs";
+import { stepKey } from "./paths.mjs";
 
 /** The parts the loop rolls, and what each one settles in the draft. */
-const PARTS = Object.freeze(["species", "class", "background", "abilities", "choices", "equipment", "details"]);
+const PARTS = Object.freeze(["species", "class", "background", "abilities", "choices", "equipment", "details", "stages"]);
 const PERSONALITY_FIELDS = ROLLED_DETAILS.filter(f => f !== "alignment");
 
 const fail = detail => [makeError("RANDOM_INVALID", detail)];
@@ -39,10 +40,18 @@ export function clearRolled(draft, free = [], { abilities = false } = {}) {
   // Only a reroll asks for this: the GM's replay keeps the scores, which it checks against their own record.
   if ( abilities && rolled("abilities") ) next.abilities = { method: null, base: null, roll: null };
   for ( const role of ["species", "class", "background"] ) if ( rolled(role) ) next.picks[role] = null;
-  if ( rolled("choices") ) next.recipe = { steps: [] };
+  // The player's own answers stay: a pick from a shortlist (D35, D36, D39) and the choices inside a feat taken at
+  // one. The shortlists themselves are dropped and rolled again, so each pick can be held to its list.
+  const stages = draft.random?.stages ?? {};
+  const owned = s => playerOwned({ key: stepKey(s), path: s.path }, stages);
+  if ( rolled("choices") ) next.recipe = { steps: (next.recipe.steps ?? []).filter(owned) };
   else if ( rolled("species") || rolled("class") || rolled("background") ) {
     // The rolled picks decide which steps exist at all; answers under a rolled pick go with it.
-    next.recipe = { steps: (next.recipe.steps ?? []).filter(s => !rolled(s.path?.[0])) };
+    next.recipe = { steps: (next.recipe.steps ?? []).filter(s => !rolled(s.path?.[0]) || owned(s)) };
+  }
+  if ( next.random?.stages ) {
+    next.random = { ...next.random, stages: Object.fromEntries(Object.entries(next.random.stages)
+      .map(([key, s]) => { const { options, ...rest } = s; void options; return [key, rest]; })) };
   }
   if ( rolled("equipment") ) next.equipment = { class: null, background: null };
   if ( rolled("details") ) {
@@ -73,6 +82,9 @@ function comparable(draft, free = []) {
   if ( rolled("details") ) {
     out.details = Object.fromEntries(["alignment", ...PERSONALITY_FIELDS].map(f => [f, draft.details[f] ?? ""]));
   }
+  // Every shortlist, as the dice made it.
+  out.stages = Object.fromEntries(Object.entries(draft.random?.stages ?? {}).map(([key, s]) => [key, s.options ?? null])
+    .sort(([a], [b]) => a.localeCompare(b)));
   return out;
 }
 
@@ -181,9 +193,36 @@ export async function checkRandomDraft(draft, { records = [], userId, free = [],
     return fail(err.detail ?? { message: "replayFailed", error: String(err?.message ?? err) });
   }
   const unused = [...left.values()].flat();
-  if ( unused.length ) return fail({ message: "tooManyRolls", left: unused.length, first: unused[0]?.key });
+  if ( unused.length ) return fail({ message: "tooManyRolls", left: unused.length, first: unused[0]?.key,
+    keys: unused.slice(0, 8).map(u => u.key) });
 
   const difference = firstDifference(comparable(draft, free), comparable(replayed, free));
   if ( difference ) return fail({ message: "doesNotMatch", part: PARTS.includes(difference) ? difference : "choices" });
+  return checkStagePicks(draft);
+}
+
+/**
+ * Each pick the player made at a stage is one the dice offered (D35, D36, D39): the classes taken, the subclass,
+ * the feat (or the increase, which is always on offer at a feat slot).
+ * @returns {object[]} makeError() objects
+ */
+export function checkStagePicks(draft) {
+  const stages = draft.random?.stages ?? {};
+  const offered = key => new Set(stages[key]?.options ?? []);
+  if ( stages.multiclass && !stages.multiclass.answered ) return fail({ message: "notAnswered", stage: "multiclass" });
+  if ( (draft.multiclass ?? []).length ) {
+    const list = offered("multiclass");
+    const other = draft.multiclass.find(m => !list.has(m.uuid));
+    if ( !stages.multiclass || other ) return fail({ message: "notOffered", stage: "multiclass", uuid: other?.uuid ?? null });
+  }
+  for ( const step of draft.recipe?.steps ?? [] ) {
+    const key = stepKey(step);
+    const stage = stages[key];
+    if ( !stage ) continue;
+    const pick = stage.kind === "subclass" ? step.data?.uuid : (step.data?.type === "feat" ? step.data.uuid : null);
+    if ( (pick !== null) && (pick !== undefined) && !offered(key).has(pick) ) {
+      return fail({ message: "notOffered", stage: stage.kind, uuid: pick });
+    }
+  }
   return [];
 }

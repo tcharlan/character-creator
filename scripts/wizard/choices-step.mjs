@@ -1,6 +1,7 @@
 /**
- * The Choices step (PLAN 3.4, D14): every choice the character's species, background and class offer at level 1,
- * grouped by the item that offers them, with one widget per advancement type.
+ * The Choices step (PLAN 3.4, D14; above level 1, PLAN 8.4): every choice the character's species, background and
+ * classes offer, grouped by the item that offers them — and, above level 1, by the level they come at — with one
+ * widget per advancement type.
  *
  * The options come from the rebuild (`buildCharacter(..., { withOptions: true })`); this turns them into what the
  * screen shows, and turns a click into the `data` an advancement's `apply()` wants (rules/steps.mjs).
@@ -81,14 +82,28 @@ function abilityWidget(options, data) {
   return { chosen: data?.ability ?? null, list: choices.map(key => ({ key, label: abilityLabel(key), selected: data?.ability === key })) };
 }
 
-/** Ability score increases: fixed ones are shown, free points are spent here. */
-function asiWidget(result) {
+/**
+ * Ability score increases: fixed ones are shown, free points are spent here. Where dnd5e lets the increase be a
+ * feat instead (D36: a class's ASI with points to spend), the player can switch to the feats the character
+ * qualifies for now.
+ */
+function asiWidget(result, catalog) {
   const { options, data } = result;
-  const assignments = data?.assignments ?? { ...options.fixed };
+  const feat = options.allowFeat ? {
+    mode: data?.type === "feat" ? "feat" : "asi",
+    chosen: data?.type === "feat" ? (data.uuid ?? null) : null,
+    epicBoon: !!options.epicBoon,
+    list: (options.feats ?? []).map(uuid => ({ ...entry(catalog, uuid), selected: (data?.type === "feat") && (data.uuid === uuid),
+      recommended: uuid === options.recommendation }))
+  } : null;
+  const assignments = (data?.type === "feat" ? null : data?.assignments) ?? { ...options.fixed };
   const spent = ABILITIES.reduce((n, key) => n + Math.max(0, (assignments[key] ?? 0) - (options.fixed[key] ?? 0)), 0);
   const left = (options.points ?? 0) - spent;
   return {
     type: "AbilityScoreImprovement",
+    feat,
+    // Which of the two the player has gone for, if either: a feat picked, or points spent.
+    taken: (data?.type === "feat") ? (data.uuid ? "feat" : null) : (spent > 0 ? "asi" : null),
     points: options.points ?? 0,
     left,
     cap: options.cap,
@@ -97,8 +112,11 @@ function asiWidget(result) {
       const value = assignments[key] ?? fixed;
       const free = value - fixed;
       const locked = (options.locked ?? []).includes(key) || !(options.improvable ?? []).includes(key);
+      // The score now and what it becomes ("14 → 16"), where the replay knows it.
+      const current = options.current?.[key] ?? null;
+      const after = (current === null) ? null : Math.min(current + value, options.maximum?.[key] ?? Infinity);
       return {
-        key, label: abilityLabel(key), fixed, value, free, locked,
+        key, label: abilityLabel(key), fixed, value, free, locked, current, after, changed: (after !== null) && (after !== current),
         canRaise: !locked && (left > 0) && ((options.cap === null) || (free < options.cap)),
         canLower: !locked && (free > 0)
       };
@@ -129,7 +147,7 @@ function subclassWidget(result, catalog) {
  * @param {string|null} [openKey]        The choice being answered (defaults to the first that needs input).
  * @returns {{ groups, open, counts }}
  */
-export function choicesModel(built, catalog, openKey = null) {
+export function choicesModel(built, catalog, openKey = null, { mine = null } = {}) {
   const results = (built?.results ?? []).filter(r => !READ_ONLY.includes(r.type) || r.status === "invalid");
   const choices = results.map(r => {
     const widget = r.options && CHOICE_TYPES.includes(r.type) ? buildWidget(r, catalog) : null;
@@ -139,16 +157,24 @@ export function choicesModel(built, catalog, openKey = null) {
       errors: (r.errors ?? []).map(e => e.key),
       automatic: r.status === "auto",
       needsInput: r.status === "needsInput",
+      // A rolled character (D31): an open choice that isn't the player's waits for the dice, which wait for the
+      // player's own choices before it.
+      forDice: !!mine && (r.status === "needsInput") && !mine(r),
       // "blocked" is an advancement this module has no widget for (homebrew, PLAN 5.1): it needs attention
       // just as much as a broken answer, and the player is told which item it came from.
       invalid: (r.status === "invalid") || (r.status === "blocked")
     };
   });
 
-  const open = choices.find(c => c.key === openKey) ?? choices.find(c => c.needsInput || c.invalid) ?? choices[0] ?? null;
+  const open = choices.find(c => c.key === openKey) ?? choices.find(c => (c.needsInput && !c.forDice) || c.invalid)
+    ?? choices[0] ?? null;
+  // Above level 1 the list goes level by level (the level each choice comes at), then by item.
+  const leveled = results.some(r => (r.at ?? 1) > 1);
   const groups = [];
-  for ( const choice of choices ) {
-    const group = groups.find(g => g.item === choice.item) ?? groups[groups.push({ item: choice.item, choices: [] }) - 1];
+  for ( const [i, choice] of choices.entries() ) {
+    const level = leveled ? (results[i].at ?? 1) : null;
+    const group = groups.find(g => (g.item === choice.item) && (g.level === level))
+      ?? groups[groups.push({ item: choice.item, level, choices: [] }) - 1];
     group.choices.push({ ...choice, open: choice.key === open?.key });
   }
   return {
@@ -156,7 +182,8 @@ export function choicesModel(built, catalog, openKey = null) {
     open: open ? { ...open, open: true } : null,
     counts: {
       total: choices.length,
-      open: choices.filter(c => c.needsInput).length,
+      open: choices.filter(c => c.needsInput && !c.forDice).length,
+      forDice: choices.filter(c => c.forDice).length,
       invalid: choices.filter(c => c.invalid).length,
       done: choices.filter(c => !c.needsInput && !c.invalid).length
     }
@@ -176,6 +203,7 @@ export function localStatus(result, data) {
     case "ItemChoice": return (((data?.selected?.length ?? 0) >= (o.count ?? 0)) && ability) ? "done" : "needsInput";
     case "ItemGrant": return ability ? "done" : "needsInput";
     case "AbilityScoreImprovement": {
+      if ( data?.type === "feat" ) return data.uuid ? "done" : "needsInput";
       const assignments = data?.assignments ?? {};
       const fixed = o.fixed ?? {};
       const spent = Object.keys({ ...fixed, ...assignments })
@@ -209,7 +237,7 @@ export function nextOpenChoice(model, currentKey = null) {
   const all = (model?.groups ?? []).flatMap(g => g.choices);
   const at = all.findIndex(c => c.key === currentKey);
   const order = at < 0 ? all : [...all.slice(at + 1), ...all.slice(0, at)];
-  return order.find(c => c.needsInput || c.invalid)?.key ?? null;
+  return order.find(c => (c.needsInput && !c.forDice) || c.invalid)?.key ?? null;
 }
 
 function buildWidget(result, catalog) {
@@ -217,7 +245,7 @@ function buildWidget(result, catalog) {
     case "Trait": return traitWidget(result);
     case "ItemChoice": return itemChoiceWidget(result, catalog);
     case "ItemGrant": return itemGrantWidget(result, catalog);
-    case "AbilityScoreImprovement": return asiWidget(result);
+    case "AbilityScoreImprovement": return asiWidget(result, catalog);
     case "Size": return sizeWidget(result);
     case "Subclass": return subclassWidget(result, catalog);
     default: return null;
@@ -273,7 +301,16 @@ export function answerData(result, click) {
       return { selected: [...selected], ...(data?.ability ? { ability: data.ability } : {}) };
     }
     case "AbilityScoreImprovement": {
-      const assignments = { ...(data?.assignments ?? options.fixed) };
+      // The increase or a feat instead (D36), and which feat.
+      if ( click.action === "mode" ) {
+        if ( (click.value === "feat") && !options.allowFeat ) return null;
+        if ( click.value === "feat" ) return data?.type === "feat" ? null : { type: "feat", uuid: null };
+        return data?.type === "feat" ? { type: "asi", assignments: { ...options.fixed } } : null;
+      }
+      if ( click.action === "feat" ) {
+        return (options.allowFeat && (options.feats ?? []).includes(click.value)) ? { type: "feat", uuid: click.value } : null;
+      }
+      const assignments = { ...((data?.type === "feat" ? null : data?.assignments) ?? options.fixed) };
       const key = click.value;
       const fixed = options.fixed[key] ?? 0;
       const delta = click.action === "raise" ? 1 : -1;

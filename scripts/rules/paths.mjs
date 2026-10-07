@@ -7,7 +7,7 @@
  * get different paths, so a recipe replays unambiguously.
  */
 
-import { ROLES, isId, isCompendiumUuid } from "../contracts.mjs";
+import { isPathRoot, isId, isCompendiumUuid } from "../contracts.mjs";
 import { normalizeUuid } from "../catalog/filters.mjs";
 
 /** "<advancementId>:<uuid>" (UUID normalised). */
@@ -24,9 +24,9 @@ export function parseSegment(segment) {
   return { advancementId, uuid: normalizeUuid(uuid) };
 }
 
-/** Is this a well-formed path (role, then segments)? */
+/** Is this a well-formed path (role or multiclass root, then segments)? */
 export function isPath(path) {
-  return Array.isArray(path) && path.length > 0 && ROLES.includes(path[0]) && path.slice(1).every(s => parseSegment(s));
+  return Array.isArray(path) && path.length > 0 && isPathRoot(path[0]) && path.slice(1).every(s => parseSegment(s));
 }
 
 /** The key that identifies one recipe step: path + advancement + level. */

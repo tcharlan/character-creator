@@ -59,7 +59,7 @@ test("wrong values: rules, status, step, schema, scores, levels", () => {
   d.step = "shop";
   d.schema = 99;
   d.abilities.base.str = 25;
-  d.recipe.steps[0].level = 3;
+  d.recipe.steps[0].level = 21;
   assert.deepEqual(paths(checkDraftShape(d)).sort(), ["draft.abilities.base.str", "draft.recipe.steps[0].level",
     "draft.rules", "draft.schema", "draft.status", "draft.step"]);
 });
@@ -87,7 +87,7 @@ test("size limits: step data, text, lists, whole draft", () => {
   const d = fullDraft();
   d.recipe.steps[0].data = { chosen: ["x".repeat(LIMITS.stepDataMaxBytes)] };
   d.details.name = "n".repeat(LIMITS.nameMaxLength + 1);
-  d.spells.cantrips = Array(31).fill(U("c"));
+  d.spells.cantrips = Array(LIMITS.maxListLength + 1).fill(U("c"));
   const p = paths(checkDraftShape(d));
   for ( const want of ["draft.recipe.steps[0].data", "draft.details.name", "draft.spells.cantrips"] ) assert.ok(p.includes(want), want);
   const big = fullDraft();
@@ -178,6 +178,54 @@ test("a draft written before hardcore mode gains its fields (schema 1 → 2, D31
   const { draft, migrated } = migrateDraft(before);
   assert.ok(migrated);
   assert.deepEqual([draft.schema, draft.mode, draft.random], [SCHEMA_VERSION, "normal", null]);
+  assert.deepEqual(checkDraftShape(draft), []);
+});
+
+test("levels, other classes and rolled hit dice (schema 5, D32–D37)", () => {
+  const d = fullDraft();
+  d.level = 8;
+  d.multiclass = [{ uuid: U("rogue"), levels: 3 }, { uuid: U("cleric"), levels: 2 }];
+  d.hitPoints.rolls = { "wizard@2": { faces: 6, total: 4, messageId: ID("hp1") }, "rogue@1": { faces: 8, total: 8, messageId: ID("hp1") } };
+  d.recipe.steps.push({ path: ["multiclass:rogue"], advancementId: ID("adv9"), level: 3, data: { chosen: ["skills:ste"] } });
+  assert.deepEqual(checkDraftShape(d), []);
+  const bad = (change, want) => {
+    const x = structuredClone(d);
+    change(x);
+    assert.deepEqual(paths(checkDraftShape(x)), want, want.join());
+  };
+  bad(x => x.level = 0, ["draft.level"]);
+  bad(x => x.level = 21, ["draft.level"]);
+  bad(x => x.level = 5, ["draft.multiclass"]);                       // 5 levels elsewhere leave the first class none
+  bad(x => x.multiclass[1].uuid = x.multiclass[0].uuid, ["draft.multiclass"]);
+  bad(x => x.multiclass[0].levels = 0, ["draft.multiclass[0].levels"]);
+  bad(x => x.hitPoints.rolls["wizard@21"] = { faces: 6, total: 1, messageId: ID("m") }, ["draft.hitPoints.rolls.wizard@21"]);
+  bad(x => x.hitPoints.rolls["wizard@2"].total = 7, ["draft.hitPoints.rolls.wizard@2.total"]);
+  bad(x => x.recipe.steps[2].path = ["multiclass:"], ["draft.recipe.steps[2].path[0]"]);
+  bad(x => x.recipe.steps[2].path = ["rogue"], ["draft.recipe.steps[2].path[0]"]);
+});
+
+test("another class's spells: by its multiclass root, same shape (schema 6)", () => {
+  const d = fullDraft();
+  d.multiclassSpells = { "multiclass:wizard": { cantrips: [U("c4")], spells: [U("s3")], spellbook: [U("s3")] } };
+  assert.deepEqual(checkDraftShape(d), []);
+  assert.deepEqual(paths(checkDraftShape({ ...d, multiclassSpells: { class: d.spells } })), ["draft.multiclassSpells.class"],
+    "the first class's spells live in draft.spells");
+  assert.deepEqual(paths(checkDraftShape({ ...d, multiclassSpells: { "multiclass:wizard": { cantrips: ["x"], spells: [], spellbook: [] } } })),
+    ["draft.multiclassSpells.multiclass:wizard.cantrips[0]"]);
+  const before = { ...fullDraft(), schema: 5 };
+  delete before.multiclassSpells;
+  assert.deepEqual(migrateDraft(before).draft.multiclassSpells, {});
+});
+
+test("a level-1 draft from before schema 5 becomes a level-1 single-class character (4 → 5)", () => {
+  const before = { ...fullDraft(), schema: 4 };
+  delete before.level;
+  delete before.multiclass;
+  delete before.hitPoints;
+  delete before.multiclassSpells;
+  const { draft, migrated } = migrateDraft(before);
+  assert.ok(migrated);
+  assert.deepEqual([draft.schema, draft.level, draft.multiclass, draft.hitPoints], [SCHEMA_VERSION, 1, [], { rolls: {} }]);
   assert.deepEqual(checkDraftShape(draft), []);
 });
 

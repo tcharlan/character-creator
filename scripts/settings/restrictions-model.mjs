@@ -9,6 +9,7 @@
 import { CATEGORIES, normalizeUuid } from "../catalog/filters.mjs";
 import { ABILITY_METHODS, MAX_ATTEMPTS, RANDOM_PARTS, STEPS } from "../contracts.mjs";
 import { sigilPath } from "../wizard/splash.mjs";
+import { HARDCORE_FEATS, MULTICLASS_CHOICES, shortlistSize } from "./normalize.mjs";
 
 /** The tabs, in order: one per category, then the packs, the ability-score methods and the backgrounds (D28). */
 export const TABS = Object.freeze([...CATEGORIES, "packs", "abilities", "backdrops", "hardcore"]);
@@ -47,7 +48,9 @@ export function editorState(restrictions, abilityMethods, art = {}, stepArt = {}
   for ( const [uuid, path] of Object.entries(art ?? {}) ) pictures[normalizeUuid(uuid)] = path;
   return { packs: list(restrictions?.packs), categories, art: pictures, stepArt: { ...(stepArt ?? {}) },
     hardcore: { offered: hardcore?.offered !== false, free: RANDOM_PARTS.filter(p => (hardcore?.free ?? []).includes(p)),
-      attempts: rollAttempts(hardcore?.attempts) },
+      attempts: rollAttempts(hardcore?.attempts), multiclassChoices: shortlistSize(hardcore?.multiclassChoices, MULTICLASS_CHOICES),
+      feats: HARDCORE_FEATS.includes(hardcore?.feats) ? hardcore.feats : "shortlist", featChoices: shortlistSize(hardcore?.featChoices),
+      subclassChoices: shortlistSize(hardcore?.subclassChoices) },
     abilityMethods: ABILITY_METHODS.filter(m => (abilityMethods ?? ABILITY_METHODS).includes(m)) };
 }
 
@@ -93,6 +96,23 @@ function rollAttempts(v) {
   return Math.min(n, MAX_ATTEMPTS);
 }
 
+/**
+ * Above level 1 (D35, D36, D39): how many classes, subclasses or feats a shortlist offers; 0 offers every one.
+ * @param {"multiclassChoices"|"subclassChoices"|"featChoices"} key
+ */
+export function setShortlist(state, key, value) {
+  if ( !["multiclassChoices", "subclassChoices", "featChoices"].includes(key) ) return state;
+  state.hardcore = { ...state.hardcore, [key]: shortlistSize(value, key === "multiclassChoices" ? MULTICLASS_CHOICES : 3) };
+  return state;
+}
+
+/** How a feat slot goes in hardcore mode (D36): a shortlist, rolled outright, or the player's free choice. */
+export function setFeatMode(state, mode) {
+  if ( !HARDCORE_FEATS.includes(mode) ) return state;
+  state.hardcore = { ...state.hardcore, feats: mode };
+  return state;
+}
+
 export function toggleRandomPart(state, part) {
   if ( !RANDOM_PARTS.includes(part) ) return state;
   const free = state.hardcore.free.includes(part)
@@ -103,8 +123,10 @@ export function toggleRandomPart(state, part) {
 
 /** What to store for hardcore mode. */
 export function toStoredHardcore(state) {
-  return { offered: state?.hardcore?.offered !== false, free: [...(state?.hardcore?.free ?? [])],
-    attempts: rollAttempts(state?.hardcore?.attempts) };
+  const h = state?.hardcore ?? {};
+  return { offered: h.offered !== false, free: [...(h.free ?? [])], attempts: rollAttempts(h.attempts),
+    multiclassChoices: shortlistSize(h.multiclassChoices, MULTICLASS_CHOICES), feats: HARDCORE_FEATS.includes(h.feats) ? h.feats : "shortlist",
+    featChoices: shortlistSize(h.featChoices), subclassChoices: shortlistSize(h.subclassChoices) };
 }
 
 /** The step backgrounds to store. */
@@ -351,7 +373,15 @@ export function restrictionsModel({ state, everything, packs, tab, search = "", 
       parts: RANDOM_PARTS.map(part => ({ part, free: state.hardcore.free.includes(part) })),
       // How many goes the player gets. 0 is the slider's left end and means no limit.
       attempts: { value: state.hardcore.attempts, max: MAX_ATTEMPTS,
-        unlimited: state.hardcore.attempts === 0, final: state.hardcore.attempts === 1 }
+        unlimited: state.hardcore.attempts === 0, final: state.hardcore.attempts === 1 },
+      // Above level 1: the shortlists the player picks from (D35, D36, D39).
+      levels: {
+        multiclassChoices: state.hardcore.multiclassChoices ?? MULTICLASS_CHOICES,
+        subclassChoices: state.hardcore.subclassChoices ?? 3,
+        featChoices: state.hardcore.featChoices ?? 3,
+        featModes: HARDCORE_FEATS.map(mode => ({ mode, selected: (state.hardcore.feats ?? "shortlist") === mode })),
+        shortlist: (state.hardcore.feats ?? "shortlist") === "shortlist"
+      }
     };
   } else if ( open === "backdrops" ) {
     model.backdrops = STEPS.map(step => {

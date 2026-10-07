@@ -9,7 +9,7 @@
 export const MODULE_ID = "character-creator";
 
 /** Bump when the draft shape changes, and add a migration below. */
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 6;
 
 /** Where the draft lives: `user.flags[MODULE_ID][DRAFT_FLAG]` (players may write their own flags). */
 export const DRAFT_FLAG = "draft";
@@ -31,6 +31,30 @@ export const STEPS = Object.freeze(["start", "species", "class", "background", "
 
 export const ROLES = Object.freeze(["species", "background", "class"]);
 
+/** Character levels (D32). A draft is built for the GM's starting level and records which. */
+export const MAX_LEVEL = 20;
+
+/**
+ * Another class taken by multiclassing (D35, D37) roots its recipe paths at `multiclass:<identifier>`, the
+ * class's dnd5e identifier: a character can't hold two classes of one identifier, and unlike a position in the
+ * list it survives the player reordering or dropping a class. The first class keeps the `class` role.
+ */
+export const MULTICLASS_ROOT = "multiclass:";
+const IDENTIFIER = /^[A-Za-z0-9_-]{1,64}$/;
+export const isIdentifier = v => typeof v === "string" && IDENTIFIER.test(v);
+
+/** A recipe path's first segment: a role, or a multiclass root. */
+export const isPathRoot = v => ROLES.includes(v)
+  || (typeof v === "string" && v.startsWith(MULTICLASS_ROOT) && isIdentifier(v.slice(MULTICLASS_ROOT.length)));
+
+/**
+ * A rolled hit die is kept by the class level it is for (`<identifier>@<class level>`, D33), so changing the
+ * level split and changing it back finds the same rolls rather than rolling again (as D26 does for scores).
+ */
+const HP_SLOT = /^([A-Za-z0-9_-]{1,64})@([1-9]|1[0-9]|20)$/;
+export const isHitPointSlot = v => typeof v === "string" && HP_SLOT.test(v);
+export const hitPointSlot = (identifier, level) => `${identifier}@${level}`;
+
 /** How a character was made: the player choosing, or the dice (D31). */
 export const DRAFT_MODES = Object.freeze(["normal", "hardcore"]);
 
@@ -38,7 +62,7 @@ export const DRAFT_MODES = Object.freeze(["normal", "hardcore"]);
  * What hardcore mode can roll for the player, in the order it is rolled. The GM may hand any of them back to
  * the player (the `hardcore.free` setting); spells, the portrait and the name are always the player's.
  */
-export const RANDOM_PARTS = Object.freeze(["species", "class", "background", "abilities", "choices", "equipment",
+export const RANDOM_PARTS = Object.freeze(["species", "class", "subclass", "background", "abilities", "choices", "equipment",
   "details"]);
 
 /** The most rolls of a character a GM can hand out (D31); 0 in the setting means as many as the player likes. */
@@ -56,7 +80,7 @@ export const LIMITS = Object.freeze({
   portraitSourceMaxBytes: 10 * 1024 * 1024,   // default of the GM setting (DESIGN.md → Settings)
   draftMaxBytes: 64 * 1024,                   // the draft flag without its pending image
   stepDataMaxBytes: 16 * 1024,                // one advancement's apply() data
-  maxSteps: 200,
+  maxSteps: 200,                              // a level-20 character is ~95 (Spike 8.0)
   maxPathSegments: 8,
   maxListLength: 64,
   nameMaxLength: 100,
@@ -73,12 +97,13 @@ const CODES_BY_STEP = {
   start: ["BAD_REQUEST", "SCHEMA_TOO_NEW", "WORLD_MISMATCH", "RULES_MISMATCH", "GM_OFFLINE", "NOT_ACTIVE_GM",
     "CHARACTER_LIMIT", "ALREADY_SUBMITTED", "RANDOM_INVALID", "RANDOM_ATTEMPTS"],
   species: ["SPECIES_MISSING", "SPECIES_NOT_ALLOWED"],
-  class: ["CLASS_MISSING", "CLASS_NOT_ALLOWED"],
+  class: ["CLASS_MISSING", "CLASS_NOT_ALLOWED", "LEVEL_MISMATCH", "MULTICLASS_NOT_ALLOWED",
+    "MULTICLASS_PREREQUISITES", "MULTICLASS_FIRST_LEVELS"],
   background: ["BACKGROUND_MISSING", "BACKGROUND_NOT_ALLOWED"],
   abilities: ["ABILITY_METHOD_MISSING", "ABILITY_METHOD_NOT_ALLOWED", "ABILITY_SCORES_MISSING", "POINT_BUY_INVALID",
     "STANDARD_ARRAY_INVALID", "ROLL_INVALID"],
   choices: ["UNKNOWN_ITEM", "UNKNOWN_ADVANCEMENT", "UNKNOWN_ADVANCEMENT_TYPE", "NOT_ALLOWED", "TOO_MANY_PICKS",
-    "UNFULFILLED", "ASI_OVER_LIMIT", "ASI_LOCKED", "NOT_OFFERED", "MISSING_STEP", "APPLY_FAILED"],
+    "UNFULFILLED", "ASI_OVER_LIMIT", "ASI_LOCKED", "NOT_OFFERED", "MISSING_STEP", "APPLY_FAILED", "HIT_POINTS_ROLL_INVALID"],
   equipment: ["UNKNOWN_ENTRY_TYPE", "MISSING_CHOICE", "INVALID_CHOICE", "WRONG_PICK_COUNT", "NOT_IN_CATEGORY",
     "NOT_PROFICIENT", "UNEXPECTED_SELECTION", "BAD_MODE", "NO_WEALTH_OPTION", "WEALTH_OUT_OF_RANGE",
     "WEALTH_ROLL_INVALID"],
@@ -127,7 +152,7 @@ export const isActorUuid = v => typeof v === "string" && ACTOR_UUID.test(v);
  * A new, empty draft.
  * @param {{ id: string, worldId: string, rules: string, now?: number }} init
  */
-export function createDraft({ id, worldId, rules, now = Date.now() }) {
+export function createDraft({ id, worldId, rules, level = 1, now = Date.now() }) {
   return {
     schema: SCHEMA_VERSION,
     id, worldId, rules,
@@ -135,6 +160,15 @@ export function createDraft({ id, worldId, rules, now = Date.now() }) {
     step: "start",
     updatedAt: now,
     mode: "normal",
+    // The character level the draft is built for: the GM's starting level when it began (D32). The validator
+    // holds it to the setting, so a draft started before the GM changed it is sent back to be brought up to date.
+    level,
+    // Classes besides the first (D35, D37): `{ uuid, levels }` each. The first class (`picks.class`) has what is
+    // left of `level`, at least one.
+    multiclass: [],
+    // Rolled hit dice by class level (D33): `{ "<identifier>@<level>": { faces, total, messageId } }`. Empty when
+    // the GM's method is the average.
+    hitPoints: { rolls: {} },
     // Set when the dice made this character (D31): which attempt made it (1-based, so the GM can hold a
     // player to the rolls they are allowed), the chat messages the rolls were posted in, and every roll in the
     // order it was made. A choice the player was left (their class, say) can open decisions the first handful
@@ -145,6 +179,9 @@ export function createDraft({ id, worldId, rules, now = Date.now() }) {
     recipe: { steps: [] },
     equipment: { class: null, background: null },
     spells: { cantrips: [], spells: [], spellbook: [] },
+    // Another class's spells (D35, PLAN 8.2b), by its path root: each class chooses on its own, "as if you were a
+    // single-classed member of that class" (PHB multiclassing). The first class's are `spells`.
+    multiclassSpells: {},
     details: Object.fromEntries(DETAIL_FIELDS.map(f => [f, ""])),
     portrait: { status: "none", ring: { ring: null, background: null, effects: 1 }, pendingImage: null },
     result: { actorUuid: null, errors: [] }
@@ -246,8 +283,9 @@ export function checkImage(image, path = "image") {
  */
 export function checkDraftShape(draft) {
   const c = new Checker();
-  const top = ["schema", "id", "worldId", "rules", "status", "step", "updatedAt", "mode", "random", "picks",
-    "abilities", "recipe", "equipment", "spells", "details", "portrait", "result"];
+  const top = ["schema", "id", "worldId", "rules", "status", "step", "updatedAt", "mode", "level", "multiclass",
+    "hitPoints", "random", "picks", "abilities", "recipe", "equipment", "spells", "multiclassSpells", "details", "portrait",
+    "result"];
   if ( !c.object("draft", draft, top) ) return c.problems;
   const d = draft;
   c.oneOf("draft.schema", d.schema, [SCHEMA_VERSION]);
@@ -258,7 +296,7 @@ export function checkDraftShape(draft) {
   c.oneOf("draft.step", d.step, STEPS);
   c.int("draft.updatedAt", d.updatedAt, 0, Number.MAX_SAFE_INTEGER);
   c.oneOf("draft.mode", d.mode, DRAFT_MODES);
-  if ( d.random !== null && c.object("draft.random", d.random, ["attempt", "messageIds", "rolls"]) ) {
+  if ( d.random !== null && c.object("draft.random", d.random, ["attempt", "messageIds", "rolls"], { optional: ["stages"] }) ) {
     c.int("draft.random.attempt", d.random.attempt, 1, MAX_ATTEMPTS);
     c.list("draft.random.messageIds", d.random.messageIds,
       (path, v) => c.test(path, v, isId, "a message id"), { max: LIMITS.maxListLength });
@@ -268,6 +306,47 @@ export function checkDraftShape(draft) {
       c.int(`${path}.faces`, v.faces, 1, 1000);
       c.int(`${path}.total`, v.total, 1, 1000);
     }, { max: LIMITS.maxSteps });
+    // The shortlists the player picks from above level 1 (D35, D36, D39), by the decision they are for.
+    if ( "stages" in d.random && c.object("draft.random.stages", d.random.stages, Object.keys(d.random.stages ?? {})) ) {
+      const entries = Object.entries(d.random.stages);
+      if ( entries.length > LIMITS.maxListLength ) c.add("draft.random.stages", `more than ${LIMITS.maxListLength} entries`);
+      for ( const [key, s] of entries ) {
+        const p = `draft.random.stages.${key}`;
+        if ( !c.object(p, s, ["kind"], { optional: ["options", "answered", "path", "advancementId", "at"] }) ) continue;
+        c.oneOf(`${p}.kind`, s.kind, ["multiclass", "subclass", "feat"]);
+        if ( "options" in s ) c.list(`${p}.options`, s.options, (pp, u) => c.test(pp, u, isCompendiumUuid, "a compendium item UUID"));
+        if ( "answered" in s ) c.test(`${p}.answered`, s.answered, v => typeof v === "boolean", "true or false");
+        if ( "at" in s ) c.int(`${p}.at`, s.at, 0, MAX_LEVEL);
+        if ( "advancementId" in s ) c.test(`${p}.advancementId`, s.advancementId, isId, "an advancement id");
+        if ( "path" in s ) c.list(`${p}.path`, s.path, (pp, seg) => c.string(pp, seg, LIMITS.shortTextMaxLength), { max: LIMITS.maxPathSegments });
+      }
+    }
+  }
+
+  c.int("draft.level", d.level, 1, MAX_LEVEL);
+  if ( c.list("draft.multiclass", d.multiclass, (p, m) => {
+    if ( !c.object(p, m, ["uuid", "levels"]) ) return;
+    c.test(`${p}.uuid`, m.uuid, isCompendiumUuid, "a compendium item UUID");
+    c.int(`${p}.levels`, m.levels, 1, MAX_LEVEL - 1);
+  }, { max: MAX_LEVEL - 1 }) && Number.isInteger(d.level) && (d.level >= 1) && (d.level <= MAX_LEVEL) ) {
+    // The first class keeps at least its first level.
+    const taken = d.multiclass.reduce((n, m) => n + (Number.isInteger(m?.levels) ? m.levels : 0), 0);
+    if ( taken > d.level - 1 ) c.add("draft.multiclass", `${taken} levels in other classes of a level-${d.level} character`);
+    const uuids = d.multiclass.map(m => m?.uuid);
+    if ( new Set(uuids).size !== uuids.length ) c.add("draft.multiclass", "a class taken twice");
+  }
+  if ( c.object("draft.hitPoints", d.hitPoints, ["rolls"])
+    && c.object("draft.hitPoints.rolls", d.hitPoints.rolls, Object.keys(d.hitPoints.rolls ?? {})) ) {
+    const slots = Object.entries(d.hitPoints.rolls);
+    if ( slots.length > LIMITS.maxListLength ) c.add("draft.hitPoints.rolls", `more than ${LIMITS.maxListLength} entries`);
+    for ( const [slot, r] of slots ) {
+      const p = `draft.hitPoints.rolls.${slot}`;
+      c.test(p, slot, isHitPointSlot, "\"<class identifier>@<level>\"");
+      if ( !c.object(p, r, ["faces", "total", "messageId"]) ) continue;
+      c.int(`${p}.faces`, r.faces, 2, 20);
+      c.int(`${p}.total`, r.total, 1, Number.isInteger(r.faces) ? r.faces : 20);
+      c.test(`${p}.messageId`, r.messageId, isId, "a message id");
+    }
   }
 
   if ( c.object("draft.picks", d.picks, ROLES) ) {
@@ -292,13 +371,13 @@ export function checkDraftShape(draft) {
       if ( !c.object(p, s, ["path", "advancementId", "level", "data"]) ) return;
       c.list(`${p}.path`, s.path, (pp, seg) => {
         const first = pp.endsWith("[0]");
-        if ( first ) c.oneOf(pp, seg, ROLES);
+        if ( first ) c.test(pp, seg, isPathRoot, `one of ${ROLES.join("|")} or ${MULTICLASS_ROOT}<identifier>`);
         else c.test(pp, seg, v => typeof v === "string" && isId(v.slice(0, 16)) && v[16] === ":"
           && isCompendiumUuid(v.slice(17)), "\"<advancementId>:<compendium UUID>\"");
       }, { max: LIMITS.maxPathSegments });
       if ( Array.isArray(s.path) && !s.path.length ) c.add(`${p}.path`, "empty");
       c.test(`${p}.advancementId`, s.advancementId, isId, "an advancement id");
-      c.int(`${p}.level`, s.level, 0, 1);
+      c.int(`${p}.level`, s.level, 0, MAX_LEVEL);
       if ( !s.data || typeof s.data !== "object" || Array.isArray(s.data) ) c.add(`${p}.data`, "not an object");
       else if ( jsonBytes(s.data) > LIMITS.stepDataMaxBytes ) c.add(`${p}.data`, `larger than ${LIMITS.stepDataMaxBytes} bytes`);
     }, { max: LIMITS.maxSteps });
@@ -309,9 +388,17 @@ export function checkDraftShape(draft) {
     checkSelection(c, "draft.equipment.background", d.equipment.background);
   }
 
-  if ( c.object("draft.spells", d.spells, ["cantrips", "spells", "spellbook"]) ) {
+  const checkSpells = (path, sel) => {
+    if ( !c.object(path, sel, ["cantrips", "spells", "spellbook"]) ) return;
     for ( const k of ["cantrips", "spells", "spellbook"] ) {
-      c.list(`draft.spells.${k}`, d.spells[k], (p, u) => c.test(p, u, isCompendiumUuid, "a compendium item UUID"), { max: 30 });
+      c.list(`${path}.${k}`, sel[k], (p, u) => c.test(p, u, isCompendiumUuid, "a compendium item UUID"), { max: LIMITS.maxListLength });
+    }
+  };
+  checkSpells("draft.spells", d.spells);
+  if ( c.object("draft.multiclassSpells", d.multiclassSpells, Object.keys(d.multiclassSpells ?? {})) ) {
+    for ( const [root, sel] of Object.entries(d.multiclassSpells) ) {
+      const p = `draft.multiclassSpells.${root}`;
+      if ( c.test(p, root, v => isPathRoot(v) && v.startsWith(MULTICLASS_ROOT), `${MULTICLASS_ROOT}<identifier>`) ) checkSpells(p, sel);
     }
   }
 
@@ -364,7 +451,12 @@ export const MIGRATIONS = Object.freeze({
   // 3 → 4: a rolled character says which attempt it came from (D31 rerolls); what is already rolled is the first.
   3: draft => ({ ...draft, random: draft.random
     ? { attempt: draft.random.attempt ?? 1, messageIds: draft.random.messageIds, rolls: draft.random.rolls }
-    : null })
+    : null }),
+  // 4 → 5: characters above level 1 (D32–D37). Everything before was a level-1, single-class character.
+  4: draft => ({ ...draft, level: draft.level ?? 1, multiclass: draft.multiclass ?? [],
+    hitPoints: draft.hitPoints ?? { rolls: {} } }),
+  // 5 → 6: another class's spells (PLAN 8.2b). Nothing before had another class.
+  5: draft => ({ ...draft, multiclassSpells: draft.multiclassSpells ?? {} })
 });
 
 /**

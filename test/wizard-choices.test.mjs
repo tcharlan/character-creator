@@ -26,7 +26,7 @@ test("choices are grouped by the item that offers them, with counts", () => {
   const model = choicesModel(built, catalog);
   assert.deepEqual(model.groups.map(g => g.item), ["High Elf", "Cleric"], "in build order, one group per item");
   assert.deepEqual(model.groups[1].choices.map(c => c.title), ["Skills", "Divine Domain"], "read-only steps aren't listed");
-  assert.deepEqual(model.counts, { total: 3, open: 2, invalid: 0, done: 1 });
+  assert.deepEqual(model.counts, { total: 3, open: 2, forDice: 0, invalid: 0, done: 1 });
   assert.equal(model.open.title, "Skills", "the first unanswered choice opens");
   assert.equal(model.groups[1].choices[0].open, true);
   const chosen = choicesModel(built, catalog, "d");
@@ -198,4 +198,62 @@ test("an advancement this module has no widget for needs attention, not a tick",
   assert.equal(model.counts.done, 0, "it is certainly not done");
   assert.equal(model.open.widget, null, "no widget for it");
   assert.deepEqual(model.open.errors, ["CHARCREATOR.Error.UNKNOWN_ADVANCEMENT_TYPE"]);
+});
+
+test("above level 1 the list goes level by level, then by item (PLAN 8.4)", () => {
+  const trait = { type: "Trait", allowed: ["skills:ath"], grants: [], max: 1 };
+  const built = { results: [
+    result({ key: "a", item: "Fighter", title: "Skills", at: 1, options: trait }),
+    result({ key: "b", item: "Fighter", title: "Fighting Style", at: 1, type: "ItemChoice", options: { type: "ItemChoice", count: 1, options: [U("x")] } }),
+    result({ key: "c", item: "Fighter", title: "Ability Score Improvement", at: 4, type: "AbilityScoreImprovement",
+      options: { type: "AbilityScoreImprovement", fixed: {}, points: 2, cap: null, locked: [], improvable: ["str"] } })
+  ] };
+  const model = choicesModel(built, catalog);
+  assert.deepEqual(model.groups.map(g => [g.level, g.item, g.choices.length]), [[1, "Fighter", 2], [4, "Fighter", 1]]);
+  const atOne = choicesModel({ results: built.results.slice(0, 2) }, catalog);
+  assert.deepEqual(atOne.groups.map(g => g.level), [null], "a level-1 character shows no level headings");
+});
+
+test("an ASI can be a feat instead where dnd5e allows it (D36)", () => {
+  const options = { type: "AbilityScoreImprovement", fixed: {}, points: 2, cap: 2, locked: [], improvable: ["str", "dex"],
+    allowFeat: true, feats: [U("grappler"), U("alert")], recommendation: null };
+  const r = result({ type: "AbilityScoreImprovement", options, data: null });
+  const asFeat = answerData(r, { action: "mode", value: "feat" });
+  assert.deepEqual(asFeat, { type: "feat", uuid: null });
+  assert.equal(localStatus(r, asFeat), "needsInput", "no feat picked yet");
+  const picked = answerData({ ...r, data: asFeat }, { action: "feat", value: U("alert") });
+  assert.deepEqual(picked, { type: "feat", uuid: U("alert") });
+  assert.equal(localStatus(r, picked), "done");
+  assert.equal(answerData(r, { action: "feat", value: U("smuggled") }), null, "only a feat on offer");
+  assert.deepEqual(answerData({ ...r, data: picked }, { action: "mode", value: "asi" }), { type: "asi", assignments: {} },
+    "back to the increase, from nothing spent");
+  const widget = choicesModel({ results: [{ ...r, data: picked }] }, catalog).open.widget;
+  assert.equal(widget.feat.mode, "feat");
+  assert.deepEqual(widget.feat.list.map(f => f.selected), [false, true]);
+  const noFeat = answerData(result({ type: "AbilityScoreImprovement", options: { ...options, allowFeat: false }, data: null }),
+    { action: "mode", value: "feat" });
+  assert.equal(noFeat, null, "not where dnd5e doesn't allow it");
+});
+
+test("a rolled character: the dice's open choices wait, and the walk goes to the player's own (D36, D39)", () => {
+  const trait = { type: "Trait", allowed: ["skills:ath"], grants: [], max: 1 };
+  const built = { results: [
+    result({ key: "dice", item: "Fighter", title: "Skills", options: trait }),
+    result({ key: "mine", item: "Skilled", title: "Skills or tools", options: trait })
+  ] };
+  const model = choicesModel(built, catalog, null, { mine: r => r.key === "mine" });
+  assert.equal(model.open.key, "mine", "the player's own choice opens first");
+  assert.deepEqual([model.counts.open, model.counts.forDice], [1, 1]);
+  assert.equal(model.groups[0].choices[0].forDice, true);
+  assert.equal(nextOpenChoice(model, "mine"), null, "nothing else for the player to walk to");
+});
+
+test("an increase shows the score it starts from and where it ends (14 → 16)", () => {
+  const options = { type: "AbilityScoreImprovement", fixed: {}, points: 2, cap: 2, locked: [], improvable: ["str", "dex"],
+    current: { str: 14, dex: 19, con: 12, int: 10, wis: 10, cha: 8 }, maximum: { str: 20, dex: 20, con: 20, int: 20, wis: 20, cha: 20 } };
+  const r = result({ type: "AbilityScoreImprovement", options, data: { type: "asi", assignments: { str: 2 } } });
+  const rows = choicesModel({ results: [r] }, catalog).open.widget.rows;
+  assert.deepEqual(rows.find(x => x.key === "str"), { ...rows.find(x => x.key === "str"), current: 14, after: 16, changed: true });
+  const capped = choicesModel({ results: [{ ...r, data: { type: "asi", assignments: { dex: 2 } } }] }, catalog).open.widget.rows;
+  assert.equal(capped.find(x => x.key === "dex").after, 20, "never past the maximum");
 });

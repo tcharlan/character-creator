@@ -71,6 +71,16 @@
       {{/if}}
     </header>
 
+    {{#if yourTurn}}
+    {{!-- A rolled character waiting on the player (D35, D36, D39): what to do next, and the way there. --}}
+    <section class="cc-levels cc-levels--stage cc-your-turn">
+      <h2 class="cc-levels__ask">{{localize "CHARCREATOR.Review.YourTurnTitle"}}</h2>
+      <p>{{yourTurn.text}}</p>
+      <div><button type="button" class="cc-button cc-button--primary" data-action="your-turn" data-step="{{yourTurn.step}}"
+              data-key="{{#unless (eq yourTurn.kind 'multiclass')}}{{yourTurn.key}}{{/unless}}">{{localize "CHARCREATOR.Review.YourTurnGo"}}</button></div>
+    </section>
+    {{/if}}
+
     {{#if review.summary}}
     <div class="cc-stats">
       {{#each review.summary.abilities as |a|}}

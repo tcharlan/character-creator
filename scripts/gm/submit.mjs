@@ -12,7 +12,7 @@
 import { QUERIES, makeError, checkSubmitPayload, checkUploadPayload } from "../contracts.mjs";
 import { getCatalog } from "../catalog/catalog.mjs";
 import { NO_RESTRICTIONS } from "../catalog/filters.mjs";
-import { validateDraft } from "../rules/validate.mjs";
+import { validateDraft, levelOptions } from "../rules/validate.mjs";
 import { createCharacter, createdFor, createdFrom } from "./create.mjs";
 import { savePortrait } from "./portrait.mjs";
 import { InFlight } from "./inflight.mjs";
@@ -66,10 +66,12 @@ async function submit({ draft, image = null }, user, overrides = {}) {
   }
   // The character limit is for players; a GM's characters are theirs to give away (D29).
   const validated = await validateDraft(draft, { catalog, standard, userId: user.id, allowedMethods, image,
-    characters: { limit: user.isGM ? null : characterLimit, existing: createdFor(user.id).length } });
+    characters: { limit: user.isGM ? null : characterLimit, existing: createdFor(user.id).length },
+    ...levelOptions(settings) });
   if ( !validated.ok ) return fail(validated.errors, { byStep: validated.byStep });
 
-  const actor = await createCharacter(validated, { user, catalog, folderName: settings.folderName });
+  const actor = await createCharacter(validated, { user, catalog, folderName: settings.folderName,
+    goldPerLevel: settings.levels?.goldPerLevel ?? 0 });
   const warnings = [];
   if ( !user.character && !user.isGM ) await user.update({ character: actor.id });
   if ( image && !settings.portraits.enabled ) warnings.push(makeError("UPLOADS_DISABLED"));

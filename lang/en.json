@@ -44,7 +44,7 @@
       "NO_WEALTH_OPTION": "Starting wealth isn't offered here.",
       "WEALTH_OUT_OF_RANGE": "That starting wealth is outside what the roll can give.",
       "WEALTH_ROLL_INVALID": "Your starting gold doesn't match your recorded roll.",
-      "NOT_A_CASTER": "This character can't learn spells at level 1.",
+      "NOT_A_CASTER": "This character can't learn spells yet.",
       "CANTRIP_COUNT": "Choose the number of cantrips your class allows.",
       "SPELL_COUNT": "Choose the number of spells your class allows.",
       "SPELLBOOK_COUNT": "Choose the number of spells your spellbook starts with.",
@@ -64,7 +64,15 @@
       "UPLOAD_FAILED": "The portrait couldn't be saved. Your character is fine; try uploading it again later.",
       "DETAIL_INVALID": "Check the age, height, weight and colouring: numbers where numbers belong (as large as you like, but not negative), words where words do.",
       "RANDOM_INVALID": "This character does not match the dice that made it. Discard it and roll again.",
-      "RANDOM_ATTEMPTS": "This character was rolled more times than the GM allows."
+      "RANDOM_ATTEMPTS": "This character was rolled more times than the GM allows.",
+      "LEVEL_MISMATCH": "Your GM has changed the level new characters start at. Go back through the class and choices to bring this character up to it.",
+      "MULTICLASS_NOT_ALLOWED": "Your GM doesn't allow multiclassing. Put all your levels in one class.",
+      "HIT_POINTS_ROLL_INVALID": "A hit point roll doesn't match what was posted to chat. Your GM can look at the rolls in chat.",
+      "MULTICLASS_FIRST_LEVELS": "Your GM wants more levels kept in your first class. Move some back to it on the class step.",
+      "MULTICLASS_PREREQUISITES": "Multiclassing needs a 13 in the main ability of each class involved, your first class included. Choose another class, or put the levels back in the classes you qualify for."
+    },
+    "HitPointRoll": {
+      "Flavor": "Hit points for a new character's levels (one hit die a level)"
     },
     "AbilityRoll": {
       "Flavor": "Ability scores for a new character (4d6, drop the lowest, six times)"
@@ -120,6 +128,32 @@
       "hardcore": {
         "Name": "Random character (hardcore)",
         "Hint": "Whether players may let the dice make their character, and which parts they may still choose. Set on the Allowed content screen."
+      },
+      "startingLevel": {
+        "Name": "Starting level",
+        "Hint": "The level new characters start at. A character started before you change it has to be brought up to the new level before it can be created."
+      },
+      "hitPointMethod": {
+        "Name": "Hit points after 1st level",
+        "Hint": "The first level always gives the most a hit die can. After that, each level gives the average or a roll of the hit die, posted to chat. Players aren't asked.",
+        "average": "Average (rounded up)",
+        "rolled": "Rolled"
+      },
+      "goldPerLevel": {
+        "Name": "Extra starting gold per level (gp)",
+        "Hint": "Gold a character starting above 1st level gets for each level after the first, on top of its starting equipment. 0 for none."
+      },
+      "multiclass": {
+        "Name": "Allow multiclassing",
+        "Hint": "Players may split their levels between classes. With the random character, the dice offer a few classes to choose from."
+      },
+      "multiclassFirstLevels": {
+        "Name": "Levels kept in the first class",
+        "Hint": "When multiclassing, the fewest levels a character keeps in its first class (the one picked, or rolled). With a starting level no higher than this, there is no multiclassing."
+      },
+      "multiclassPrerequisites": {
+        "Name": "Multiclassing needs a 13",
+        "Hint": "A class can only be taken with a 13 in its main ability, and in the main ability of each class the character already has. Turn off to let players multiclass into anything."
       }
     },
     "Nav": {
@@ -136,6 +170,8 @@
       "AllGood": "Everything checks out so far. Your draft is saved as you go.",
       "Attention": "Things to fix:",
       "NextChoice": "Next choice",
+      "Continue": "Continue",
+      "DecisionsLeft": "Choices still to make here",
       "BrokeDown": "Something went wrong building your character. Your draft is saved — try a different option, or ask your GM."
     },
     "Step": {
@@ -146,7 +182,7 @@
       },
       "class": {
         "Title": "Class",
-        "Hint": "Choose your class. It sets your hit points, proficiencies and level-1 features.",
+        "Hint": "Choose your class. It sets your hit points, proficiencies and features.",
         "Short": "Class"
       },
       "background": {
@@ -161,7 +197,7 @@
       },
       "choices": {
         "Title": "Choices",
-        "Hint": "Make the choices your species, background and class offer at level 1.",
+        "Hint": "Make the choices your species, background and class offer.",
         "Short": "Choices"
       },
       "equipment": {
@@ -171,7 +207,7 @@
       },
       "spells": {
         "Title": "Spells",
-        "Hint": "Choose your cantrips and level-1 spells.",
+        "Hint": "Choose your cantrips and spells.",
         "Short": "Spells"
       },
       "details": {
@@ -214,9 +250,9 @@
     "Entry": {
       "create": {
         "Button": "Create a character",
-        "Tooltip": "Build a level 1 character with your GM's content.",
+        "Tooltip": "Build a character with your GM's content.",
         "Prompt": "You don't have a character yet.",
-        "TooltipGM": "Build a level 1 character yourself — keep it, or give it to a player now or later."
+        "TooltipGM": "Build a character yourself — keep it, or give it to a player now or later."
       },
       "continue": {
         "Button": "Continue your character",
@@ -323,6 +359,17 @@
       "Wealth": "Starting wealth",
       "Equipment": "Equipment entries"
     },
+    "Levels": {
+      "Title": "Level {level}",
+      "More": "One more level in",
+      "Fewer": "One fewer level in",
+      "Remove": "Remove",
+      "Needs13": "needs a 13",
+      "SplitHint": "All your levels start in your first class. Use + to give levels to another class; a class at 0 isn't taken. Confirm when you're done.",
+      "StageAsk": "Your choice: one class, or several?",
+      "StageHint": "The dice made you a {class} with all {level} levels. Keep it that way, or use + to move levels to one of the classes the dice offer below. Then confirm, and the dice carry on.",
+      "Confirm": "Confirm classes"
+    },
     "Choices": {
       "All": "Choices",
       "None": "Nothing to choose here yet — pick your species, class and background first.",
@@ -340,7 +387,22 @@
       "Fixed": "fixed",
       "SpellcastingAbility": "Cast these with:",
       "StillOpen": "Still to choose",
-      "NoWidget": "This choice isn't something the wizard can show yet."
+      "ForDice": "The dice roll this after your choice",
+      "DiceToRoll": "Left to the dice",
+      "NoWidget": "This choice isn't something the wizard can show yet.",
+      "AtLevel": "Level {level}",
+      "AsiOrFeat": "Ability scores or a feat",
+      "IncreaseScores": "Increase ability scores",
+      "TakeFeat": "Take a feat",
+      "TakeBoon": "Take an epic boon or a feat",
+      "AsiOrFeatLead": "Choose one: increase your ability scores, or take one of the feats instead.",
+      "AsiOrBoonLead": "Choose one: increase your ability scores, or take an epic boon or another feat instead.",
+      "AsiInstead": "You're taking a feat. Use + here to increase your scores instead.",
+      "Or": "or",
+      "FeatHint": "Feats your character qualifies for at this level. Any choices a feat brings appear in the list once you take it.",
+      "Recommended": "suggested for your class",
+      "StageHint": "The dice offer these. The choice between them is yours.",
+      "NoFeats": "There's no feat your character qualifies for here. Increase your ability scores instead."
     },
     "Equipment": {
       "Mode": "Items or gold",
@@ -365,13 +427,19 @@
     },
     "Spells": {
       "Lists": "Spell lists",
+      "Classes": "Spells for each class",
+      "EachClass": "You choose spells for each of your classes separately: {classes}. Pick a class, fill its lists, then the next.",
+      "StillToChoose": "Still to choose: {classes}.",
+      "AllClassesDone": "Every class has its spells.",
+      "ForClass": "{class} spells",
+      "TakenBy": "chosen for {class}",
       "cantrips": "Cantrips",
       "spellbook": "Spellbook",
       "spells": "Prepared",
       "cantripsHint": "Cantrips you can cast at will.",
-      "spellbookHint": "The level-1 spells written in your spellbook.",
+      "spellbookHint": "The spells written in your spellbook.",
       "spellsHint": "The spells you have ready to cast. You can change these after a long rest.",
-      "NoSpells": "Your class doesn't cast spells at level 1, so there's nothing to choose here.",
+      "NoSpells": "Your class doesn't cast spells yet, so there's nothing to choose here.",
       "NothingToShow": "Nothing to choose here yet.",
       "AlreadyKnown": "you already have it",
       "FromElsewhere": "Already known"
@@ -406,6 +474,11 @@
       }
     },
     "Review": {
+      "YourTurnTitle": "Your turn",
+      "YourTurn_multiclass": "This is what the dice made. Before they go on, it's your choice whether to keep one class or split your levels with one of the classes they offer.",
+      "YourTurn_subclass": "This is what the dice made so far. Next, pick your subclass from the ones the dice offer; then they carry on.",
+      "YourTurn_feat": "This is what the dice made so far. Next, choose an ability score increase or one of the feats the dice offer; then they carry on.",
+      "YourTurnGo": "Make my choice",
       "Level": "level",
       "ArmorClass": "Armor class",
       "Speed": "Speed",
@@ -464,6 +537,15 @@
         "backdrops": "Step backdrops",
         "hardcore": "Hardcore mode"
       },
+      "AboveLevel1": "Above 1st level",
+      "AboveLevel1Hint": "Where characters start above 1st level, some choices come as a short list the dice pick and the player chooses from. Multiclassing and the starting level are in the module's settings.",
+      "MulticlassChoices": "Classes the dice offer to multiclass into (0 shows every one)",
+      "SubclassChoices": "Subclasses the dice offer (0 shows every one)",
+      "FeatMode": "At an ability score improvement",
+      "FeatMode_shortlist": "A few feats to choose from",
+      "FeatMode_rolled": "The dice decide",
+      "FeatMode_chosen": "The player chooses",
+      "FeatChoices": "Feats the dice offer (0 shows every one)",
       "Warning": {
         "NoneRequired": "No {category} are allowed, so nobody can make a character.",
         "NoneOptional": "No {category} are allowed. Anything that needs them will block the player.",
@@ -542,6 +624,7 @@
     "Random": {
       "species": "Species",
       "class": "Class",
+      "subclass": "Subclass",
       "background": "Background",
       "abilities": "Ability scores",
       "choices": "Skills, languages and other choices",
@@ -550,6 +633,7 @@
       "Flavor": "Random character: the dice choose",
       "Failed": "The dice couldn't make a character. Nothing was saved — try again.",
       "Button": "Random character (hardcore)",
+      "YourChoice": "The dice are waiting on a choice of yours, on the {step} step.",
       "Hint": "The dice choose your species, class, background, scores and the rest. You still pick your spells, your portrait and your name. Rolls go to chat and can't be taken back.",
       "Rolled": "The dice chose this.",
       "Rolling": "Rolling…",

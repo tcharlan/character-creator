@@ -1,7 +1,7 @@
 # Character Creator
 
-A step-by-step character creator for **Foundry VTT** and the **dnd5e** system. Players build a level 1
-character from the content their GM allows — species, class, background, ability scores, choices, equipment,
+A step-by-step character creator for **Foundry VTT** and the **dnd5e** system. Players build a
+character — at 1st level or at the level the GM starts characters at — from the content their GM allows — species, class, background, ability scores, choices, equipment,
 spells, details and a portrait — and the GM's browser creates it. Works with both the 2014 and the 2024 rules.
 
 ![The creator's first page](docs/images/01-start.png)
@@ -68,6 +68,12 @@ ability scores are allowed (point buy, standard array, rolled).
 | Allow portrait uploads | Lets players upload a portrait. The GM's browser saves it; players need no file permissions. |
 | Largest portrait file (MB) | The largest image a player may choose; it is resized to 1024 px before it's sent. |
 | Default token ring colors | Used when a player doesn't choose ring colours. Unset means the player's user colour. |
+| Starting level | The level new characters start at, 1 to 20. |
+| Hit points after 1st level | Each level past the first gives the average of the hit die, or a roll of it posted to chat. The first level always gives the most. Players aren't asked. |
+| Extra starting gold per level (gp) | Gold for each level above the first, on top of the starting equipment. |
+| Allow multiclassing | Players may split their levels between classes on the class step. |
+| Levels kept in the first class | When multiclassing, the fewest levels a character keeps in its first class (picked or rolled). |
+| Multiclassing needs a 13 | A class can only be taken with a 13 in its main ability, and in each class's the character already has. Off: any class. |
 
 ### Random characters
 
@@ -76,9 +82,14 @@ species, class, background, the six scores in the order they fall, every choice 
 (the packs and kits, not the bag of gold), the alignment and (with 2014 backgrounds) the personality tables. Every die is posted to chat and can't be
 re-rolled, and those steps are then closed to the player. Spells, the portrait and the name stay theirs.
 
-On **Allowed content → Random characters** you can turn the mode off, or hand any part back to the player —
+On **Allowed content → Hardcore mode** you can turn the mode off, or hand any part back to the player —
 letting them choose their class, say, while the dice decide everything else. When the character is sent, your
 browser replays the same rolls and refuses one that doesn't match them.
+
+Above 1st level some choices come as a short list the dice pick and the player chooses from: the classes to
+multiclass into, a subclass, and the feats at an ability score improvement (or the dice decide, or the player
+chooses freely). **Above 1st level** on the same tab sets how many each list offers (2 classes, 3 subclasses and 3 feats by
+default; 0 shows every one). The dice stop at each list until the player has chosen, and your browser checks every pick was on its list.
 
 ### Characters of your own
 

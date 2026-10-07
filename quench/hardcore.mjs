@@ -42,8 +42,10 @@ export function registerHardcoreBatches(quench) {
         for ( let i = 0; i < 600 && (app.draft?.mode !== "hardcore"); i++ ) await wait(200);
         assert.equal(app.draft.mode, "hardcore", "nothing was rolled");
         await app.settle();
+        staged = await answerStages(app);
         return app.draft;
       };
+      let staged = false;
 
       before(async function() {
         this.timeout(120_000);
@@ -86,7 +88,8 @@ export function registerHardcoreBatches(quench) {
         assert.notInclude(messages, undefined, "the rolls should be in chat");
         assert.equal(messages.reduce((n, m) => n + m.rolls.length, 0), draft.random.rolls.length);
         for ( const message of messages ) assert.isEmpty(message.whisper, "and public");
-        assert.equal(app.step, "review", "it drops the player at the end");
+        // A 2014 Cleric, Sorcerer or Warlock picks its subclass from the dice's shortlist first (D39).
+        if ( !staged ) assert.equal(app.step, "review", "it drops the player at the end");
       });
 
       it("the name and the rest of the details are still the player's", async function() {
@@ -238,4 +241,50 @@ export function registerHardcoreBatches(quench) {
       });
     });
   }, { displayName: "Character Creator: the random character" });
+}
+
+/**
+ * Answer every shortlist a random character stops at (D35, D36, D39) the way a quick player would: the first
+ * subclass or feat on offer, the scores for an increase, one class kept at the multiclass stage. Returns whether
+ * there was any.
+ */
+export async function answerStages(app) {
+  const { openStage } = await import("../scripts/rules/random.mjs");
+  // A click from a test goes through whatever the page's styles say; a player's doesn't. What the player has to
+  // reach must not be switched off.
+  const reachable = element => {
+    for ( let e = element; e; e = e.parentElement ) {
+      if ( getComputedStyle(e).pointerEvents === "none" ) throw new Error(`a player can't click ${element.outerHTML.slice(0, 120)}`);
+    }
+    return element;
+  };
+  let any = false;
+  for ( let guard = 0; guard < 20; guard++ ) {
+    const stage = openStage(app.draft, app.build);
+    if ( !stage ) break;
+    any = true;
+    if ( stage.kind === "multiclass" ) {
+      await app.goTo("class");
+      await app.finishClassStage();
+    } else {
+      await app.goTo("choices");
+      reachable(app.element.querySelector(`[data-action="choice"][data-key="${stage.key}"]`)).click();
+      await app.settle();
+      if ( stage.kind === "subclass" ) reachable(app.element.querySelector('[data-action="subclass-choice"]'))?.click();
+      else {
+        reachable(app.element.querySelector('[data-action="asi-mode"][data-key="feat"]') ?? app.element.querySelector(".cc-scores"));
+        for ( let i = 0; i < 4; i++ ) {
+          const plus = [...app.element.querySelectorAll('[data-action="asi-raise"]')].find(b => !b.disabled);
+          if ( !plus ) break;
+          reachable(plus).click();
+          await app.settle();
+        }
+      }
+    }
+    await app.settle();
+    // The dice carry on from the pick.
+    for ( let i = 0; i < 100 && (app.busy ?? false); i++ ) await new Promise(r => setTimeout(r, 200));
+    await app.settle();
+  }
+  return any;
 }

@@ -9,11 +9,13 @@
  */
 
 import { normalizeUuid } from "../catalog/filters.mjs";
-import { buildCharacter } from "./build.mjs";
+import { buildCharacter, buildInput } from "./build.mjs";
 import { checkDraftAbilities } from "./ability-roll.mjs";
 import { resolveDraftEquipment } from "./equipment-items.mjs";
 import { checkDraftSpells } from "./spell-facts.mjs";
-import { checkEnvelope, checkBuiltStructure, checkDetails, checkPortraitImage, checkCharacterLimit, errorsByStep }
+import { checkMulticlassPrerequisites } from "./multiclass.mjs";
+import { checkDraftHitPoints } from "./hit-points.mjs";
+import { checkEnvelope, checkLevels, checkBuiltStructure, checkDetails, checkPortraitImage, checkCharacterLimit, errorsByStep }
   from "./draft-checks.mjs";
 
 /** A plain summary of a built character for draft-checks.mjs `checkBuiltStructure`. */
@@ -25,7 +27,8 @@ export function actorSummary(actor) {
       id: i.id, name: i.name, type: i.type,
       source: normalizeUuid(i._stats?.compendiumSource) ?? null,
       origin: i.flags?.dnd5e?.advancementOrigin ?? null,
-      levels: i.type === "class" ? i.system.levels : null
+      levels: i.type === "class" ? i.system.levels : null,
+      classIdentifier: i.type === "subclass" ? (i.system.classIdentifier ?? null) : null
     }))
   };
 }
@@ -41,11 +44,15 @@ export function actorSummary(actor) {
  * @param {string[]} [options.allowedMethods] Ability methods the GM allows (PLAN 2.10).
  * @param {object|null} [options.image]       The portrait sent with the submission.
  * @param {{ limit?: number|null, existing?: number }} [options.characters]  Character limit (A4).
+ * @param {{ startingLevel?: number, multiclass?: boolean, prerequisites?: boolean }} [options.levels]  What the GM
+ *   allows (D32, D35); `levelOptions(readSettings())` gives these and the hit point method.
+ * @param {"average"|"rolled"} [options.hitPointMethod]  The GM's hit point method (D33).
  * @returns {Promise<{ ok: boolean, errors: object[], byStep: object[], draft: object|null, built: object|null,
  *   equipment: object|null }>}   `built` / `equipment` are reused to create the actor (PLAN 2.7).
  */
 export async function validateDraft(draft, { catalog, standard = null, userId, worldId = game.world.id,
-  rules = game.settings.get("dnd5e", "rulesVersion"), allowedMethods, image = null, characters = {} } = {}) {
+  rules = game.settings.get("dnd5e", "rulesVersion"), allowedMethods, image = null, characters = {}, levels = {},
+  hitPointMethod = "average" } = {}) {
   const done = (errors, extra = {}) => ({ ok: !errors.length, errors, byStep: errorsByStep(errors), draft: null, built: null,
     equipment: null, ...extra });
 
@@ -54,8 +61,9 @@ export async function validateDraft(draft, { catalog, standard = null, userId, w
   const d = envelope.draft;
 
   // Choices: strict replay — every step must be in the recipe (fill: false).
-  const built = await buildCharacter({ picks: d.picks, base: d.abilities.base, steps: d.recipe.steps }, { catalog, fill: false });
-  const { errors, equipment } = await checkBuilt(d, built, { catalog, standard, userId, allowedMethods, image, characters });
+  const built = await buildCharacter(buildInput(d), { catalog, fill: false, hitPointMethod, slice: true });
+  const { errors, equipment } = await checkBuilt(d, built, { catalog, standard, userId, allowedMethods, image, characters,
+    levels, hitPointMethod });
   return done(errors, { draft: d, built, equipment });
 }
 
@@ -69,10 +77,14 @@ export async function validateDraft(draft, { catalog, standard = null, userId, w
  * @returns {Promise<{ errors: object[], equipment: object|null }>}
  */
 export async function checkBuilt(draft, built, { catalog, standard = null, userId, allowedMethods, image = null,
-  characters = {} } = {}) {
-  const errors = [...built.errors];
+  characters = {}, levels = {}, hitPointMethod = "average" } = {}) {
+  const errors = [...built.errors, ...checkLevels(draft, levels)];
+  // Multiclassing prerequisites, with the scores the character had when each class joined (D35, D37).
+  if ( levels.prerequisites !== false ) errors.push(...checkMulticlassPrerequisites(built.joins ?? []));
+  // Rolled hit dice, against chat (D33).
+  if ( hitPointMethod === "rolled" ) errors.push(...checkDraftHitPoints(draft, built, { userId }));
   const blocked = built.summary.blocked.length || !built.roots.class;
-  if ( !blocked ) errors.push(...checkBuiltStructure(actorSummary(built.actor), catalog));
+  if ( !blocked ) errors.push(...checkBuiltStructure(actorSummary(built.actor), catalog, expectedClasses(draft)));
 
   errors.push(...checkDraftAbilities(draft, { userId, allowedMethods }));
 
@@ -85,6 +97,27 @@ export async function checkBuilt(draft, built, { catalog, standard = null, userI
 
   errors.push(...checkDetails(draft), ...checkPortraitImage(image), ...checkCharacterLimit(characters));
   return { errors: dedupe(errors), equipment };
+}
+
+/**
+ * The validator's options from the GM's settings (D32–D35): the starting level, multiclassing and its
+ * prerequisites, and the hit point method.
+ * @param {{ levels: object }} settings   readSettings()
+ */
+export function levelOptions(settings) {
+  const l = settings?.levels ?? {};
+  return { levels: { startingLevel: l.startingLevel ?? 1, multiclass: !!l.multiclass, prerequisites: l.prerequisites !== false,
+    firstClassLevels: l.firstClassLevels ?? 1 },
+    hitPointMethod: l.hitPointMethod ?? "average" };
+}
+
+/** The level and classes the built character must have: the draft's (D32, D37). */
+export function expectedClasses(draft) {
+  const level = draft.level ?? 1;
+  const others = draft.multiclass ?? [];
+  const first = level - others.reduce((n, m) => n + m.levels, 0);
+  return { level, classes: [{ source: normalizeUuid(draft.picks?.class), levels: first },
+    ...others.map(m => ({ source: normalizeUuid(m.uuid), levels: m.levels }))] };
 }
 
 /** The same error (code + detail) reported twice (e.g. by the rebuild and the structure check) once. */

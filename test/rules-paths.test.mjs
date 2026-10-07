@@ -17,6 +17,8 @@ test("paths start with a role and continue with segments", () => {
   assert.ok(isPath(["species"]));
   assert.ok(isPath(["class", `${ID("sub")}:${U("life")}`, `${ID("g")}:${U("feat")}`]));
   assert.ok(!isPath(["subclass"]));
+  assert.ok(isPath(["multiclass:rogue", `${ID("g")}:${U("feat")}`]), "another class roots at its identifier (D37)");
+  assert.ok(!isPath(["multiclass:"]));
   assert.ok(!isPath([]));
   assert.ok(!isPath(["class", "bad"]));
 });

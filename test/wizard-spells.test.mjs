@@ -97,3 +97,14 @@ test("the open list is the first one that isn't finished, and a full selection v
   const levels = new Map([...C.map(u => [u, 0]), ...L1.map(u => [u, 1])]);
   assert.deepEqual(validateSpells(req, d.spells, { list: options.list, levels }), []);
 });
+
+test("a spell another class already chose is marked and can't be chosen again (a multiclassed caster)", () => {
+  const taken = new Map([[C[0], "class"]]);
+  const d = draft();
+  const model = spellsModel(ctx(KNOWN), d, "cantrips", catalog, "multiclass:bard", { taken, className: () => "Cleric" });
+  const card = model.open.list.find(s => s.uuid === C[0]);
+  assert.deepEqual([card.takenBy, card.disabled], ["Cleric", true]);
+  assert.equal(toggleSpell(d, "cantrips", C[0], requirements(KNOWN), new Set(), "multiclass:bard", taken), null);
+  assert.ok(toggleSpell(d, "cantrips", C[1], requirements(KNOWN), new Set(), "multiclass:bard", taken));
+  assert.deepEqual(d.multiclassSpells["multiclass:bard"].cantrips, [C[1]], "the Bard's own list, not the first class's");
+});

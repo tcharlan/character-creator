@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createDraft, SCHEMA_VERSION } from "../scripts/contracts.mjs";
-import { checkEnvelope, checkBuiltStructure, checkDetails, checkPortraitImage, checkCharacterLimit, errorsByStep }
+import { checkEnvelope, checkLevels, checkBuiltStructure, checkDetails, checkPortraitImage, checkCharacterLimit, errorsByStep }
   from "../scripts/rules/draft-checks.mjs";
 
 const ID = n => String(n).padEnd(16, "0");
@@ -54,6 +54,24 @@ test("built structure: missing or doubled roots, two subclasses, wrong level, no
   assert.deepEqual(codes(checkBuiltStructure({ ...s, hp: 0 }, allowAll)), ["APPLY_FAILED"]);
 });
 
+test("built structure above level 1: the classes at their levels, a subclass for each (D32, D35, D37)", () => {
+  const s = summary();
+  const at8 = { ...s, level: 8, items: s.items.map(i => (i.type === "class" ? { ...i, levels: 8 } : i)) };
+  assert.deepEqual(checkBuiltStructure(at8, allowAll, { level: 8 }), [], "one class at the character's level");
+  assert.deepEqual(codes(checkBuiltStructure(at8, allowAll)), ["CLASS_NOT_ALLOWED"], "a level-1 draft built at 8");
+  const multi = { ...s, level: 8, items: [
+    ...s.items.map(i => (i.type === "class" ? { ...i, levels: 5, classIdentifier: undefined } : i)),
+    item("rogue", "class", { levels: 3 }), item("thief", "subclass", { classIdentifier: "rogue" })
+  ] };
+  const classes = [{ source: U("cl"), levels: 5 }, { source: U("rogue"), levels: 3 }];
+  assert.deepEqual(checkBuiltStructure(multi, allowAll, { level: 8, classes }), [], "two classes, a subclass each");
+  assert.deepEqual(codes(checkBuiltStructure(multi, allowAll, { level: 8, classes: [classes[0], { ...classes[1], levels: 2 }] })),
+    ["CLASS_NOT_ALLOWED"], "a class at other levels than the draft gives it");
+  const twoForOne = { ...multi, items: [...multi.items, item("assassin", "subclass", { classIdentifier: "rogue" })] };
+  assert.deepEqual(codes(checkBuiltStructure(twoForOne, allowAll, { level: 8, classes })), ["CLASS_NOT_ALLOWED"],
+    "two subclasses for one class");
+});
+
 test("built structure: an item neither allowed nor granted by an item on the character is rejected", () => {
   const s = summary();
   const smuggled = item("x", "weapon", { source: U("smuggled") });
@@ -87,6 +105,17 @@ test("character limit (A4)", () => {
   assert.deepEqual(checkCharacterLimit({ limit: 1, existing: 0 }), []);
   assert.deepEqual(codes(checkCharacterLimit({ limit: 1, existing: 1 })), ["CHARACTER_LIMIT"]);
   assert.deepEqual(checkCharacterLimit({ limit: null, existing: 9 }), []);
+});
+
+test("the level and the classes, against what the GM allows (D32, D35)", () => {
+  assert.deepEqual(checkLevels(draft()), [], "a level-1 single-class draft by default");
+  assert.deepEqual(codes(checkLevels(draft({ level: 5 }))), ["LEVEL_MISMATCH"], "started before the GM changed the level");
+  assert.deepEqual(checkLevels(draft({ level: 5 }), { startingLevel: 5 }), []);
+  const multi = draft({ level: 5, multiclass: [{ uuid: U("rogue"), levels: 2 }] });
+  assert.deepEqual(codes(checkLevels(multi, { startingLevel: 5 })), ["MULTICLASS_NOT_ALLOWED"]);
+  assert.deepEqual(checkLevels(multi, { startingLevel: 5, multiclass: true }), []);
+  assert.deepEqual(codes(checkLevels(multi, { startingLevel: 5, multiclass: true, firstClassLevels: 4 })), ["MULTICLASS_FIRST_LEVELS"],
+    "3 levels kept where the GM wants 4");
 });
 
 test("errors are grouped by the wizard step to revisit, in step order", () => {

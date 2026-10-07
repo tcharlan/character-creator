@@ -29,31 +29,50 @@ export function checkEnvelope(draft, { worldId, rules }) {
 
 /**
  * The built character's structure, from a plain summary:
- * `{ level, hp, items: [{ id, name, type, source, origin, levels }] }` where `source` is the normalised
- * compendium UUID and `origin` the `advancementOrigin` flag ("<itemId>.<advancementId>").
- * - exactly one species, background and class; at most one subclass; level 1 (class levels 1);
+ * `{ level, hp, items: [{ id, name, type, source, origin, levels, classIdentifier }] }` where `source` is the
+ * normalised compendium UUID and `origin` the `advancementOrigin` flag ("<itemId>.<advancementId>").
+ * - exactly one species and background; the classes the draft takes, each at its levels; the character level;
+ *   at most one subclass per class;
  * - hit points above 0;
  * - every item is allowed by the catalog or granted by an item on the character (provenance).
  * @param {object} summary
  * @param {{ isAllowed: (uuid: string) => boolean }} catalog
+ * @param {{ level?: number, classes?: { source: string, levels: number }[]|null }} [expected]  Default: level 1,
+ *   one class at level 1. `classes` lists every class, the first included.
  * @returns {object[]} makeError() objects
  */
-export function checkBuiltStructure(summary, { isAllowed }) {
+export function checkBuiltStructure(summary, { isAllowed }, expected = {}) {
+  expected = { level: 1, classes: null, ...expected };
   const errors = [];
   const items = summary?.items ?? [];
   const byType = type => items.filter(i => i.type === type);
+  const classes = list => list.filter(i => i.type === "class");
   const role = { species: "race", background: "background", class: "class" };
   const missing = { species: "SPECIES_MISSING", background: "BACKGROUND_MISSING", class: "CLASS_MISSING" };
   const notAllowed = { species: "SPECIES_NOT_ALLOWED", background: "BACKGROUND_NOT_ALLOWED", class: "CLASS_NOT_ALLOWED" };
   for ( const r of ROLES ) {
     const found = byType(role[r]);
     if ( !found.length ) errors.push(makeError(missing[r]));
-    else if ( found.length > 1 ) errors.push(makeError(notAllowed[r], { count: found.length, items: found.map(i => i.name) }));
+    else if ( (found.length > 1) && !((r === "class") && expected.classes) ) {
+      errors.push(makeError(notAllowed[r], { count: found.length, items: found.map(i => i.name) }));
+    }
   }
-  if ( byType("subclass").length > 1 ) errors.push(makeError("CLASS_NOT_ALLOWED", { subclasses: byType("subclass").map(i => i.name) }));
-  const classes = byType("class");
-  if ( summary?.level !== 1 || classes.some(c => c.levels !== 1) ) {
-    errors.push(makeError("CLASS_NOT_ALLOWED", { level: summary?.level ?? null, classLevels: classes.map(c => c.levels) }));
+  // At most one subclass per class (D35: a multiclassed character can have one for each).
+  const subclasses = byType("subclass");
+  const perClass = new Map();
+  for ( const s of subclasses ) perClass.set(s.classIdentifier ?? null, (perClass.get(s.classIdentifier ?? null) ?? 0) + 1);
+  if ( (subclasses.length > Math.max(1, classes(items).length)) || [...perClass.values()].some(n => n > 1) ) {
+    errors.push(makeError("CLASS_NOT_ALLOWED", { subclasses: subclasses.map(i => i.name) }));
+  }
+  // The character level, and each class at the levels the draft gives it (D32, D37). The first class is the
+  // picked one; any other is in `expected.classes` by its compendium source.
+  const built = classes(items);
+  const want = expected.classes ?? null;
+  const wrongLevels = want
+    ? (built.length !== want.length) || built.some(c => want.find(w => w.source === c.source)?.levels !== c.levels)
+    : built.some(c => c.levels !== expected.level);
+  if ( (summary?.level !== expected.level) || wrongLevels ) {
+    errors.push(makeError("CLASS_NOT_ALLOWED", { level: summary?.level ?? null, classLevels: built.map(c => c.levels) }));
   }
   if ( !(summary?.hp > 0) ) errors.push(makeError("APPLY_FAILED", { hp: summary?.hp ?? null }));
 
@@ -65,6 +84,27 @@ export function checkBuiltStructure(summary, { isAllowed }) {
     return !(parent && ids.has(parent) && parent !== i.id);
   });
   if ( orphans.length ) errors.push(makeError("UNKNOWN_ITEM", { items: orphans.map(i => ({ name: i.name, source: i.source ?? null })) }));
+  return errors;
+}
+
+/**
+ * The level the draft is built for and the classes it takes, against what the GM allows (D32, D35). The rebuild
+ * checks each class's own steps; this is only whether the draft asks for what is on offer.
+ * @param {object} draft
+ * @param {{ startingLevel?: number, multiclass?: boolean, firstClassLevels?: number }} [allowed]  Defaults: level 1, single
+ *   class; at least one level kept in the first class.
+ * @returns {object[]} makeError() objects
+ */
+export function checkLevels(draft, { startingLevel = 1, multiclass = false, firstClassLevels = 1 } = {}) {
+  const errors = [];
+  const others = (draft?.multiclass ?? []).reduce((n, m) => n + (m.levels ?? 0), 0);
+  if ( others && (((draft?.level ?? 1) - others) < firstClassLevels) ) {
+    errors.push(makeError("MULTICLASS_FIRST_LEVELS", { first: (draft?.level ?? 1) - others, needed: firstClassLevels }));
+  }
+  if ( draft?.level !== startingLevel ) errors.push(makeError("LEVEL_MISMATCH", { draft: draft?.level ?? null, world: startingLevel }));
+  if ( !multiclass && draft?.multiclass?.length ) {
+    errors.push(makeError("MULTICLASS_NOT_ALLOWED", { classes: draft.multiclass.map(m => m.uuid) }));
+  }
   return errors;
 }
 

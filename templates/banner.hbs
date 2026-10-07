@@ -9,7 +9,9 @@
     <span class="cc-step__label">
       {{~#if s.label}}{{s.label}}{{else if (eq s.state "current")}}{{localize "CHARCREATOR.Nav.Choosing"}}{{/if~}}
     </span>
-    {{#if s.count}}<span class="cc-step__count" aria-label="{{localize 'CHARCREATOR.Nav.NeedsAttention'}}">{{s.count}}</span>{{/if}}
+    {{#if s.count}}<span class="cc-step__count" aria-label="{{localize 'CHARCREATOR.Nav.NeedsAttention'}}">{{s.count}}</span>
+    {{else if s.left}}<span class="cc-step__count cc-step__count--left" data-tooltip="{{localize 'CHARCREATOR.Nav.DecisionsLeft'}}"
+          aria-label="{{localize 'CHARCREATOR.Nav.DecisionsLeft'}}">{{s.left}}</span>{{/if}}
   </button>
   {{/each}}
 </nav>

@@ -5,7 +5,7 @@
  */
 
 import { MODULE_ID } from "../contracts.mjs";
-import { SETTINGS, DEFAULTS, UPLOAD_MB_RANGE, normalizeSettings } from "./normalize.mjs";
+import { SETTINGS, DEFAULTS, UPLOAD_MB_RANGE, HIT_POINT_METHODS, normalizeSettings } from "./normalize.mjs";
 import { registerRestrictionsApp } from "./restrictions-app.mjs";
 import { registerPendingApp } from "../gm/pending-app.mjs";
 
@@ -29,6 +29,14 @@ export function registerSettings() {
   world(SETTINGS.OPTION_ART, { type: Object, config: false, default: {} });
   world(SETTINGS.STEP_ART, { type: Object, config: false, default: {} });
   world(SETTINGS.HARDCORE, { type: Object, config: false, default: { offered: true, free: [] } });
+  // Above level 1 (D32–D35), in Foundry's own settings window.
+  world(SETTINGS.STARTING_LEVEL, { type: Number, config: true, range: { min: 1, max: 20, step: 1 } });
+  world(SETTINGS.HIT_POINTS, { type: String, config: true,
+    choices: Object.fromEntries(HIT_POINT_METHODS.map(m => [m, `CHARCREATOR.Settings.${SETTINGS.HIT_POINTS}.${m}`])) });
+  world(SETTINGS.GOLD_PER_LEVEL, { type: Number, config: true });
+  world(SETTINGS.MULTICLASS, { type: Boolean, config: true });
+  world(SETTINGS.MULTICLASS_PREREQUISITES, { type: Boolean, config: true });
+  world(SETTINGS.FIRST_CLASS_LEVELS, { type: Number, config: true, range: { min: 1, max: 20, step: 1 } });
   // Each player's own: fullscreen or a window, and where the window was (D28).
   game.settings.register(MODULE_ID, SETTINGS.DISPLAY, { scope: "client", config: false, type: Object,
     default: { mode: "fullscreen", window: null } });

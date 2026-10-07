@@ -293,7 +293,8 @@ test("rolls per character: the slider's stops, and what is stored (D31)", () => 
   assert.equal(setRollAttempts(state, 99).hardcore.attempts, MAX_ATTEMPTS, "no further than the slider goes");
   assert.equal(setRollAttempts(state, -2).hardcore.attempts, 1, "and nonsense is the default, never a free roll");
   assert.equal(setRollAttempts(state, "2").hardcore.attempts, 2, "the slider hands over a string");
-  assert.deepEqual(toStoredHardcore(setRollAttempts(state, 4)), { offered: true, free: [], attempts: 4 });
+  assert.deepEqual(toStoredHardcore(setRollAttempts(state, 4)), { offered: true, free: [], attempts: 4, multiclassChoices: 2,
+    feats: "shortlist", featChoices: 3, subclassChoices: 3 }, "and what lies above level 1 is kept as it was (D35, D36)");
 });
 
 test("the hardcore tab is marked as changed when the rolls are not the default", () => {
@@ -305,4 +306,17 @@ test("the hardcore tab is marked as changed when the rolls are not the default",
   assert.equal(tab(model({ offered: true, free: [], attempts: 0 })).restricted, true);
   const shown = model({ offered: true, free: [], attempts: 0 }).hardcore.attempts;
   assert.deepEqual([shown.value, shown.unlimited, shown.final, shown.max], [0, true, false, MAX_ATTEMPTS]);
+});
+
+test("above level 1: the shortlist sizes and how a feat slot goes (D35, D36, D39)", async () => {
+  const M = await import("../scripts/settings/restrictions-model.mjs");
+  const state = M.editorState({ packs: null, categories: {} }, ["pointBuy"], {}, {}, { offered: true, free: [] });
+  M.setShortlist(state, "subclassChoices", 0);
+  M.setShortlist(state, "featChoices", 0);
+  M.setShortlist(state, "multiclassChoices", 99);
+  M.setFeatMode(state, "rolled");
+  M.setFeatMode(state, "everything");
+  const stored = M.toStoredHardcore(state);
+  assert.deepEqual([stored.subclassChoices, stored.featChoices, stored.multiclassChoices, stored.feats], [0, 0, 12, "rolled"],
+    "0 is every option; 12 at most; an unknown mode changes nothing");
 });

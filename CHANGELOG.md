@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.5.0
+
+- **Characters above 1st level.** Six new settings in the module's settings: **Starting level** (1–20), **Hit
+  points after 1st level** (the average, or rolled), **Extra starting gold per level**, **Allow multiclassing**,
+  **Levels kept in the first class** (the fewest the first class keeps when multiclassing), and **Multiclassing
+  needs a 13** to respect or waive the ability requirement. A character
+  started before the level changes is sent back to be brought up to it.
+- The class step shows the character's level and, with multiclassing allowed, a row for each class: every level
+  starts in your first class, + and − move levels to another class (a class at 0 isn't taken, and your first class
+  always keeps one), and **Confirm classes** sets the split — the character is only rebuilt then. A class you
+  don't have the 13 for says so.
+- The choices go level by level. An ability score improvement can be a feat instead, from the feats your
+  character qualifies for at that level, as dnd5e decides it.
+- Spells: a multiclassed caster gets a tab per class, each showing how many of its spells are chosen and a tick when
+  done, with the classes still to do named above the list. Each casting class chooses its own, up to the highest level that class casts on its own; a Wizard's
+  spellbook grows by two spells a level. Spells "of a level you can cast" (Magical Secrets) are offered.
+- Rolled hit points are rolled for you as the levels come in, posted to chat, and checked by the GM's browser;
+  each roll belongs to its class level, so changing the split and changing it back finds the same roll.
+- Review shows every class with its levels ("Cleric 4 / Wizard 1") and the gold for the levels.
+- **Hardcore mode above 1st level.** The dice stop at a short list for you to choose from: classes to multiclass
+  into, a subclass, and feats at an ability score improvement (or the dice decide, or you choose freely — the GM's
+  call). **Allowed content → Hardcore mode → Above 1st level** sets how many each list offers (2 classes, 3 subclasses
+  and 3 feats by default; 0 shows every one). Nothing past a choice of yours is rolled until you have made it, and the GM's browser checks
+  that every pick was on its list.
+- The creator replays a character a level at a time and hands the browser back control as it goes, so a
+  level-20 character doesn't freeze the screen.
+- Moving to another step shows it straight away; the character is rebuilt behind it.
+- A change rebuilds the character from the first level it reaches, not from scratch, in the creator and when the
+  GM's browser checks a rolled character's dice — what made sending a high-level rolled character slow. The wait
+  for the GM's browser grows with the character's level, so a slow check is no longer mistaken for an offline GM.
+- The first page no longer describes hardcore mode under its button.
+- Fixed: in a 2024 world, a random character with a background named like a 2014 one ("Acolyte") could be
+  refused, the GM's side having looked for the 2014 personality tables.
+- Fixed: the dice could take "a warhammer (if proficient)" for a character without the proficiency.
+
 ## 0.4.4
 
 - **Hardcore mode: rerolls are the GM's to hand out.** A rolled character can no longer be discarded and rolled

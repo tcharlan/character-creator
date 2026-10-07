@@ -42,7 +42,7 @@ test("the banner model carries labels and error counts", () => {
   const rows = bannerSteps({ current: "class", draft: full, labels: { species: "High Elf" },
     errorsByStep: { spells: [makeError("CANTRIP_COUNT"), makeError("SPELL_COUNT")] }, visited: ["species"] });
   assert.equal(rows.length, 10);
-  assert.deepEqual(rows[0], { key: "species", numeral: "I", state: "done", locked: false, label: "High Elf", count: 0 });
+  assert.deepEqual(rows[0], { key: "species", numeral: "I", state: "done", locked: false, label: "High Elf", count: 0, left: 0 });
   assert.equal(rows.find(r => r.key === "spells").count, 2);
   assert.equal(rows.find(r => r.key === "class").state, "current");
 });
@@ -65,4 +65,13 @@ test("validator errors group by the step to revisit, and the footer counts them"
   assert.deepEqual(attention(grouped), { steps: ["spells", "choices", "details"], errors: 4, ready: false });
   assert.deepEqual(attention({}), { steps: [], errors: 0, ready: true });
   assert.deepEqual(attention(groupErrors([])), { steps: [], errors: 0, ready: true });
+});
+
+test("decisions still to make show on their step, quieter than a problem, and the step isn't done", () => {
+  const rows = bannerSteps({ current: "review", draft: full, visited: ["choices", "spells"], left: { choices: 3, spells: 1 },
+    errorsByStep: { spells: [makeError("SPELL_COUNT")] } });
+  const choices = rows.find(r => r.key === "choices");
+  assert.deepEqual([choices.left, choices.count, choices.state], [3, 0, "todo"], "visited, but with choices left");
+  const spells = rows.find(r => r.key === "spells");
+  assert.deepEqual([spells.left, spells.count], [0, 1], "a problem's count wins");
 });

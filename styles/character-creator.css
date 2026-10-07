@@ -125,6 +125,8 @@
   line-height: 20px;
   text-align: center;
 }
+/* Decisions still to make (no problem yet): the gold of the accents, not the warning colour. */
+.cc-step__count--left { background: var(--cc-gold); }
 
 /* Step pane */
 .cc-pane {
@@ -210,6 +212,55 @@
 .cc-facts div { display: flex; flex-direction: column; gap: 2px; }
 .cc-facts dt { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--cc-faint); }
 .cc-facts dd { margin: 0; font-size: 16px; color: var(--cc-text); }
+
+/* An increase or a feat (D36): two panels, one above the other, with a plain OR between them; the one taken is lit
+   and the other quieter. */
+.cc-asi-lead { margin: 0 0 12px; color: var(--cc-text); font-size: 16px; }
+.cc-asi-or-feat { display: flex; flex-direction: column; gap: 0; }
+.cc-asi-or-feat .cc-asi-option {
+  padding: 14px 16px;
+  background: var(--cc-raised);
+  border: 1px solid var(--cc-line);
+  border-radius: var(--cc-radius);
+}
+.cc-asi-or-feat .cc-asi-option .cc-section-title { margin-top: 0; }
+.cc-asi-option--taken { border-color: var(--cc-gold) !important; box-shadow: 0 0 0 1px var(--cc-gold); }
+.cc-asi-option--other { opacity: 0.85; }
+.cc-asi-or {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 14px 0;
+  font-family: var(--cc-display);
+  font-size: 18px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--cc-gold);
+}
+.cc-asi-or::before, .cc-asi-or::after { content: ""; flex: 1; height: 1px; background: var(--cc-gold); opacity: 0.5; }
+
+/* The GM's shortlist sizes above level 1 (D35, D36, D39). */
+.cc-shortlists { display: flex; flex-direction: column; gap: 10px; }
+.cc-shortlists__row { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 44px; }
+.cc-shortlists__row input[type="number"] { width: 5em; }
+
+/* The class step's levels panel (PLAN 8.4): the split between classes above level 1. */
+.cc-levels { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+.cc-levels--stage {
+  padding: 16px;
+  background: var(--cc-raised);
+  border: 1px solid var(--cc-gold);
+  border-radius: var(--cc-radius);
+}
+.cc-levels__ask { margin: 0; font-family: var(--cc-display); font-size: 20px; color: var(--cc-gold); border: 0; }
+.cc-levels__row--first .cc-levels__name { font-weight: 600; }
+.cc-levels__row--none .cc-levels__name { color: var(--cc-muted); }
+.cc-levels__confirm { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.cc-levels__list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.cc-levels__row { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.cc-levels__name { flex: 1; color: var(--cc-text); }
+.cc-levels__count { min-width: 2ch; text-align: center; font-size: 16px; color: var(--cc-text); }
+.cc-levels .cc-link { align-self: center; }
 
 .cc-problems, .cc-problems-group ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
 .cc-problem, .cc-problems-group li { color: var(--cc-text); }
@@ -368,6 +419,9 @@
   gap: 16px;
   padding: 26px 34px;
 }
+/* The column scrolls; its rows keep their own height. Without this a row that hides its overflow (the tab strips)
+   is squeezed to nothing when the column is long — the tabs were there, but cut down to a line. */
+.cc-detail > * { flex-shrink: 0; }
 .cc-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .cc-chip {
   display: inline-flex;
@@ -847,7 +901,8 @@ li.notification button.cc-entry-prompt {
   font-family: var(--cc-body);
   font-size: 15px;
 }
-.cc-restrict { display: grid; grid-template-columns: 220px 1fr; grid-template-rows: 1fr auto; height: 100%; min-height: 0; }
+/* minmax(0, 1fr): the pane may be narrower than its widest row (the slider) and still fit, instead of running off the edge. */
+.cc-restrict { display: grid; grid-template-columns: 220px minmax(0, 1fr); grid-template-rows: 1fr auto; height: 100%; min-height: 0; }
 .cc-restrict__tabs {
   grid-row: 1 / 3;
   display: flex;
@@ -879,7 +934,9 @@ li.notification button.cc-entry-prompt {
 .cc-restrict__count { font-family: var(--cc-body); font-size: 12px; color: var(--cc-faint); }
 .cc-restrict__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--cc-gold); }
 
-.cc-restrict__pane { display: flex; flex-direction: column; min-height: 0; padding: 16px 18px; gap: 12px; }
+/* The pane scrolls when a tab is taller than the window (Hardcore mode); a tab with a list lets the list scroll. */
+.cc-restrict__pane { display: flex; flex-direction: column; min-height: 0; padding: 16px 18px; gap: 12px; overflow-y: auto; }
+.cc-restrict__pane > :not(.cc-list) { flex-shrink: 0; }
 .cc-restrict__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .cc-restrict__head h2 { margin: 0; font-family: var(--cc-display); font-size: 22px; }
 .cc-restrict__tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -1057,6 +1114,11 @@ li.notification button.cc-entry-prompt {
 .cc-pane--rolled .cc-options, .cc-pane--rolled .cc-keys, .cc-pane--rolled .cc-cards,
 .cc-pane--rolled .cc-scores, .cc-pane--rolled .cc-methods,
 .cc-pane--rolled .cc-decision { pointer-events: none; opacity: 0.85; }
+/* …except what is the player's in a rolled character: a pick from a shortlist and a feat's own choices (D36, D39). */
+.cc-pane--rolled .cc-own .cc-keys, .cc-pane--rolled .cc-own .cc-cards, .cc-pane--rolled .cc-own .cc-scores,
+.cc-pane--rolled .cc-own .cc-methods { pointer-events: auto; opacity: 1; }
+/* The list of choices is how the player gets to their own ones, so it stays clickable (answering is still checked). */
+.cc-pane--rolled .cc-choice-list { pointer-events: auto; opacity: 1; }
 /* The details step only closes the fields the dice settled (the name and the writing stay the player's). */
 .cc-field--rolled .cc-input, .cc-field--rolled .cc-select { opacity: 0.8; }
 
@@ -1119,6 +1181,7 @@ li.notification button.cc-entry-prompt {
 /* Rolls per character (D31): the GM's slider, and what the player is told about their goes. */
 .cc-attempts {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
   margin-top: 16px;

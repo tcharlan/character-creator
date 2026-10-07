@@ -30,7 +30,10 @@ export function applyPick(draft, role, uuid) {
   draft.recipe.steps = (draft.recipe.steps ?? []).filter(s => s.path?.[0] !== role);
   const dependents = DEPENDENTS[role];
   for ( const source of dependents.equipment ) draft.equipment[source] = null;
-  if ( dependents.spells ) draft.spells = { cantrips: [], spells: [], spellbook: [] };
+  if ( dependents.spells ) {
+    draft.spells = { cantrips: [], spells: [], spellbook: [] };
+    draft.multiclassSpells = {};
+  }
   return draft;
 }
 

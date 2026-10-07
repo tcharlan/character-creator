@@ -157,6 +157,39 @@
       </button>
       {{/each}}
     </div>
+    {{!-- Above level 1 (D35, D36, D39): the shortlists the player picks from. --}}
+    <h3 class="cc-section-title">{{localize "CHARCREATOR.Restrictions.AboveLevel1"}}</h3>
+    <p class="cc-hint">{{localize "CHARCREATOR.Restrictions.AboveLevel1Hint"}}</p>
+    <div class="cc-shortlists{{#unless hardcore.offered}} cc-switches--off{{/unless}}">
+      <label class="cc-shortlists__row">
+        <span>{{localize "CHARCREATOR.Restrictions.MulticlassChoices"}}</span>
+        <input type="number" class="cc-shortlist" data-key="multiclassChoices" min="0" max="12" step="1"
+               value="{{hardcore.levels.multiclassChoices}}" {{#unless hardcore.offered}}disabled{{/unless}}>
+      </label>
+      <label class="cc-shortlists__row">
+        <span>{{localize "CHARCREATOR.Restrictions.SubclassChoices"}}</span>
+        <input type="number" class="cc-shortlist" data-key="subclassChoices" min="0" max="12" step="1"
+               value="{{hardcore.levels.subclassChoices}}" {{#unless hardcore.offered}}disabled{{/unless}}>
+      </label>
+      <div class="cc-shortlists__row">
+        <span>{{localize "CHARCREATOR.Restrictions.FeatMode"}}</span>
+        <div class="cc-methods" role="group" aria-label="{{localize 'CHARCREATOR.Restrictions.FeatMode'}}">
+          {{#each hardcore.levels.featModes as |m|}}
+          <button type="button" class="cc-method{{#if m.selected}} cc-method--selected{{/if}}" data-action="feat-mode"
+                  data-mode="{{m.mode}}" aria-pressed="{{m.selected}}" {{#unless @root.hardcore.offered}}disabled{{/unless}}>
+            {{localize (concat "CHARCREATOR.Restrictions.FeatMode_" m.mode)}}
+          </button>
+          {{/each}}
+        </div>
+      </div>
+      {{#if hardcore.levels.shortlist}}
+      <label class="cc-shortlists__row">
+        <span>{{localize "CHARCREATOR.Restrictions.FeatChoices"}}</span>
+        <input type="number" class="cc-shortlist" data-key="featChoices" min="0" max="12" step="1"
+               value="{{hardcore.levels.featChoices}}" {{#unless hardcore.offered}}disabled{{/unless}}>
+      </label>
+      {{/if}}
+    </div>
 
     {{else if backdrops}}
     <header class="cc-restrict__head">

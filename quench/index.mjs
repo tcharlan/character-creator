@@ -18,6 +18,10 @@ import { registerLimitsBatches } from "./limits.mjs";
 import { registerImportedBatches } from "./imported.mjs";
 import { registerPerformanceBatches } from "./performance.mjs";
 import { registerPerformanceScaleBatches } from "./performance-scale.mjs";
+import { registerLevelsBatches } from "./levels.mjs";
+import { registerLevelsGmBatches } from "./levels-gm.mjs";
+import { registerWizardLevelsBatches } from "./wizard-levels.mjs";
+import { registerHardcoreLevelsBatches } from "./hardcore-levels.mjs";
 import { registerCatalogBatches, registerCatalogTestQueries } from "./catalog.mjs";
 import { registerRulesBatches } from "./rules.mjs";
 import { registerAbilityBatches, registerAbilityTestQueries } from "./abilities.mjs";
@@ -74,5 +78,9 @@ export function registerQuenchBatches(quench) {
   registerImportedBatches(quench);
   registerPerformanceBatches(quench);
   registerPerformanceScaleBatches(quench);
+  registerLevelsBatches(quench);
+  registerLevelsGmBatches(quench);
+  registerWizardLevelsBatches(quench);
+  registerHardcoreLevelsBatches(quench);
   registerPhase2Batch(quench);
 }

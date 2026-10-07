@@ -16,8 +16,30 @@ test("defaults (DESIGN.md → Settings)", () => {
     ringColors: { ring: null, background: null },
     optionArt: {},
     stepArt: {},
-    hardcore: { offered: true, free: [], attempts: 1 }
+    hardcore: { offered: true, free: [], attempts: 1, multiclassChoices: 2, feats: "shortlist", featChoices: 3, subclassChoices: 3 },
+    levels: { firstClassLevels: 1, startingLevel: 1, hitPointMethod: "average", goldPerLevel: 0, multiclass: false, prerequisites: true }
   });
+});
+
+test("levels and classes (D32–D35): stored values in range, anything else a level-1 single-class game", () => {
+  const s = read({ [SETTINGS.STARTING_LEVEL]: 7, [SETTINGS.HIT_POINTS]: "rolled", [SETTINGS.GOLD_PER_LEVEL]: 50,
+    [SETTINGS.MULTICLASS]: true, [SETTINGS.MULTICLASS_PREREQUISITES]: false, [SETTINGS.FIRST_CLASS_LEVELS]: 3 });
+  assert.deepEqual(s.levels, { firstClassLevels: 3, startingLevel: 7, hitPointMethod: "rolled", goldPerLevel: 50, multiclass: true,
+    prerequisites: false });
+  const bad = read({ [SETTINGS.STARTING_LEVEL]: 25, [SETTINGS.HIT_POINTS]: "max", [SETTINGS.GOLD_PER_LEVEL]: -5,
+    [SETTINGS.MULTICLASS]: "yes", [SETTINGS.MULTICLASS_PREREQUISITES]: "no" });
+  assert.deepEqual(bad.levels, { firstClassLevels: 1, startingLevel: 20, hitPointMethod: "average", goldPerLevel: 0, multiclass: false,
+    prerequisites: true });
+});
+
+test("hardcore above level 1 (D35, D36): shortlist sizes in range, a known feat mode", () => {
+  const s = read({ [SETTINGS.HARDCORE]: { multiclassChoices: 5, feats: "chosen", featChoices: 0 } });
+  assert.deepEqual([s.hardcore.multiclassChoices, s.hardcore.feats, s.hardcore.featChoices], [5, "chosen", 0]);
+  assert.equal(read({ [SETTINGS.HARDCORE]: { feats: "everything" } }).hardcore.feats, "shortlist");
+  assert.equal(read({ [SETTINGS.HARDCORE]: { subclassChoices: 0 } }).hardcore.subclassChoices, 0, "0: every subclass (D39)");
+  assert.equal(read({ [SETTINGS.HARDCORE]: { featChoices: 0, multiclassChoices: 0 } }).hardcore.featChoices, 0, "and for feats");
+  assert.equal(read({ [SETTINGS.HARDCORE]: { multiclassChoices: 0 } }).hardcore.multiclassChoices, 0, "and for classes");
+  assert.equal(read({ [SETTINGS.HARDCORE]: { featChoices: -2 } }).hardcore.featChoices, 1, "below 0 reads as one");
 });
 
 test("stored values are used when valid", () => {

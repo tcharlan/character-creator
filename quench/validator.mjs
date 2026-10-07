@@ -33,7 +33,7 @@ export function registerValidatorTestQueries() {
  * A complete, legitimate draft built the way the wizard will: the stand-in player completes the recipe,
  * then default equipment for both sources and default spells, standard array, a name.
  */
-export async function legitDraft(spec, { catalog, base = BASE } = {}) {
+export async function legitDraft(spec, { catalog, base = BASE, level = 1, multiclass = [] } = {}) {
   const B = await import("../scripts/rules/build.mjs");
   const S = await import("./support.mjs");
   const EQ = await import("../scripts/rules/equipment-items.mjs");
@@ -42,8 +42,9 @@ export async function legitDraft(spec, { catalog, base = BASE } = {}) {
   const rules = game.settings.get("dnd5e", "rulesVersion");
   const picks = { species: S.pick(catalog, "species", spec.species), background: S.pick(catalog, "background", spec.background),
     class: S.pick(catalog, "class", spec.class) };
-  const { built, steps } = await S.complete(B.buildCharacter, { picks, base }, catalog);
-  const d = createDraft({ id: foundry.utils.randomID(), worldId: game.world.id, rules });
+  const { built, steps } = await S.complete(B.buildCharacter, { picks, base, level, multiclass }, catalog);
+  const d = createDraft({ id: foundry.utils.randomID(), worldId: game.world.id, rules, level });
+  d.multiclass = foundry.utils.deepClone(multiclass);
   d.picks = picks;
   d.abilities = { method: "standardArray", base: { ...base }, roll: null };
   d.recipe = { steps: JSON.parse(JSON.stringify(steps)) };
@@ -52,6 +53,11 @@ export async function legitDraft(spec, { catalog, base = BASE } = {}) {
     d.equipment[role] = core.defaultSelection(ctx.tree, ctx);
   }
   d.spells = SF.spellContext(built, catalog).defaults;
+  for ( const root of SF.classRoots(built).filter(r => r !== "class") ) {
+    // A spell counts for the first class that picks it, so each class's defaults leave out what came before.
+    const taken = new Set(Object.values({ class: d.spells, ...d.multiclassSpells }).flatMap(s => [...s.cantrips, ...s.spells, ...s.spellbook]));
+    d.multiclassSpells[root] = SF.spellContext(built, catalog, root, { exclude: taken }).defaults;
+  }
   d.details.name = `${spec.species} ${spec.class}`;
   return d;
 }

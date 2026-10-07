@@ -4,7 +4,7 @@
  * Pure; `settings.mjs` registers them with Foundry.
  */
 
-import { ABILITY_METHODS, LIMITS, MAX_ATTEMPTS, RANDOM_PARTS, STEPS } from "../contracts.mjs";
+import { ABILITY_METHODS, LIMITS, MAX_ATTEMPTS, MAX_LEVEL, RANDOM_PARTS, STEPS } from "../contracts.mjs";
 import { CATEGORIES, NO_RESTRICTIONS, normalizeUuid } from "../catalog/filters.mjs";
 
 export const SETTINGS = Object.freeze({
@@ -18,7 +18,13 @@ export const SETTINGS = Object.freeze({
   RING_COLORS: "ringColors",             // { ring: "#rrggbb"|null, background: "#rrggbb"|null }; null = player's color
   OPTION_ART: "optionArt",               // { [option uuid]: image path }; D24, the GM's own picture per option
   STEP_ART: "stepArt",
-  HARDCORE: "hardcore",                  // { offered, free, attempts }; D31, the random character
+  HARDCORE: "hardcore",                  // { offered, free, attempts, multiclassChoices, feats, featChoices, subclassChoices }; D31, D35, D36, D39
+  STARTING_LEVEL: "startingLevel",       // 1–20; D32
+  HIT_POINTS: "hitPointMethod",          // "average" | "rolled"; D33
+  GOLD_PER_LEVEL: "goldPerLevel",        // gp for each level above the first; D34
+  MULTICLASS: "multiclass",              // D35
+  MULTICLASS_PREREQUISITES: "multiclassPrerequisites",   // D35: respected (true) or ignored
+  FIRST_CLASS_LEVELS: "multiclassFirstLevels",           // D35: the fewest levels the first class keeps
                    // { [wizard step]: image path }; D28, the GM's own background per step
   DISPLAY: "wizardDisplay"               // client: { mode: "fullscreen"|"window", window: position|null }; D28
 });
@@ -35,6 +41,12 @@ export const DEFAULTS = Object.freeze({
   [SETTINGS.OPTION_ART]: Object.freeze({}),
   [SETTINGS.STEP_ART]: Object.freeze({}),
   [SETTINGS.HARDCORE]: Object.freeze({ offered: true, free: Object.freeze([]) }),
+  [SETTINGS.STARTING_LEVEL]: 1,
+  [SETTINGS.HIT_POINTS]: "average",
+  [SETTINGS.GOLD_PER_LEVEL]: 0,
+  [SETTINGS.MULTICLASS]: false,
+  [SETTINGS.MULTICLASS_PREREQUISITES]: true,
+  [SETTINGS.FIRST_CLASS_LEVELS]: 1,
   [SETTINGS.DISPLAY]: Object.freeze({ mode: "fullscreen", window: null })
 });
 
@@ -82,13 +94,58 @@ export function artPath(path) {
   return path.trim();
 }
 
+/** How hardcore mode handles the feat slots above level 1 (D36). */
+export const HARDCORE_FEATS = Object.freeze(["shortlist", "rolled", "chosen"]);
+
+/** Bounds of the hardcore shortlists: classes to multiclass into (D35) and feats at a feat slot (D36). */
+export const SHORTLIST_RANGE = Object.freeze({ min: 1, max: 12 });
+
 /**
- * Hardcore mode (D31): whether players may choose it, and which parts they may still choose themselves.
- * Anything unknown is dropped, so a hand-edited setting can't hand players something that isn't a part.
+ * Hardcore mode (D31): whether players may choose it, and which parts they may still choose themselves; above
+ * level 1, how many classes the multiclass shortlist rolls (D35), and how feat slots go (D36). Anything unknown
+ * is dropped, so a hand-edited setting can't hand players something that isn't a part.
  */
 export function normalizeHardcore(v) {
   const free = Array.isArray(v?.free) ? RANDOM_PARTS.filter(part => v.free.includes(part)) : [];
-  return { offered: typeof v?.offered === "boolean" ? v.offered : true, free, attempts: rollAttempts(v?.attempts) };
+  return { offered: typeof v?.offered === "boolean" ? v.offered : true, free, attempts: rollAttempts(v?.attempts),
+    multiclassChoices: shortlistSize(v?.multiclassChoices, MULTICLASS_CHOICES), feats: HARDCORE_FEATS.includes(v?.feats) ? v.feats : "shortlist",
+    featChoices: shortlistSize(v?.featChoices), subclassChoices: shortlistSize(v?.subclassChoices) };
+}
+
+/** How many classes the multiclass shortlist offers when the GM hasn't said (D35); feats and subclasses offer 3. */
+export const MULTICLASS_CHOICES = 2;
+
+/** A shortlist size: the default unless set to a whole number in range; 0 means every option (D35, D36, D39). */
+export function shortlistSize(v, fallback = 3) {
+  const n = Number(v);
+  if ( !Number.isInteger(n) ) return fallback;
+  if ( n === 0 ) return 0;
+  return Math.min(SHORTLIST_RANGE.max, Math.max(SHORTLIST_RANGE.min, n));
+}
+
+/** Hit point methods past the first level (D33). */
+export const HIT_POINT_METHODS = Object.freeze(["average", "rolled"]);
+
+/** The most starting gold per level a GM can set (D34). */
+export const MAX_GOLD_PER_LEVEL = 100000;
+
+/**
+ * Levels and classes (D32–D35): the starting level, how hit points go past the first, the gold for each level
+ * above it, and multiclassing. A broken value falls back to a level-1, single-class game.
+ */
+export function normalizeLevels({ startingLevel, hitPointMethod, goldPerLevel, multiclass, prerequisites, firstClassLevels }) {
+  const level = Number(startingLevel);
+  const gold = Number(goldPerLevel);
+  const first = Number(firstClassLevels);
+  return {
+    // The fewest levels a multiclassed character keeps in its first class (picked or rolled), 1 by default.
+    firstClassLevels: Number.isInteger(first) ? Math.min(MAX_LEVEL, Math.max(1, first)) : 1,
+    startingLevel: Number.isInteger(level) ? Math.min(MAX_LEVEL, Math.max(1, level)) : 1,
+    hitPointMethod: HIT_POINT_METHODS.includes(hitPointMethod) ? hitPointMethod : "average",
+    goldPerLevel: Number.isFinite(gold) ? Math.min(MAX_GOLD_PER_LEVEL, Math.max(0, Math.floor(gold))) : 0,
+    multiclass: multiclass === true,
+    prerequisites: prerequisites !== false
+  };
 }
 
 /**
@@ -149,6 +206,9 @@ export function normalizeSettings(get) {
     ringColors: { ring: color(ring?.ring), background: color(ring?.background) },
     optionArt: normalizeOptionArt(read(SETTINGS.OPTION_ART)),
     stepArt: normalizeStepArt(read(SETTINGS.STEP_ART)),
-    hardcore: normalizeHardcore(read(SETTINGS.HARDCORE))
+    hardcore: normalizeHardcore(read(SETTINGS.HARDCORE)),
+    levels: normalizeLevels({ startingLevel: read(SETTINGS.STARTING_LEVEL), hitPointMethod: read(SETTINGS.HIT_POINTS),
+      goldPerLevel: read(SETTINGS.GOLD_PER_LEVEL), multiclass: read(SETTINGS.MULTICLASS),
+      prerequisites: read(SETTINGS.MULTICLASS_PREREQUISITES), firstClassLevels: read(SETTINGS.FIRST_CLASS_LEVELS) })
   };
 }

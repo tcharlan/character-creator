@@ -15,7 +15,7 @@ import { buildCatalogData, isAllowed, shortfall, normalizeUuid, packExclusion, N
  */
 export const INDEX_FIELDS = Object.freeze(["type", "img", "system.identifier", "system.source", "system.classIdentifier",
   "system.type.value", "system.type.subtype", "system.type.baseItem", "system.level", "system.school", "system.properties",
-  "system.rarity", "system.advancement", "system.startingEquipment"]);
+  "system.rarity", "system.advancement", "system.startingEquipment", "system.primaryAbility"]);
 
 /** World settings whose change invalidates the catalog. */
 const WATCHED_SETTINGS = ["core.compendiumConfiguration", "dnd5e.packSourceConfiguration", "dnd5e.rulesVersion"];

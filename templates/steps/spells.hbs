@@ -1,4 +1,4 @@
-{{!-- Spells (PLAN 3.6): cantrips, and the class's own shape — prepared, known, or a spellbook. --}}
+{{!-- Spells (PLAN 3.6; 8.4): cantrips, and each casting class's own shape — prepared, known, or a spellbook. --}}
 <div class="cc-columns cc-columns--wide">
   <section class="cc-detail">
     <header class="cc-pane__header">
@@ -9,6 +9,21 @@
     {{#unless spells.caster}}
     <p class="cc-empty">{{localize "CHARCREATOR.Spells.NoSpells"}}</p>
     {{else}}
+    {{#if spells.classes.length}}
+    {{!-- A multiclassed caster (PLAN 8.4): each class chooses its own spells, tab by tab. --}}
+    <p class="cc-asi-lead">{{localize "CHARCREATOR.Spells.EachClass" classes=spells.classesText}}</p>
+    <div class="cc-methods cc-methods--classes" role="tablist" aria-label="{{localize 'CHARCREATOR.Spells.Classes'}}">
+      {{#each spells.classes as |c|}}
+      <button type="button" role="tab" class="cc-method{{#if c.open}} cc-method--selected{{/if}}" data-action="spell-class"
+              data-root="{{c.root}}" aria-selected="{{c.open}}">
+        {{#if c.complete}}<i class="fa-solid fa-check" inert></i> {{/if}}{{c.name}} {{c.chosen}} / {{c.needed}}
+      </button>
+      {{/each}}
+    </div>
+    {{#if spells.unfinishedText}}<p class="cc-hint">{{localize "CHARCREATOR.Spells.StillToChoose" classes=spells.unfinishedText}}</p>
+    {{else}}<p class="cc-hint">{{localize "CHARCREATOR.Spells.AllClassesDone"}}</p>{{/if}}
+    <h2 class="cc-section-title">{{localize "CHARCREATOR.Spells.ForClass" class=spells.className}}</h2>
+    {{/if}}
     <div class="cc-methods" role="tablist" aria-label="{{localize 'CHARCREATOR.Spells.Lists'}}">
       {{#each spells.tabs as |t|}}
       <button type="button" role="tab" id="cc-spell-tab-{{t.key}}" class="cc-method{{#if t.open}} cc-method--selected{{/if}}" data-action="spell-tab"
@@ -30,7 +45,8 @@
           {{#if s.meta}}<span class="cc-card__meta">{{s.meta}}</span>{{/if}}
           {{#if s.hint}}<span class="cc-card__hint">{{s.hint}}</span>{{/if}}
         </span>
-        {{#if s.already}}<span class="cc-card__warn">{{localize "CHARCREATOR.Spells.AlreadyKnown"}}</span>{{/if}}
+        {{#if s.already}}<span class="cc-card__warn">{{localize "CHARCREATOR.Spells.AlreadyKnown"}}</span>
+        {{else if s.takenBy}}<span class="cc-card__warn">{{localize "CHARCREATOR.Spells.TakenBy" class=s.takenBy}}</span>{{/if}}
       </button>
       {{/each}}
       {{#unless o.list.length}}<p class="cc-empty">{{localize "CHARCREATOR.Spells.NothingToShow"}}</p>{{/unless}}
@@ -53,7 +69,7 @@
     </div>
     {{/if}}
     {{#if spells.errors.length}}
-    <ul class="cc-problems">{{#each spells.errors as |e|}}<li class="cc-problem">{{localize e}}</li>{{/each}}</ul>
+    <ul class="cc-problems">{{#each spells.errors as |e|}}<li class="cc-problem">{{e}}</li>{{/each}}</ul>
     {{/if}}
     {{/if}}
   </aside>

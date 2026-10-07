@@ -81,3 +81,14 @@ test("once the character is made, another can be started while the GM's limit al
   assert.equal(model({ another: false }).another, false);
   assert.equal(model({}).another, false, "nothing is assumed");
 });
+
+test("above level 1: several classes with their levels, the first first, and the gold for the levels (D34, D37)", () => {
+  const multi = { actor: { ...built.actor, system: { ...built.actor.system, details: { level: 5, originalClass: ID("cl") } },
+    items: [...built.actor.items.filter(i => i.type !== "class"),
+      { id: ID("wz"), type: "class", name: "Wizard", system: { levels: 2 } },
+      { id: ID("cl"), type: "class", name: "Cleric", system: { levels: 3 } }] } };
+  multi.actor.items.filter = Array.prototype.filter.bind(multi.actor.items);
+  const s = summaryOf(multi, equipment, draft({ level: 5 }), { goldPerLevel: 25 });
+  assert.equal(s.class, "Cleric 3 / Wizard 2");
+  assert.equal(s.currency, "115 GP", "15 from the kit, 25 for each of four levels");
+});

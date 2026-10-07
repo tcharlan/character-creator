@@ -11,8 +11,11 @@ import { previewUrl } from "./portrait-step.mjs";
 const label = (config, key) => globalThis.CONFIG?.DND5E?.[config]?.[key]?.label ?? key;
 const sign = n => (n >= 0 ? `+${n}` : `${n}`);
 
-/** The character as the sheet will show it. */
-export function summaryOf(built, equipment, draft) {
+/**
+ * The character as the sheet will show it.
+ * @param {number} [goldPerLevel]   The GM's gold for each level above the first (D34), added at creation.
+ */
+export function summaryOf(built, equipment, draft, { goldPerLevel = 0 } = {}) {
   const actor = built?.actor;
   if ( !actor ) return null;
   const system = actor.system;
@@ -25,8 +28,9 @@ export function summaryOf(built, equipment, draft) {
     portrait: previewUrl(draft?.portrait?.pendingImage),
     species: byType("race")[0]?.name ?? null,
     background: byType("background")[0]?.name ?? null,
-    class: byType("class")[0]?.name ?? null,
-    subclass: byType("subclass")[0]?.name ?? null,
+    // One class by its name; several with their levels, the first class first (D37).
+    class: classLine(byType("class"), system.details?.originalClass),
+    subclass: byType("subclass").map(i => i.name).join(", ") || null,
     level: system.details?.level ?? 1,
     hitPoints: system.attributes?.hp?.max ?? null,
     armorClass: system.attributes?.ac?.value ?? null,
@@ -40,10 +44,24 @@ export function summaryOf(built, equipment, draft) {
     skills: proficient(system.skills, "skills"),
     features: byType("feat").map(i => i.name).sort(),
     equipment: (equipment?.items ?? []).map(i => ({ name: i.name ?? i.uuid, count: i.count > 1 ? i.count : null })),
-    currency: Object.entries(equipment?.currency ?? {}).filter(([, v]) => v > 0)
+    currency: Object.entries(withLevelGold(equipment?.currency, goldPerLevel, draft?.level)).filter(([, v]) => v > 0)
       .map(([k, v]) => `${v} ${k.toUpperCase()}`).join(", "),
     spells: byType("spell").map(i => i.name).sort()
   };
+}
+
+/** "Fighter" for one class; "Fighter 3 / Wizard 2" for several, the first class first. */
+function classLine(classes, originalId) {
+  if ( !classes.length ) return null;
+  if ( classes.length === 1 ) return classes[0].name;
+  const sorted = [...classes].sort((a, b) => (a.id === originalId ? -1 : b.id === originalId ? 1 : 0));
+  return sorted.map(c => `${c.name} ${c.system?.levels ?? 1}`).join(" / ");
+}
+
+/** The equipment's coins plus the GM's gold for each level above the first (D34), as the GM's side adds it. */
+function withLevelGold(currency = {}, goldPerLevel = 0, level = 1) {
+  const extra = goldPerLevel * Math.max(0, (level ?? 1) - 1);
+  return extra ? { ...currency, gp: (currency?.gp ?? 0) + extra } : { ...currency };
 }
 
 /**
@@ -55,7 +73,7 @@ export function summaryOf(built, equipment, draft) {
  * @param {object} [options.equipment]    Resolved equipment, with names filled in.
  * @param {boolean} [options.busy]        A submission is on its way.
  */
-export function reviewModel({ built, validation, draft, equipment, busy = false, another = false }) {
+export function reviewModel({ built, validation, draft, equipment, busy = false, another = false, goldPerLevel = 0 }) {
   const errors = validation?.errors ?? [];
   const groups = errorsByStep(errors).map(g => ({
     step: g.step,
@@ -63,7 +81,7 @@ export function reviewModel({ built, validation, draft, equipment, busy = false,
   }));
   const status = draft?.status ?? STATUS.DRAFT;
   return {
-    summary: summaryOf(built, equipment, draft),
+    summary: summaryOf(built, equipment, draft, { goldPerLevel }),
     groups,
     problems: errors.length,
     ready: !errors.length,

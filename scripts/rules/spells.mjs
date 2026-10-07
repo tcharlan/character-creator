@@ -1,7 +1,7 @@
 /**
- * Level-1 class spells (PLAN 2.5, from spike 1.7). Pure: no Foundry globals. The numbers come from dnd5e's
- * class data on the built character (read in `spell-facts.mjs`); the only rules table here is the Wizard's
- * spellbook size, which dnd5e's data doesn't carry.
+ * Class spells (PLAN 2.5, from spike 1.7; above level 1, PLAN 8.2b). Pure: no Foundry globals. The numbers come
+ * from dnd5e's class data on the built character (read in `spell-facts.mjs`), one class at a time; the only rules
+ * table here is the Wizard's spellbook size, which dnd5e's data doesn't carry.
  */
 
 import { makeError } from "../contracts.mjs";
@@ -9,31 +9,39 @@ import { normalizeUuid } from "../catalog/filters.mjs";
 
 /**
  * Rules gap (convention 2): dnd5e's class data has no spellbook size.
- * Source: 2014 PHB, Wizard → Spellcasting → Spellbook ("six 1st-level wizard spells of your choice");
- * 2024 PHB, Wizard → Spellcasting → Spellbook ("six level 1 Wizard spells of your choice").
- * Keyed by class identifier.
+ * Source: 2014 PHB, Wizard → Spellcasting → Spellbook ("six 1st-level wizard spells of your choice") and
+ * "Learning Spells of 1st Level and Higher" ("Each time you gain a wizard level, you can add two wizard spells
+ * of your choice to your spellbook"); 2024 PHB, Wizard → Spellcasting → Spellbook ("six level 1 Wizard spells")
+ * and "Expanding the Spellbook" ("Whenever you gain a Wizard level after 1, add two Wizard spells").
+ * Keyed by class identifier. Spells copied from scrolls are the player's business at the table, not here.
  */
-export const SPELLBOOK_SIZE_AT_LEVEL_1 = Object.freeze({ wizard: 6 });
+export const SPELLBOOK = Object.freeze({ wizard: Object.freeze({ first: 6, perLevel: 2 }) });
+
+/** Spellbook size for a class at a class level (0 for a class without one). */
+export function spellbookSize(identifier, classLevel = 1) {
+  const book = SPELLBOOK[identifier];
+  return book ? book.first + (book.perLevel * (Math.max(1, classLevel) - 1)) : 0;
+}
 
 /**
- * What a level-1 character of this class chooses, from the class facts (spell-facts.mjs):
- * `{ identifier, type, preparation: { formula, max }, scale, slots: { spell1, pact, pactLevel } }`.
+ * What a character chooses for one class, from the class facts (spell-facts.mjs):
+ * `{ identifier, classLevel, maxLevel, type, preparation: { formula, max }, scale, slots }`. `maxLevel` is the
+ * highest spell level that class casts on its own (0: no leveled spells yet).
  * @returns {{ caster, method, mode: "prepared"|"known"|"none", cantrips, spells, spellbook, maxLevel }}
  */
 export function requirements(facts) {
   const scale = facts.scale ?? {};
-  const slots = (facts.slots?.spell1 ?? 0) + (facts.slots?.pact ?? 0);
+  // The class's own highest spell level; older facts (level 1) only carried the slots.
+  const maxLevel = facts.maxLevel ?? (((facts.slots?.spell1 ?? 0) + (facts.slots?.pact ?? 0))
+    ? Math.max(1, facts.slots?.pactLevel ?? 0) : 0);
   const cantrips = Number(scale["cantrips-known"] ?? 0) || 0;
   const hasFormula = !!facts.preparation?.formula;
   const known = Number(scale["spells-known"] ?? 0) || 0;
-  // Without slots at level 1 (2014 Paladin/Ranger) there are no leveled spells, whatever the formula says.
-  const mode = !slots ? "none" : hasFormula ? "prepared" : known ? "known" : "none";
+  // Without slots (2014 Paladin/Ranger at level 1) there are no leveled spells, whatever the formula says.
+  const mode = !maxLevel ? "none" : hasFormula ? "prepared" : known ? "known" : "none";
   const spells = mode === "prepared" ? Math.max(0, facts.preparation.max ?? 0) : mode === "known" ? known : 0;
-  const spellbook = slots ? (SPELLBOOK_SIZE_AT_LEVEL_1[facts.identifier] ?? 0) : 0;
-  return {
-    caster: !!(slots || cantrips), method: facts.type ?? null, mode, cantrips, spells, spellbook,
-    maxLevel: slots ? Math.max(1, facts.slots?.pactLevel ?? 0) : 0
-  };
+  const spellbook = maxLevel ? spellbookSize(facts.identifier, facts.classLevel ?? 1) : 0;
+  return { caster: !!(maxLevel || cantrips), method: facts.type ?? null, mode, cantrips, spells, spellbook, maxLevel };
 }
 
 /** A selection with normalised UUIDs and every list present. */
@@ -114,14 +122,16 @@ export function spellStates(req, selection) {
  * A default selection from the options (first ones in order), skipping owned spells. Tests use it, and it's
  * the D4 model: when the options number exactly what's needed, this is the only legal selection.
  * @param {object} req
- * @param {{ cantrips: string[], level1: string[] }} options   Allowed UUIDs by level, in display order.
+ * @param {{ cantrips: string[], level1: string[], leveled?: string[], levels?: Map<string, number> }} options
+ *   Allowed UUIDs by level, in display order; `leveled` is every leveled spell on the list.
  * @param {Set<string>} [owned]
  */
-export function defaultSpells(req, { cantrips = [], level1 = [] }, owned = new Set()) {
+export function defaultSpells(req, { cantrips = [], level1 = [], leveled = null, levels = new Map() }, owned = new Set()) {
   if ( !req.caster ) return { cantrips: [], spells: [], spellbook: [] };
   const free = l => l.map(u => normalizeUuid(u)).filter(u => !owned.has(u));
   const c = free(cantrips).slice(0, req.cantrips);
-  const l1 = req.maxLevel ? free(level1) : [];
+  const castable = (leveled ?? level1).filter(u => (levels.get(normalizeUuid(u)) ?? 1) <= req.maxLevel);
+  const l1 = req.maxLevel ? free(castable) : [];
   const spellbook = l1.slice(0, req.spellbook);
   return { cantrips: c, spellbook, spells: (req.spellbook ? spellbook : l1).slice(0, req.spells) };
 }

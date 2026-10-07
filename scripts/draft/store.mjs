@@ -6,6 +6,7 @@
 
 import { MODULE_ID, DRAFT_FLAG, STATUS, makeError, createDraft, checkDraftShape } from "../contracts.mjs";
 import { draftState, isEditable, Debouncer } from "./state.mjs";
+import { readSettings } from "../settings/settings.mjs";
 
 const draftPath = `flags.${MODULE_ID}.${DRAFT_FLAG}`;
 
@@ -61,7 +62,7 @@ export class DraftStore {
   async create() {
     this.#debouncer.cancel();
     const { worldId, rules } = this.#world();
-    this.#draft = createDraft({ id: foundry.utils.randomID(), worldId, rules });
+    this.#draft = createDraft({ id: foundry.utils.randomID(), worldId, rules, level: readSettings().levels.startingLevel });
     await this.#write(this.#draft);
     return this.#draft;
   }
