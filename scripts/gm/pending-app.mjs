@@ -1,13 +1,13 @@
 /**
  * The GM's pending-characters panel (PLAN 4.2): builds waiting for a GM (D17) and builds the validator refused,
- * with the reasons. Creating one here runs exactly the path a live submit runs (gm/submit.mjs), so nothing is
+ * with the reasons, and below them every player's character in progress, which a GM can clear. Creating one here runs exactly the path a live submit runs (gm/submit.mjs), so nothing is
  * special-cased; the panel only decides *when*.
  */
 
 import { MODULE_ID, DRAFT_FLAG } from "../contracts.mjs";
 import { getCatalog } from "../catalog/catalog.mjs";
 import { processPending, processFor, retryFor } from "./pending.mjs";
-import { queueRows, pendingModel } from "./pending-model.mjs";
+import { queueRows, pendingModel, draftRows } from "./pending-model.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 const T = (key, data) => (data ? game.i18n.format(`CHARCREATOR.${key}`, data) : game.i18n.localize(`CHARCREATOR.${key}`));
@@ -36,11 +36,11 @@ export class PendingApp extends HandlebarsApplicationMixin(ApplicationV2) {
     tag: "div",
     window: { title: "CHARCREATOR.Pending.Title", icon: "fa-solid fa-hourglass-half", resizable: true },
     position: { width: 720, height: 560 },
-    actions: { create: onCreate, retry: onRetry, all: onAll }
+    actions: { create: onCreate, retry: onRetry, all: onAll, clear: onClear, clearAll: onClearAll }
   };
 
   static PARTS = {
-    body: { template: `modules/${MODULE_ID}/templates/pending.hbs`, scrollable: ["", ".cc-queue"] }
+    body: { template: `modules/${MODULE_ID}/templates/pending.hbs`, scrollable: ["", ".cc-pending__scroll"] }
   };
 
   /** Open the panel (GMs only). */
@@ -82,9 +82,14 @@ export class PendingApp extends HandlebarsApplicationMixin(ApplicationV2) {
   async _prepareContext(options) {
     const context = await super._prepareContext(options);
     const model = pendingModel(currentQueue(this.#catalog), { busy: this.#busy });
+    const drafts = draftRows(draftUsers(), { names: uuid => (uuid ? this.#catalog?.get?.(uuid)?.name ?? null : null),
+      busy: this.#busy }).map(row => ({ ...row,
+      statusText: T(`Pending.Status.${row.status}`),
+      attemptText: row.hardcore ? T("Pending.Rolled", { attempt: row.attempt ?? 1 }) : "" }));
     return Object.assign(context, {
       moduleId: MODULE_ID,
       ...model,
+      drafts,
       rows: model.rows.map(row => ({ ...row,
         errors: row.errors.map(e => ({ ...e, message: game.i18n.localize(e.key),
           stepLabel: e.step ? T(`Step.${e.step}.Title`) : null })) }))
@@ -146,6 +151,42 @@ export class PendingApp extends HandlebarsApplicationMixin(ApplicationV2) {
     return null;
   }
 
+  /**
+   * Clear players' characters in progress, after asking. The player starts again from nothing; their earlier rolls
+   * stay in chat, but a new character has a new id, so they don't count against it. An open creator closes itself.
+   * @param {string[]} userIds
+   */
+  async clear(userIds) {
+    const users = userIds.map(id => game.users.get(id)).filter(u => u && !u.isGM && (u.getFlag(MODULE_ID, DRAFT_FLAG) !== undefined));
+    if ( !users.length || this.#busy ) return 0;
+    const yes = await foundry.applications.api.DialogV2.confirm({
+      window: { title: T("Pending.ClearTitle") },
+      content: `<p>${foundry.utils.escapeHTML(users.length === 1 ? T("Pending.ClearOne", { name: users[0].name })
+        : T("Pending.ClearMany", { count: users.length }))}</p>`,
+      yes: { label: T("Pending.ClearConfirm") },
+      no: { label: game.i18n.localize("Cancel") },
+      modal: true
+    });
+    if ( !yes ) return 0;
+    this.#busy = users.length === 1 ? users[0].id : "clear";
+    await this.render({ parts: ["body"] });
+    let cleared = 0;
+    try {
+      for ( const user of users ) {
+        await user.unsetFlag(MODULE_ID, DRAFT_FLAG);
+        cleared++;
+      }
+    } catch ( err ) {
+      console.error(`${MODULE_ID} | a character in progress couldn't be cleared`, err);
+      ui.notifications?.error(T("Error.BAD_REQUEST"));
+    } finally {
+      this.#busy = null;
+    }
+    if ( cleared ) ui.notifications?.info(T("Pending.Cleared", { count: cleared }));
+    await this.render({ parts: ["body"] });
+    return cleared;
+  }
+
   /** Work through everything waiting. */
   async createAll() {
     if ( this.#busy ) return null;
@@ -172,6 +213,14 @@ function onRetry(event, target) {
 
 function onAll() {
   return this.createAll();
+}
+
+function onClear(event, target) {
+  return this.clear([target.dataset.user]);
+}
+
+function onClearAll() {
+  return this.clear(draftUsers().filter(u => !u.isGM && u.draft).map(u => u.id));
 }
 
 /** Put the panel in Foundry's settings window, and on the module's API. */

@@ -23,7 +23,8 @@ export function registerPendingPanelBatches(quench) {
       let saved;
       let app = null;
       const el = () => app.element;
-      const rows = () => [...el().querySelectorAll(".cc-queue__row")];
+      const rows = () => [...el().querySelectorAll(".cc-queue:not(.cc-queue--drafts) > .cc-queue__row")];
+      const draftRows = () => [...el().querySelectorAll(".cc-queue--drafts > .cc-queue__row")];
       const setDraft = draft => player.setFlag(MODULE_ID, DRAFT_FLAG, draft);
       const clearDraft = () => player.unsetFlag(MODULE_ID, DRAFT_FLAG);
       /** Characters this module made for the player, and the assignment, gone. */
@@ -64,7 +65,9 @@ export function registerPendingPanelBatches(quench) {
         app = await PendingApp.open();
         assert.exists(app, "the panel didn't open");
         assert.isEmpty(rows());
-        assert.exists(el().querySelector(".cc-empty"));
+        assert.exists(el().querySelector(".cc-queue:not(.cc-queue--drafts) > .cc-empty"));
+        assert.isEmpty(draftRows(), "no character in progress either");
+        assert.notExists(el().querySelector('[data-action="clearAll"]'));
         assert.notExists(el().querySelector('[data-action="all"]'), "nothing to create");
       });
 
@@ -110,6 +113,37 @@ export function registerPendingPanelBatches(quench) {
         assert.equal(actor.getFlag(MODULE_ID, "created")?.userId, player.id);
         await app.render({ parts: ["body"] });
         assert.isEmpty(rows(), "and the panel has nothing left to do");
+      });
+
+      it("every character in progress is listed, and the GM can clear one after saying yes", async function() {
+        this.timeout(120_000);
+        const draft = await legitDraft(FIXED[rules()], { catalog });
+        await setDraft({ ...draft, status: "draft", mode: "hardcore", random: { attempt: 2, messageIds: [], rolls: [] },
+          details: { ...draft.details, name: "Stuck One" } });
+        app = await PendingApp.open();
+        assert.isEmpty(rows(), "a character still being made isn't waiting on the GM");
+        assert.lengthOf(draftRows(), 1);
+        const row = draftRows()[0];
+        assert.include(row.textContent, player.name);
+        assert.include(row.textContent, "Stuck One");
+        assert.include(row.textContent, game.i18n.format("CHARCREATOR.Pending.Rolled", { attempt: 2 }));
+        assert.exists(el().querySelector('[data-action="clearAll"]'));
+
+        // Saying no keeps it.
+        let answer = "no";
+        const hook = Hooks.on("renderDialogV2", dialog => dialog.element.querySelector(`[data-action="${answer}"]`)?.click());
+        try {
+          await app.clear([player.id]);
+          assert.exists(player.getFlag(MODULE_ID, DRAFT_FLAG), "cleared without the GM saying yes");
+          answer = "yes";
+          row.querySelector('[data-action="clear"]').click();
+          for ( let i = 0; i < 100 && (player.getFlag(MODULE_ID, DRAFT_FLAG) !== undefined); i++ ) await new Promise(r => setTimeout(r, 100));
+        } finally {
+          Hooks.off("renderDialogV2", hook);
+        }
+        assert.isUndefined(player.getFlag(MODULE_ID, DRAFT_FLAG), "the character wasn't cleared");
+        await app.render({ parts: ["body"] });
+        assert.isEmpty(draftRows(), "and it is gone from the list");
       });
 
       it("the Actors sidebar tells the GM how many are waiting, and opens the panel", async function() {

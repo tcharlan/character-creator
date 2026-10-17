@@ -165,6 +165,19 @@ export function registerWizardBatches(quench) {
         assert.equal(app.draft.details.name, "Resumed Hero");
       });
 
+      it("a character a GM clears closes the creator, and isn't saved back", async function() {
+        this.timeout(60_000);
+        await open();
+        // A change waiting on the autosave when the GM clears it (pending-app.mjs does what this does, as the GM).
+        app.update(d => d.details.name = "Thrown Away").catch(() => null);
+        await game.user.unsetFlag(MODULE_ID, DRAFT_FLAG);
+        for ( let i = 0; i < 50 && app.rendered; i++ ) await new Promise(r => setTimeout(r, 100));
+        assert.isFalse(app.rendered, "the creator should close");
+        await new Promise(r => setTimeout(r, 1500));
+        assert.isUndefined(flag(), "the cleared character was saved back");
+        app = null;
+      });
+
       it("a draft from another world can't be resumed: the player is offered a discard", async function() {
         this.timeout(60_000);
         await open();

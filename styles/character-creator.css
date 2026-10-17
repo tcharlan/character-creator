@@ -998,7 +998,12 @@ li.notification button.cc-entry-prompt {
 .cc-pending__body { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 .cc-pending__head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 18px; border-bottom: 1px solid var(--cc-line); }
 .cc-pending__head h2 { margin: 0; font-family: var(--cc-display); font-size: 22px; }
-.cc-queue { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 16px 18px; list-style: none; }
+.cc-pending__scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.cc-queue { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 16px 18px; list-style: none; }
+.cc-drafts { border-top: 1px solid var(--cc-line); }
+.cc-drafts__head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 18px 0; }
+.cc-drafts__head h3 { margin: 0; font-family: var(--cc-display); font-size: 18px; border: 0; }
+.cc-queue__badge--draft, .cc-queue__badge--submitted, .cc-queue__badge--created { background: var(--cc-line-soft); color: var(--cc-muted); }
 .cc-queue__row {
   display: grid;
   grid-template-columns: 1fr 1.2fr auto;

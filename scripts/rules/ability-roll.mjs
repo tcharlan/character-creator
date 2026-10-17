@@ -5,7 +5,7 @@
  */
 
 import { makeError } from "../contracts.mjs";
-import { ABILITY_ROLL, ROLL_PURPOSE, checkAbilities, checkRollRecord } from "./abilities.mjs";
+import { ABILITY_ROLL, ROLL_PURPOSE, checkAbilities, checkRollRecord, rerolledScores } from "./abilities.mjs";
 import { postRolls, readRollRecord, rollMessagesFor } from "./roll-messages.mjs";
 
 export { readRollRecord };
@@ -39,5 +39,5 @@ export function checkDraftAbilities(draft, { userId, allowedMethods } = {}) {
   const onRecord = rollMessagesFor(draft.id, userId, ROLL_PURPOSE.ABILITIES);
   const record = readRollRecord(game.messages.get(a.roll.messageId));
   return checkRollRecord(record, { draftId: draft.id, userId, results: a.roll.results,
-    others: onRecord.filter(id => id !== a.roll.messageId) });
+    others: rerolledScores(onRecord, a.roll.messageId, draft) });
 }

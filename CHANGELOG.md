@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.1
+
+- Fixed: a hardcore character the player had rerolled couldn't be created. The reroll rolls the ability scores
+  again, and the GM's check took the earlier go's scores, still in chat, for a re-roll. Each earlier go may now
+  leave one score roll before the one the character keeps; a roll after it is still refused. Characters already
+  stuck go through once the GM's browser has this version.
+- **Pending characters** lists every player's character in progress, with **Clear** and **Clear all**, after
+  asking. The player starts again from nothing; their earlier rolls stay in chat but don't count against the new
+  character. A creator the player has open closes itself rather than saving the cleared character back.
+
 ## 0.5.0
 
 - **Characters above 1st level.** Six new settings in the module's settings: **Starting level** (1–20), **Hit

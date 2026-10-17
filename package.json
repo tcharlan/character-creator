@@ -1,7 +1,7 @@
 {
   "name": "character-creator",
   "private": true,
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Foundry VTT module: player-driven character creation for dnd5e.",
   "license": "MIT",
   "type": "module",

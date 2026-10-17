@@ -5,7 +5,7 @@
  * then each step shows what the engine already knows about it.
  */
 
-import { ABILITIES, MODULE_ID, STATUS } from "../contracts.mjs";
+import { ABILITIES, DRAFT_FLAG, MODULE_ID, STATUS } from "../contracts.mjs";
 import { DraftStore } from "../draft/store.mjs";
 import { isEditable } from "../draft/state.mjs";
 import { getCatalog, itemName } from "../catalog/catalog.mjs";
@@ -148,6 +148,7 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   #restoreFullscreen = false;
   #onViewport = null;
   #saveWindow = null;
+  #onCleared = null;
 
   static DEFAULT_OPTIONS = {
     id: "character-creator-wizard",
@@ -1624,6 +1625,14 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
       this.setPosition(this.displayMode === "fullscreen" ? fullscreenPosition(viewport()) : {});
     }, 100);
     window.addEventListener("resize", this.#onViewport);
+    // A GM can clear a player's character (the pending panel). The window goes with it, rather than saving it back.
+    this.#onCleared = Hooks.on("updateUser", user => {
+      if ( (user.id !== game.user.id) || !this.#store.draft ) return;
+      if ( user.getFlag(MODULE_ID, DRAFT_FLAG) !== undefined ) return;
+      this.#store.forget();
+      ui.notifications?.warn(T("Notify.ClearedByGM"));
+      this.close();
+    });
     // The window's place is saved under the mode the player chose: a window made for a minimize doesn't change it.
     this.#saveWindow = foundry.utils.debounce(position => this.#remember(display().mode, position), 400);
   }
@@ -1697,6 +1706,8 @@ export class CharacterWizard extends HandlebarsApplicationMixin(ApplicationV2) {
   /** @inheritDoc */
   async close(options = {}) {
     if ( this.#onViewport ) window.removeEventListener("resize", this.#onViewport);
+    if ( this.#onCleared !== null ) Hooks.off("updateUser", this.#onCleared);
+    this.#onCleared = null;
     if ( this.#timer ) {
       clearTimeout(this.#timer);
       this.#timer = null;

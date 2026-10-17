@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { POINT_BUY, STANDARD_ARRAY, ABILITY_ROLL, ROLL_PURPOSE, pointBuyCost, checkAbilities, checkRollRecord }
-  from "../scripts/rules/abilities.mjs";
+import { POINT_BUY, STANDARD_ARRAY, ABILITY_ROLL, ROLL_PURPOSE, pointBuyCost, checkAbilities, checkRollRecord,
+  rerolledScores } from "../scripts/rules/abilities.mjs";
 
 const base = (...v) => ({ str: v[0], dex: v[1], con: v[2], int: v[3], wis: v[4], cha: v[5] });
 const codes = errs => errs.map(e => e.code);
@@ -143,4 +143,18 @@ test("roll record: hand-made or inconsistent rolls are rejected", () => {
   bad({ ...good, dice: [{ ...good.dice[0], results: good.dice[0].results.map(r => ({ ...r, active: r.result !== 6 })) }] }, "kept");
   bad({ ...good, total: 17 }, "total");
   assert.equal(why(checkRollRecord(record({ rolls: record().rolls.slice(0, 5) }), expected())), "rollCount");
+});
+
+test("a rolled character's reroll leaves one earlier score roll per go, and only before the kept one", () => {
+  const hardcore = attempt => ({ mode: "hardcore", random: { attempt } });
+  // Built by hand or rolled once: any other roll is a re-roll (A10).
+  assert.deepEqual(rerolledScores(["a", "b"], "b", { mode: "normal" }), ["a"]);
+  assert.deepEqual(rerolledScores(["a", "b"], "b", hardcore(1)), ["a"]);
+  // The second and third goes: the earlier goes' rolls are expected.
+  assert.deepEqual(rerolledScores(["a", "b"], "b", hardcore(2)), []);
+  assert.deepEqual(rerolledScores(["a", "b", "c"], "c", hardcore(3)), []);
+  // More earlier rolls than goes, or keeping an older roll, is still a re-roll.
+  assert.deepEqual(rerolledScores(["a", "b", "c"], "c", hardcore(2)), ["a", "b"]);
+  assert.deepEqual(rerolledScores(["a", "b"], "a", hardcore(2)), ["b"]);
+  assert.deepEqual(rerolledScores(["a"], "x", hardcore(2)), ["a"]);
 });

@@ -1,4 +1,5 @@
-{{!-- Pending characters (PLAN 4.2): builds waiting for a GM, and builds the validator refused. --}}
+{{!-- Pending characters (PLAN 4.2): builds waiting for a GM, builds the validator refused, and every character in
+     progress, which the GM can clear. --}}
 <div class="cc-pending__body">
   <header class="cc-pending__head">
     <div>
@@ -17,6 +18,7 @@
     {{/if}}
   </header>
 
+  <div class="cc-pending__scroll">
   <ul class="cc-queue">
     {{#each rows as |r|}}
     <li class="cc-queue__row cc-queue__row--{{r.kind}}">
@@ -61,4 +63,41 @@
     <li class="cc-empty">{{localize "CHARCREATOR.Pending.NothingHint"}}</li>
     {{/if}}
   </ul>
+
+  <section class="cc-drafts">
+    <header class="cc-drafts__head">
+      <div>
+        <h3>{{localize "CHARCREATOR.Pending.InProgress"}}</h3>
+        <p class="cc-hint">{{localize "CHARCREATOR.Pending.InProgressHint"}}</p>
+      </div>
+      {{#if drafts.length}}
+      <button type="button" class="cc-button" data-action="clearAll" {{#if busy}}disabled{{/if}}>
+        {{localize "CHARCREATOR.Pending.ClearAll"}}
+      </button>
+      {{/if}}
+    </header>
+    <ul class="cc-queue cc-queue--drafts">
+      {{#each drafts as |d|}}
+      <li class="cc-queue__row cc-queue__row--draft">
+        <div class="cc-queue__who">
+          <span class="cc-queue__player">{{d.player}}</span>
+          <span class="cc-queue__character">{{#if d.character}}{{d.character}}{{else}}{{localize "CHARCREATOR.Pending.Unnamed"}}{{/if}}</span>
+          {{#if d.picksText}}<span class="cc-queue__picks">{{d.picksText}}</span>{{/if}}
+        </div>
+        <div class="cc-queue__state">
+          <span class="cc-queue__badge cc-queue__badge--{{d.status}}">{{d.statusText}}</span>
+          {{#if d.attemptText}}<span class="cc-queue__note">{{d.attemptText}}</span>{{/if}}
+        </div>
+        <div class="cc-queue__actions">
+          <button type="button" class="cc-button" data-action="clear" data-user="{{d.userId}}" {{#if ../busy}}disabled{{/if}}>
+            {{#if d.busy}}{{localize "CHARCREATOR.Pending.Clearing"}}{{else}}{{localize "CHARCREATOR.Pending.Clear"}}{{/if}}
+          </button>
+        </div>
+      </li>
+      {{else}}
+      <li class="cc-empty">{{localize "CHARCREATOR.Pending.NoneInProgress"}}</li>
+      {{/each}}
+    </ul>
+  </section>
+  </div>
 </div>

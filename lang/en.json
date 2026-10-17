@@ -242,6 +242,7 @@
     },
     "Notify": {
       "Resumed": "Your draft was resumed.",
+      "ClearedByGM": "A GM cleared your character in progress. You can start a new one.",
       "WaitingForGM": "Your character is waiting for a GM to come online.",
       "AlreadyCreated": "Your character has already been created.",
       "CreatedGone": "Your character was created, but it isn't in this world any more. You can start a new one.",
@@ -585,7 +586,7 @@
       "Title": "Pending characters",
       "MenuName": "Pending characters",
       "MenuLabel": "See what is waiting",
-      "MenuHint": "Characters players sent while no GM was online, and any the creator refused, with the reasons.",
+      "MenuHint": "Characters players sent while no GM was online, any the creator refused with the reasons, and every character in progress, which you can clear.",
       "Heading": "Waiting to be created",
       "GMOnly": "Only a GM can create a waiting character.",
       "Nothing": "Nothing is waiting.",
@@ -599,7 +600,25 @@
       "CreateNow": "Create now",
       "Creating": "Creating…",
       "CreateAll": "Create all waiting",
-      "TryAgain": "Try again"
+      "TryAgain": "Try again",
+      "InProgress": "Characters in progress",
+      "InProgressHint": "Clearing one throws it away, and the player starts again. Their earlier rolls stay in chat but don't count against the new one.",
+      "NoneInProgress": "No player has a character in progress.",
+      "Clear": "Clear",
+      "Clearing": "Clearing…",
+      "ClearAll": "Clear all",
+      "ClearTitle": "Clear characters in progress",
+      "ClearOne": "Throw away {name}'s character in progress? They start again from nothing. This can't be undone.",
+      "ClearMany": "Throw away {count} players' characters in progress? They start again from nothing. This can't be undone.",
+      "ClearConfirm": "Clear",
+      "Cleared": "Cleared {count} character(s) in progress.",
+      "Rolled": "rolled, go {attempt}",
+      "Status": {
+        "draft": "Being made",
+        "submitted": "Sent",
+        "created": "Created",
+        "failed": "Refused"
+      }
     },
     "Units": {
       "MB": "MB.",

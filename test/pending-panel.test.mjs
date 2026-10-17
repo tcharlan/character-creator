@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { queueRows, queueCounts, pendingModel } from "../scripts/gm/pending-model.mjs";
+import { queueRows, queueCounts, pendingModel, draftRows } from "../scripts/gm/pending-model.mjs";
 import { STATUS } from "../scripts/contracts.mjs";
 
 const ID = n => String(n).padEnd(16, "0");
@@ -58,4 +58,20 @@ test("a portrait waiting with the build is worth saying", () => {
   const withImage = queueRows([user("a", { draft: draft({ portrait: { pendingImage: { mime: "image/webp" } } }) })], { names });
   assert.equal(withImage[0].hasPortrait, true);
   assert.equal(queueRows([user("b")], { names })[0].hasPortrait, false);
+});
+
+test("every player's character in progress can be cleared, by player name", () => {
+  const rows = draftRows([
+    user("b", { name: "Bea", draft: draft({ status: STATUS.DRAFT, mode: "hardcore", random: { attempt: 2 } }) }),
+    user("gm", { isGM: true }),
+    user("c", { name: "Cal", draft: null }),
+    user("a", { name: "Ana", draft: draft({ status: STATUS.FAILED }) })
+  ], { names, busy: "a" });
+  assert.deepEqual(rows.map(r => [r.player, r.status, r.hardcore, r.attempt, r.busy]),
+    [["Ana", "failed", false, null, true], ["Bea", "draft", true, 2, false]],
+    "a GM's own draft and a player without one are left out");
+  assert.equal(rows[0].picksText, "High Elf · Cleric · Acolyte");
+  assert.equal(rows[0].character, "Brenna");
+  assert.ok(draftRows([user("a")], { busy: "clear" })[0].busy, "clearing them all holds every row");
+  assert.deepEqual(draftRows(undefined), []);
 });

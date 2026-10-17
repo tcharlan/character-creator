@@ -27,6 +27,8 @@ export class DraftStore {
   #user;
   #debouncer;
   #draft = null;
+  // The id of the draft this store last saw stored, so a draft a GM cleared (pending-app.mjs) isn't saved back.
+  #kept = null;
 
   /**
    * @param {User} [user]           Default: the current user.
@@ -55,12 +57,14 @@ export class DraftStore {
   load() {
     const res = draftState(this.#user.getFlag(MODULE_ID, DRAFT_FLAG), this.#world());
     this.#draft = res.state === "editable" ? res.draft : null;
+    this.#kept = res.draft?.id ?? null;
     return res;   // `draft` is the stored one even when it isn't editable (submitted, created)
   }
 
   /** Start a new draft (replacing any stored one) and save it now. */
   async create() {
     this.#debouncer.cancel();
+    this.#kept = null;
     const { worldId, rules } = this.#world();
     this.#draft = createDraft({ id: foundry.utils.randomID(), worldId, rules, level: readSettings().levels.startingLevel });
     await this.#write(this.#draft);
@@ -95,6 +99,7 @@ export class DraftStore {
   adopt(draft) {
     this.#debouncer.cancel();
     this.#draft = foundry.utils.deepClone(draft);
+    this.#kept = draft?.id ?? null;
     return this.#draft;
   }
 
@@ -105,9 +110,15 @@ export class DraftStore {
 
   /** Remove the stored draft, and its pending portrait with it. Earlier rolls stay in chat (A10). */
   async discard() {
+    this.forget();
+    if ( this.#user.getFlag(MODULE_ID, DRAFT_FLAG) !== undefined ) await this.#user.unsetFlag(MODULE_ID, DRAFT_FLAG);
+  }
+
+  /** Drop the draft being edited without writing anything: a GM cleared it (pending-app.mjs). */
+  forget() {
     this.#debouncer.cancel();
     this.#draft = null;
-    if ( this.#user.getFlag(MODULE_ID, DRAFT_FLAG) !== undefined ) await this.#user.unsetFlag(MODULE_ID, DRAFT_FLAG);
+    this.#kept = null;
   }
 
   /**
@@ -139,7 +150,10 @@ export class DraftStore {
     if ( stored?.id === draft.id && !isEditable(stored) && isEditable(draft) ) {
       throw new DraftError("ALREADY_SUBMITTED", { status: stored.status });
     }
+    // Stored once and gone now: a GM cleared it. Writing it again would bring back what they threw away.
+    if ( (stored === undefined) && (this.#kept === draft.id) ) return draft;
     await writeDraft(this.#user, draft);
+    this.#kept = draft.id;
     return draft;
   }
 }

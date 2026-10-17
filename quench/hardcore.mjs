@@ -199,6 +199,24 @@ export function registerHardcoreBatches(quench) {
         // That was the second of two: no more.
         await app.settle();
         assert.notExists(app.element.querySelector('[data-action="reroll"]'), "no goes left");
+
+        // The second go is the character: the first go's scores are still in chat, and that is no re-roll.
+        await answerStages(app);
+        const { fillSpells } = await import("./wizard.mjs");
+        await fillSpells(app);
+        await app.goTo("details");
+        await app.setDetail("name", "Second Go");
+        await app.goTo("portrait");
+        await app.setPortrait((await import("../scripts/wizard/portrait-step.mjs")).skipPortrait);
+        await app.goTo("review");
+        await app.settle();
+        assert.deepEqual(app.validation.errors, [], JSON.stringify(app.validation.errors).slice(0, 300));
+        app.element.querySelector('[data-action="create"]')?.click();
+        for ( let i = 0; i < 600 && (app.draft?.status !== "created"); i++ ) await wait(200);
+        assert.equal(app.draft.status, "created", JSON.stringify(app.draft.result?.errors ?? []).slice(0, 400));
+        const actor = await fromUuid(app.draft.result.actorUuid);
+        assert.exists(actor, "the rerolled character was never made");
+        made.push(actor.id);
         await setHardcore([]);
         await awaitSetting(s => s.attempts === 1);
       });

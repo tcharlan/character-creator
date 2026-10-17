@@ -67,3 +67,27 @@ export function pendingModel(rows, { busy = null } = {}) {
     busy
   };
 }
+
+/**
+ * Every player's character in progress, whatever its state, for the GM to clear (a draft that can't be finished,
+ * or a player who wants to start again). By player name.
+ * @param {{ id: string, name: string, isGM: boolean, draft: object|null }[]} users
+ * @param {{ names?: (uuid: string) => string|null, busy?: string|null }} [options]
+ * @returns {{ userId, player, draftId, character, picksText, status, hardcore, attempt, busy }[]}
+ */
+export function draftRows(users, { names = () => null, busy = null } = {}) {
+  return (users ?? [])
+    .filter(user => !user?.isGM && user?.draft)
+    .map(({ id, name, draft }) => ({
+      userId: id,
+      player: name,
+      draftId: draft.id ?? null,
+      character: String(draft.details?.name ?? "").trim(),
+      picksText: ["species", "class", "background"].map(role => names(draft.picks?.[role])).filter(Boolean).join(" · "),
+      status: Object.values(STATUS).includes(draft.status) ? draft.status : STATUS.DRAFT,
+      hardcore: draft.mode === "hardcore",
+      attempt: draft.random?.attempt ?? null,
+      busy: busy === id || busy === "clear"
+    }))
+    .sort((a, b) => a.player.localeCompare(b.player));
+}

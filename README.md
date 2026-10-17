@@ -104,7 +104,8 @@ becomes theirs.
 Characters sent while no GM was online wait for one. When you log in they are created automatically; the
 **Pending characters** screen (in the module's settings, and on the Actors tab while anything is waiting)
 shows what is waiting, and any the creator refused with the reason, so you can create them again or let the
-player fix them.
+player fix them. Below that it lists every character in progress: **Clear** throws one away so the player can
+start again.
 
 ![Pending characters](docs/images/11-gm-pending.png)
 

@@ -108,3 +108,22 @@ export function checkRollRecord(record, { draftId, userId, results, others = [] 
   return checkRecord(record, { code: "ROLL_INVALID", draftId, userId, purpose: ROLL_PURPOSE.ABILITIES, spec: ABILITY_ROLL,
     count: ABILITY_ROLL.count, results, others });
 }
+
+/**
+ * The ability rolls on record that count as re-rolls (A10), leaving out the one the draft keeps. A rolled
+ * character's reroll (D31) rolls the scores again with everything else, so each earlier go left one roll in
+ * chat before the kept one: those are expected, one per earlier go. The random check holds the number of goes
+ * to the GM's limit. A roll after the kept one is still a re-roll: that would be keeping an older set.
+ * @param {string[]} onRecord      Ids of this draft's ability rolls, oldest first (rollMessagesFor()).
+ * @param {string} kept            draft.abilities.roll.messageId
+ * @param {object} draft           For `mode` and `random.attempt`.
+ * @returns {string[]}
+ */
+export function rerolledScores(onRecord, kept, draft) {
+  const others = onRecord.filter(id => id !== kept);
+  if ( draft?.mode !== "hardcore" ) return others;
+  const at = onRecord.indexOf(kept);
+  const earlierGoes = Math.max(0, (draft.random?.attempt ?? 1) - 1);
+  if ( (at < 0) || (at > earlierGoes) ) return others;
+  return onRecord.slice(at + 1);
+}
